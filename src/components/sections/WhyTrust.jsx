@@ -58,7 +58,7 @@ const WhyTrust = () => {
     ];
 
     return (
-        <section className="py-20 bg-gray-50 relative">
+        <section id="trust" className="py-20 bg-gray-50 relative">
             <div className="container mx-auto px-6 relative z-10">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}

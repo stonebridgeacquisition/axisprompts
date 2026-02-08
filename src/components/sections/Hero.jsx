@@ -34,7 +34,7 @@ const Hero = () => {
                             {/* Chip / Pill */}
                             <div className="inline-flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full px-3 py-1 mb-6 lg:px-4 lg:py-1.5 lg:mb-8 shadow-sm hover:shadow-md transition-shadow cursor-default">
                                 <Sparkles size={14} className="text-brand-500 fill-brand-500" />
-                                <span className="text-[10px] lg:text-xs font-bold text-gray-800 tracking-wide uppercase">For Food Businesses</span>
+                                <span className="text-[10px] lg:text-xs font-bold text-gray-800 tracking-wide uppercase">Nigerian Food Businesses</span>
                             </div>
 
                             {/* Massive Headline */}

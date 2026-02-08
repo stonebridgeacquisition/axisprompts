@@ -13,8 +13,12 @@ const Navbar = () => {
     }, []);
 
     const navLinks = [
+        { name: "Home", href: "/" },
         { name: "Features", href: "/#features" },
+        { name: "For Who?", href: "/#target" },
         { name: "Process", href: "/#process" },
+        { name: "Trust", href: "/#trust" },
+        { name: "Guarantee", href: "/#guarantee" },
         { name: "FAQ", href: "/#faq" },
     ];
 
@@ -33,8 +37,8 @@ const Navbar = () => {
                         border-transparent bg-transparent
                     `}
                 >
-                    {/* Desktop Links (Centered) */}
-                    <div className="hidden md:flex items-center gap-1 mx-auto">
+                    {/* Desktop Links (Left Aligned) */}
+                    <div className="hidden md:flex items-center gap-1 mr-auto ml-2">
                         {navLinks.map((link) => (
                             <a
                                 key={link.name}

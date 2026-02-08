@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 
 const CostOfMissedMessages = () => {
     return (
-        <section className="py-24 bg-white relative overflow-hidden">
+        <section id="problem" className="py-24 bg-white relative overflow-hidden">
             {/* Very Subtle Ambient Light */}
             <div className="absolute top-0 right-0 w-full h-full overflow-hidden pointer-events-none">
                 <div className="absolute top-[-20%] right-[-10%] w-[800px] h-[800px] bg-red-50/40 rounded-full blur-[120px]"></div>
@@ -24,7 +24,7 @@ const CostOfMissedMessages = () => {
                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-orange-500 to-red-500">silence.</span>
                         </h2>
                         <p className="text-xl text-gray-400 font-light max-w-2xl mx-auto leading-relaxed">
-                            Manual replies aren't just slow — they are actively costing you revenue every single day.
+                            Manual replies aren't just slow, they are actively costing you revenue every single day.
                         </p>
                     </div>
 
@@ -74,7 +74,7 @@ const CostOfMissedMessages = () => {
                             Stop burning cash on manual support.
                         </h3>
                         <p className="text-lg text-gray-400 mb-8 max-w-2xl mx-auto font-light">
-                            Most restaurants spend <span className="font-medium text-red-500">₦30k–₦50k/month</span> on staff just to reply to messages — and they still make mistakes.
+                            Most restaurants spend <span className="font-medium text-red-500">₦30k–₦50k/month</span> on staff just to reply to messages, and they still make mistakes.
                         </p>
 
                         <div className="inline-flex items-center gap-2 px-4 py-2 md:px-6 md:py-3 rounded-full bg-red-50 text-red-600 font-medium text-xs md:text-sm tracking-wide whitespace-nowrap">

@@ -5,7 +5,7 @@ const WhatYouGet = () => {
     const features = [
         {
             title: "Instant Replies",
-            desc: "Answers every WhatsApp or Instagram message immediately — even when you’re busy.",
+            desc: "Answers every WhatsApp or Instagram message immediately, even when you’re busy.",
             gradient: "from-blue-500/20 via-cyan-500/20 to-blue-500/5",
             hoverGradient: "group-hover:from-blue-500/30 group-hover:via-cyan-500/30",
             dotColor: "bg-blue-500"
@@ -55,7 +55,7 @@ const WhatYouGet = () => {
                         Everything you need to handle customer orders.
                     </h2>
                     <p className="text-lg md:text-xl text-gray-500 font-light max-w-xl leading-relaxed">
-                        Increase sales, and save time — without hiring more people.
+                        Increase sales, and save time, without hiring more people.
                     </p>
                 </div>
 

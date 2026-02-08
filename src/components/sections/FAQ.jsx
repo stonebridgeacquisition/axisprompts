@@ -54,7 +54,7 @@ const FAQ = () => {
         },
         {
             question: "How long does setup take?",
-            answer: "Setup is incredibly quick — typically just a few hours. We handle the technical integration for you, so you can start taking automated orders almost immediately."
+            answer: "Setup is incredibly quick, typically just a few hours. We handle the technical integration for you, so you can start taking automated orders almost immediately."
         }
     ];
 

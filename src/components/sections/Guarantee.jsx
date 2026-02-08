@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 
 const Guarantee = () => {
     return (
-        <section className="py-16 lg:py-32 bg-white relative overflow-hidden">
+        <section id="guarantee" className="py-16 lg:py-32 bg-white relative overflow-hidden">
             <div className="container mx-auto px-6 relative z-10">
                 <div className="max-w-4xl mx-auto">
                     <motion.div
