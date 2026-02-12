@@ -4,7 +4,7 @@ import { Sparkles, ShieldCheck, ArrowRight } from 'lucide-react';
 
 const Hero = () => {
     return (
-        <section className="relative pt-20 pb-16 lg:pt-48 lg:pb-32 overflow-hidden bg-white selection:bg-brand-100 selection:text-brand-900">
+        <section className="relative pt-4 pb-16 lg:pt-28 lg:pb-32 overflow-hidden bg-white selection:bg-brand-100 selection:text-brand-900">
 
             {/* 1. Background: Advanced Light Beams & Aurora */}
             <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none">
@@ -24,8 +24,8 @@ const Hero = () => {
             <div className="container mx-auto px-6 relative z-10">
                 <div className="flex flex-col lg:flex-row items-center gap-0 lg:gap-20">
 
-                    {/* Left: Content - First Screen on Mobile */}
-                    <div className="w-full lg:w-[55%] max-w-3xl text-center lg:text-left min-h-[85vh] lg:min-h-0 flex flex-col justify-center py-12 lg:py-0">
+                    {/* Left: Content - First Screen on Mobile (Shortened to Peek) */}
+                    <div className="w-full lg:w-[55%] max-w-3xl text-center lg:text-left min-h-[75vh] lg:min-h-0 flex flex-col justify-start pt-4 lg:justify-center lg:pt-0 lg:py-0">
                         <motion.div
                             initial={{ opacity: 0, y: 30 }}
                             animate={{ opacity: 1, y: 0 }}

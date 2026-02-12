@@ -1,0 +1,170 @@
+import React, { useState, useEffect } from 'react';
+import { Download, Loader2, TrendingUp, DollarSign, Users, ArrowUpRight } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+
+const Finance = () => {
+    const [transactions, setTransactions] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState({
+        totalRevenue: 0,
+        totalCommission: 0,
+        totalClientPayouts: 0,
+        transactionCount: 0
+    });
+
+    useEffect(() => {
+        fetchFinance();
+    }, []);
+
+    const fetchFinance = async () => {
+        setLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('axis_finance')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            const rows = data || [];
+            setTransactions(rows);
+
+            // Calculate stats
+            const totalRevenue = rows.reduce((s, r) => s + Number(r.total_amount), 0);
+            const totalCommission = rows.reduce((s, r) => s + Number(r.axis_commission), 0);
+            const totalClientPayouts = rows.reduce((s, r) => s + Number(r.client_revenue), 0);
+
+            setStats({
+                totalRevenue,
+                totalCommission,
+                totalClientPayouts,
+                transactionCount: rows.length
+            });
+        } catch (err) {
+            console.error('Error fetching finance:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const formatCurrency = (val) => `₦${Number(val).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    const formatDate = (d) => new Date(d).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+    return (
+        <div className="max-w-7xl mx-auto space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Axisprompt Finance</h2>
+                    <p className="text-gray-500">All transactions across clients — 0.5% commission tracking.</p>
+                </div>
+            </div>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-bold text-gray-500 uppercase">Total Volume</span>
+                        <div className="p-2 bg-blue-50 rounded-lg"><DollarSign size={16} className="text-blue-600" /></div>
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalRevenue)}</p>
+                    <p className="text-xs text-gray-400 mt-1">{stats.transactionCount} transactions</p>
+                </div>
+
+                <div className="bg-gradient-to-br from-brand-600 to-brand-700 p-5 rounded-2xl shadow-lg shadow-brand-500/20 text-white">
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-bold text-white/70 uppercase">Axis Commission</span>
+                        <div className="p-2 bg-white/20 rounded-lg"><TrendingUp size={16} className="text-white" /></div>
+                    </div>
+                    <p className="text-2xl font-bold">{formatCurrency(stats.totalCommission)}</p>
+                    <p className="text-xs text-white/60 mt-1">0.5% of total volume</p>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-bold text-gray-500 uppercase">Client Payouts</span>
+                        <div className="p-2 bg-green-50 rounded-lg"><ArrowUpRight size={16} className="text-green-600" /></div>
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalClientPayouts)}</p>
+                    <p className="text-xs text-gray-400 mt-1">99.5% to clients</p>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-bold text-gray-500 uppercase">Active Clients</span>
+                        <div className="p-2 bg-purple-50 rounded-lg"><Users size={16} className="text-purple-600" /></div>
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900">
+                        {new Set(transactions.map(t => t.client_id).filter(Boolean)).size}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">With transactions</p>
+                </div>
+            </div>
+
+            {/* Transactions Table */}
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                <div className="p-6 border-b border-gray-200">
+                    <h3 className="text-lg font-bold text-gray-900">All Transactions</h3>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Date</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Client</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Customer</th>
+                                <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Total</th>
+                                <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Axis (0.5%)</th>
+                                <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Client (99.5%)</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Reference</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {loading ? (
+                                <tr>
+                                    <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
+                                        <Loader2 className="animate-spin mx-auto mb-2 text-brand-600" size={24} />
+                                        Loading transactions...
+                                    </td>
+                                </tr>
+                            ) : transactions.length === 0 ? (
+                                <tr>
+                                    <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
+                                        No transactions yet. They'll appear here after customers make payments.
+                                    </td>
+                                </tr>
+                            ) : (
+                                transactions.map((txn) => (
+                                    <tr key={txn.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            {formatDate(txn.created_at)}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                            {txn.client_name || '—'}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            {txn.customer_name || txn.customer_email || '—'}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900">
+                                            {formatCurrency(txn.total_amount)}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold text-brand-600">
+                                            {formatCurrency(txn.axis_commission)}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-green-600 font-medium">
+                                            {formatCurrency(txn.client_revenue)}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-400 font-mono">
+                                            {txn.paystack_reference || '—'}
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default Finance;

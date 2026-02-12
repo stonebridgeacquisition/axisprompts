@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Sparkles } from 'lucide-react';
+import { Menu, X, Sparkles, ArrowRight } from 'lucide-react';
 
 const Navbar = () => {
     const [scrolled, setScrolled] = useState(false);
@@ -69,13 +69,40 @@ const Navbar = () => {
                         </a>
                     </div>
 
-                    {/* Mobile CTA Button - Fixed Top Right (Replaces Menu) */}
-                    <a
+                    {/* Mobile CTA Button - Premium Redesign */}
+                    <motion.a
                         href="#cta"
-                        className="md:hidden fixed top-6 right-6 z-50 px-5 py-2.5 bg-gradient-to-r from-brand-600 to-brand-500 text-white text-xs font-bold uppercase tracking-widest rounded-full shadow-lg shadow-brand-500/20 hover:scale-105 transition-all"
+                        layout
+                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                        className={`
+                            md:hidden fixed top-6 right-6 z-50 flex items-center justify-center overflow-hidden
+                            bg-gray-900 text-white shadow-xl shadow-brand-500/20
+                            ${scrolled ? 'rounded-2xl px-5 py-2.5' : 'rounded-full w-10 h-10'}
+                        `}
                     >
-                        Start Free
-                    </a>
+                        <AnimatePresence mode="wait">
+                            {scrolled ? (
+                                <motion.span
+                                    key="text"
+                                    initial={{ opacity: 0, x: 10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: 10 }}
+                                    className="font-bold text-xs uppercase tracking-widest whitespace-nowrap"
+                                >
+                                    Start Free
+                                </motion.span>
+                            ) : (
+                                <motion.span
+                                    key="icon"
+                                    initial={{ opacity: 0, scale: 0.5 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.5 }}
+                                >
+                                    <ArrowRight size={18} className="text-white" />
+                                </motion.span>
+                            )}
+                        </AnimatePresence>
+                    </motion.a>
                 </div>
             </motion.nav>
 

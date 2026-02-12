@@ -36,7 +36,7 @@ const CostOfMissedMessages = () => {
                             viewport={{ once: true }}
                             className="bg-gray-50 rounded-[2.5rem] p-10 md:p-12 hover:bg-white hover:shadow-2xl hover:shadow-gray-100 transition-all duration-500 group"
                         >
-                            <div className="text-6xl md:text-8xl font-display font-bold text-gray-200 mb-6 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-br group-hover:from-red-500 group-hover:to-orange-400 transition-all duration-500">
+                            <div className="text-6xl md:text-8xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-br from-red-500 to-orange-400 md:text-gray-200 mb-6 md:group-hover:text-transparent md:group-hover:bg-clip-text md:group-hover:bg-gradient-to-br md:group-hover:from-red-500 md:group-hover:to-orange-400 transition-all duration-500">
                                 80%
                             </div>
                             <h3 className="text-2xl font-medium text-gray-900 mb-3">Customer Churn</h3>
@@ -52,7 +52,7 @@ const CostOfMissedMessages = () => {
                             transition={{ delay: 0.1 }}
                             className="bg-gray-50 rounded-[2.5rem] p-10 md:p-12 hover:bg-white hover:shadow-2xl hover:shadow-gray-100 transition-all duration-500 group"
                         >
-                            <div className="text-6xl md:text-8xl font-display font-bold text-gray-200 mb-6 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-br group-hover:from-orange-500 group-hover:to-yellow-400 transition-all duration-500">
+                            <div className="text-6xl md:text-8xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-br from-orange-500 to-yellow-400 md:text-gray-200 mb-6 md:group-hover:text-transparent md:group-hover:bg-clip-text md:group-hover:bg-gradient-to-br md:group-hover:from-orange-500 md:group-hover:to-yellow-400 transition-all duration-500">
                                 70%
                             </div>
                             <h3 className="text-2xl font-medium text-gray-900 mb-3">Lost Revenue</h3>
@@ -71,15 +71,15 @@ const CostOfMissedMessages = () => {
                         className="bg-white rounded-[3rem] p-8 md:p-14 border border-gray-100 shadow-xl shadow-red-500/5 text-center relative overflow-hidden"
                     >
                         <h3 className="text-2xl md:text-3xl font-display font-medium text-gray-900 mb-4">
-                            Stop burning cash on manual support.
+                            Speed wins orders, not just loyalty.
                         </h3>
                         <p className="text-lg text-gray-400 mb-8 max-w-2xl mx-auto font-light">
-                            Most restaurants spend <span className="font-medium text-red-500">₦30k–₦50k/month</span> on staff just to reply to messages, and they still make mistakes.
+                            <span className="font-medium text-red-500">9 out of 10 customers</span> prefer instant replies over brand loyalty. If you make them wait, they simply order from someone else.
                         </p>
 
-                        <div className="inline-flex items-center gap-2 px-4 py-2 md:px-6 md:py-3 rounded-full bg-red-50 text-red-600 font-medium text-xs md:text-sm tracking-wide whitespace-nowrap">
+                        <div className="inline-flex items-center gap-2 px-4 py-2 md:px-6 md:py-3 rounded-full bg-red-50 text-red-600 font-medium text-xs md:text-sm tracking-wide whitespace-nowrap mx-auto">
                             <span className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-red-500 shrink-0"></span>
-                            AxisPrompt costs a fraction of that.
+                            AxisPrompt replies to everyone instantly.
                         </div>
                     </motion.div>
 

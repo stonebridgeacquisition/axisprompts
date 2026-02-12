@@ -39,7 +39,7 @@ const WhoThisIsFor = () => {
                                     "Want automated orders without hiring staff",
                                     "Value speed and customer experience"
                                 ].map((item, i) => (
-                                    <li key={i} className="flex flex-row-reverse md:flex-row items-baseline gap-4 md:justify-end">
+                                    <li key={i} className="flex flex-row-reverse md:flex-row items-baseline gap-4 justify-end">
                                         <span className="text-gray-700 font-light text-lg leading-relaxed">
                                             {item}
                                         </span>
