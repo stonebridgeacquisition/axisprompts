@@ -15,41 +15,78 @@ const Subscription = () => {
     // Config: Paystack Inline requires 'amount' even for plans (it should match the plan amount).
     // We send both 'plan' and 'amount' to ensure the first charge is correct and the subscription starts.
     const config = {
-        reference: (new Date()).getTime().toString(),
+        reference: `sub_${new Date().getTime()}_${client?.id?.slice(0, 5)}`,
         email: client?.email,
         publicKey: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY,
         plan: SUBSCRIPTION_PLAN_CODE,
-        amount: 5000000, // ₦50,000 in kobo (Required by Paystack Inline)
-        channels: ['card'], // Restrict to Card to ensure recurring payments work
+        amount: 5000000, // ₦50,000 in kobo
+        channels: ['card'],
         metadata: {
+            client_id: client?.id,
+            plan_code: SUBSCRIPTION_PLAN_CODE,
+            action: "subscription_payment",
             custom_fields: [
-                { display_name: "Client ID", variable_name: "client_id", value: client?.id },
-                { display_name: "Action", variable_name: "action", value: "subscription_payment" }
+                { display_name: "Client ID", variable_name: "client_id", value: client?.id }
             ]
         }
     };
 
     const initializePayment = usePaystackPayment(config);
 
-    const onSuccess = async (reference) => {
-        setLoading(true);
+    const [verifying, setVerifying] = useState(false);
+
+    const onSuccess = (response) => {
+        // FOOLPROOF DEBUGGING
+        console.log("!!! PAYSTACK BROWSER SUCCESS !!!", response);
+        alert("Success! Paystack Reference: " + response.reference);
+        handlePostPaymentVerification(response);
+    };
+
+    const handlePostPaymentVerification = async (response) => {
+        setVerifying(true);
+        setLoading(false);
+
         try {
-            console.log("Payment successful:", reference);
-            // Wait a moment for webhook to process
-            await new Promise(r => setTimeout(r, 3000));
+            console.log("Starting Polling for Webhook...", response.reference);
 
-            // Reload client data
-            const { data } = await supabase.from('clients').select('*').eq('id', client.id).single();
-            if (data) setClient(data);
+            // Poll for status update (up to 15 times, every 2s = 30s total)
+            let attempts = 0;
+            const maxAttempts = 15;
 
-            alert("Subscription Activated! You now have unlimited access.");
+            while (attempts < maxAttempts) {
+                attempts++;
+                console.log(`Verification attempt ${attempts}...`);
+
+                // Fetch fresh client data
+                const { data, error } = await supabase
+                    .from('clients')
+                    .select('*')
+                    .eq('id', client.id)
+                    .single();
+
+                if (error) throw error;
+
+                // Check if the webhook has finished (it will reset grace period and update date)
+                if (data.is_grace_period === false && data.subscription_status === 'active') {
+                    setClient(data);
+                    alert("Subscription Activated! You now have unlimited access.");
+                    navigate(`/client/${client.slug}`);
+                    return;
+                }
+
+                // Wait before next attempt
+                await new Promise(r => setTimeout(r, 2000));
+            }
+
+            // If we get here, it timed out
+            alert("Payment processed! It takes a moment to sync with your dashboard. If your status doesn't update in 1 minute, please refresh the page.");
             navigate(`/client/${client.slug}`);
 
         } catch (error) {
             console.error("Error verifying subscription:", error);
-            alert("Payment successful. Please refresh to see updates.");
+            alert("Your payment was received, but we're having trouble updating the dashboard. Please refresh in a moment.");
         } finally {
-            setLoading(false);
+            setVerifying(false);
         }
     };
 
@@ -90,12 +127,16 @@ const Subscription = () => {
     let statusIcon = AlertTriangle;
     let statusBg = 'bg-white';
 
-    if (client.subscription_status === 'active') {
+    const now = new Date();
+    const isSubscriptionExpired = client.subscription_end_date && new Date(client.subscription_end_date) < now;
+    const isTrialExpired = client.trial_end_date && new Date(client.trial_end_date) < now;
+
+    if (client.subscription_status === 'active' && !isSubscriptionExpired) {
         statusColor = 'bg-green-100 text-green-700';
         statusText = 'Active Subscription';
         statusIcon = CheckCircle;
         statusBg = 'bg-green-50/50 border-green-200';
-    } else if (client.subscription_status === 'trial') {
+    } else if (client.subscription_status === 'trial' && !isTrialExpired) {
         statusColor = 'bg-blue-100 text-blue-700';
         statusText = 'Free Trial';
         statusIcon = ShieldCheck;
@@ -105,7 +146,8 @@ const Subscription = () => {
         statusText = 'Payment Failed - Grace Period';
         statusIcon = AlertTriangle;
         statusBg = 'bg-orange-50/50 border-orange-200';
-    } else if (client.subscription_status === 'expired') {
+    } else {
+        // Expired or Inactive
         statusColor = 'bg-red-100 text-red-700';
         statusText = 'Expired / Inactive';
         statusIcon = AlertTriangle;
@@ -141,7 +183,7 @@ const Subscription = () => {
                 </div>
 
                 <div className="p-8 text-center space-y-6">
-                    {client.subscription_status === 'active' ? (
+                    {(client.subscription_status === 'active' && !client.is_grace_period) ? (
                         <div className="space-y-4">
                             <p className="text-gray-600">
                                 You have <span className="font-bold text-green-600">UNLIMITED ACCESS</span> to all features.
@@ -162,11 +204,17 @@ const Subscription = () => {
 
                             <button
                                 onClick={handleSubscribe}
-                                disabled={loading}
-                                className="w-full sm:w-auto px-8 py-4 bg-gray-900 text-white rounded-2xl font-bold text-lg hover:bg-black transition-all transform hover:scale-[1.02] shadow-xl shadow-gray-900/20 flex items-center justify-center gap-3 mx-auto"
+                                disabled={loading || verifying}
+                                className="w-full sm:w-auto px-8 py-4 bg-gray-900 text-white rounded-2xl font-bold text-lg hover:bg-black transition-all transform hover:scale-[1.02] shadow-xl shadow-gray-900/20 flex items-center justify-center gap-3 mx-auto disabled:opacity-50"
                             >
-                                {loading ? <Loader2 className="animate-spin" /> : <Zap size={24} className="text-yellow-400 fill-current" />}
-                                <span>Subscribe Now &mdash; ₦50,000/mo</span>
+                                {loading || verifying ? (
+                                    <Loader2 className="animate-spin" />
+                                ) : (
+                                    <Zap size={24} className="text-yellow-400 fill-current" />
+                                )}
+                                <span>
+                                    {verifying ? 'Verifying payment...' : 'Subscribe Now — ₦50,000/mo'}
+                                </span>
                             </button>
 
                             <div className="flex items-center justify-center gap-2 text-xs text-gray-400">

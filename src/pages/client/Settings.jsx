@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Loader2, Store, CreditCard, MapPin, Phone, Mail, Globe, User, Check, Clock } from 'lucide-react';
+import { Save, Loader2, Store, CreditCard, MapPin, Phone, Mail, Globe, User, Check, Clock, Upload } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
@@ -42,7 +42,9 @@ const ClientSettings = () => {
     const { client } = useOutletContext();
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [uploading, setUploading] = useState(false);
     const [banks, setBanks] = useState(FALLBACK_BANKS);
+    const [logoPreview, setLogoPreview] = useState(null);
 
     const [form, setForm] = useState({
         business_name: '',
@@ -74,9 +76,11 @@ const ClientSettings = () => {
                 account_number: client.account_number || '',
                 bank_name: client.bank_name || '',
                 bank_code: client.bank_code || '',
-                opening_hours: client.opening_hours || ''
+                opening_hours: client.opening_hours || '',
+                logo_url: client.logo_url || ''
             };
             setForm(data);
+            setLogoPreview(client.logo_url || null);
             setOriginalBank({ account_number: client.account_number || '', bank_code: client.bank_code || '' });
         }
     }, [client]);
@@ -107,6 +111,58 @@ const ClientSettings = () => {
         }
     };
 
+    const handleLogoUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file || !client?.id) return;
+
+        // Validations
+        if (!file.type.startsWith('image/')) {
+            alert('Please upload an image file.');
+            return;
+        }
+        if (file.size > 2 * 1024 * 1024) { // 2MB
+            alert('File size too large. Maximum 2MB allowed.');
+            return;
+        }
+
+        setUploading(true);
+        try {
+            const timestamp = Date.now();
+            const fileName = `logo_${timestamp}.${file.name.split('.').pop()}`;
+            const filePath = `${client.slug || client.id}/${fileName}`;
+
+            // 1. Upload to Supabase Storage
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('logos')
+                .upload(filePath, file, { upsert: true });
+
+            if (uploadError) throw uploadError;
+
+            // 2. Get Public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('logos')
+                .getPublicUrl(filePath);
+
+            // 3. Update Database Immediately or just set in form?
+            // User expectation is usually immediate profile pic update.
+            const { error: dbError } = await supabase
+                .from('clients')
+                .update({ logo_url: publicUrl })
+                .eq('id', client.id);
+
+            if (dbError) throw dbError;
+
+            setLogoPreview(publicUrl);
+            setForm(prev => ({ ...prev, logo_url: publicUrl }));
+            alert('Logo updated successfully!');
+        } catch (error) {
+            console.error('Logo upload error:', error);
+            alert(`Failed to upload logo: ${error.message}`);
+        } finally {
+            setUploading(false);
+        }
+    };
+
     const handleSave = async (e) => {
         e.preventDefault();
         setSaving(true);
@@ -127,7 +183,8 @@ const ClientSettings = () => {
                     account_number: form.account_number,
                     bank_name: form.bank_name,
                     bank_code: form.bank_code,
-                    opening_hours: form.opening_hours
+                    opening_hours: form.opening_hours,
+                    logo_url: form.logo_url
                 })
                 .eq('id', client.id);
 
@@ -184,6 +241,42 @@ const ClientSettings = () => {
             </div>
 
             <form onSubmit={handleSave} className="space-y-6">
+
+                {/* Logo Section */}
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <div className="flex flex-col sm:flex-row items-center gap-6">
+                        <div className="relative group">
+                            <div className="w-24 h-24 rounded-2xl bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200 shadow-sm">
+                                {logoPreview ? (
+                                    <img src={logoPreview} alt="Business logo" className="w-full h-full object-cover" />
+                                ) : (
+                                    <Store size={32} className="text-gray-300" />
+                                )}
+                            </div>
+                            <label className={`
+                                absolute -bottom-2 -right-2 p-2 rounded-xl bg-white border border-gray-200 shadow-lg cursor-pointer transition-all hover:scale-110 text-gray-600 hover:text-brand-600
+                                ${uploading ? 'opacity-50 cursor-not-allowed' : ''}
+                            `}>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={handleLogoUpload}
+                                    disabled={uploading}
+                                />
+                                {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                            </label>
+                        </div>
+                        <div className="flex-1 text-center sm:text-left">
+                            <h3 className="text-lg font-bold text-gray-900">Business Logo</h3>
+                            <p className="text-sm text-gray-500 mt-1">
+                                This will be displayed on your digital menu and customer dashboard.
+                                <br />
+                                <span className="text-xs text-gray-400 mt-2 block">PNG or JPG, max 2MB</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
 
                 {/* Business Info */}
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">

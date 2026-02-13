@@ -124,21 +124,26 @@ const ClientLayout = () => {
         };
         fetchNotifications();
 
-        // Real-time subscription
-        const channel = supabase
-            .channel('client-notifications')
-            .on('postgres_changes', {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'notifications',
-                filter: `client_id=eq.${client.id}`
-            }, (payload) => {
-                setNotifications(prev => [payload.new, ...prev]);
-                setUnreadCount(prev => prev + 1);
-            })
-            .subscribe();
+        // Real-time subscription (optional - won't block page load if it fails)
+        let channel;
+        try {
+            channel = supabase
+                .channel('client-notifications')
+                .on('postgres_changes', {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'notifications',
+                    filter: `client_id=eq.${client.id}`
+                }, (payload) => {
+                    setNotifications(prev => [payload.new, ...prev]);
+                    setUnreadCount(prev => prev + 1);
+                })
+                .subscribe();
+        } catch (err) {
+            console.warn('Realtime subscription failed (non-critical):', err.message);
+        }
 
-        return () => { supabase.removeChannel(channel); };
+        return () => { if (channel) supabase.removeChannel(channel); };
     }, [client?.id]);
 
     // Close dropdown on outside click
@@ -193,7 +198,11 @@ const ClientLayout = () => {
         );
     }
 
-    const isAccessBlocked = client.subscription_status === 'expired' || client.subscription_status === 'inactive';
+    const now = new Date();
+    const isSubscriptionExpired = client.subscription_status === 'active' && client.subscription_end_date && new Date(client.subscription_end_date) < now;
+    const isTrialExpired = client.subscription_status === 'trial' && client.trial_end_date && new Date(client.trial_end_date) < now;
+
+    const isAccessBlocked = (client.subscription_status === 'expired' || client.subscription_status === 'inactive') || (isSubscriptionExpired && !client.is_grace_period);
 
     return (
         <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
@@ -220,12 +229,20 @@ const ClientLayout = () => {
             >
                 {/* Logo Area */}
                 <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-brand-500/20">
-                            A
-                        </div>
-                        <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-700 to-brand-500">
-                            AxisPrompt
+                    <div className="flex items-center gap-3 overflow-hidden">
+                        {client?.logo_url ? (
+                            <img
+                                src={client.logo_url}
+                                alt={client.business_name}
+                                className="w-10 h-10 rounded-lg object-cover shadow-sm bg-gray-50 flex-shrink-0"
+                            />
+                        ) : (
+                            <div className="w-10 h-10 bg-brand-600 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-brand-500/20 flex-shrink-0">
+                                {client?.business_name ? client.business_name.charAt(0).toUpperCase() : 'A'}
+                            </div>
+                        )}
+                        <span className="text-lg font-bold text-gray-900 truncate">
+                            {client?.business_name || 'AxisPrompt'}
                         </span>
                     </div>
                     <button
@@ -262,7 +279,13 @@ const ClientLayout = () => {
 
                 {/* Footer User Profile */}
                 <div className="p-4 border-t border-gray-100">
-                    <button className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors text-sm font-medium">
+                    <button
+                        onClick={async () => {
+                            await supabase.auth.signOut();
+                            navigate(`/client/${slug}/login`);
+                        }}
+                        className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors text-sm font-medium"
+                    >
                         <LogOut size={18} />
                         <span>Log Out</span>
                     </button>
@@ -272,17 +295,34 @@ const ClientLayout = () => {
             {/* Main Content */}
             <main className="flex-1 flex flex-col h-full overflow-hidden relative">
 
-                {/* Trial Banner */}
-                {client.subscription_status === 'trial' && trialDaysLeft !== null && (
-                    <div className={`${trialDaysLeft <= 3 ? 'bg-red-600' : 'bg-brand-600'} text-white px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 shadow-sm relative z-20`}>
-                        <Clock size={16} />
-                        {trialDaysLeft <= 0
-                            ? "Your free trial expires today!"
-                            : `Free Trial: ${trialDaysLeft} day${trialDaysLeft === 1 ? '' : 's'} left.`
-                        }
+                {/* Grace Period / Payment Failed Banner */}
+                {client.is_grace_period && (
+                    <div className="bg-red-600 text-white px-4 py-2 text-sm font-bold flex items-center justify-center gap-2 shadow-md relative z-20 animate-pulse">
+                        <AlertCircle size={18} />
+                        <span>Payment Failed: Your subscription renewal was unsuccessful.</span>
                         <span
                             onClick={() => navigate(`/client/${slug}/subscription`)}
-                            className="underline cursor-pointer hover:text-white/80"
+                            className="underline cursor-pointer hover:text-white/80 ml-1"
+                        >
+                            Update card details now to avoid lockout.
+                        </span>
+                    </div>
+                )}
+
+                {/* Trial Banner */}
+                {client.subscription_status === 'trial' && trialDaysLeft !== null && (
+                    <div className={`${trialDaysLeft <= 1 ? 'bg-red-600' : 'bg-brand-600'} text-white px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 shadow-sm relative z-20`}>
+                        <Clock size={16} />
+                        {trialDaysLeft === 0 ? (
+                            "Your free trial expires today!"
+                        ) : trialDaysLeft < 0 ? (
+                            `Trial expired! Please subscribe to avoid lockout in ${3 + trialDaysLeft === 0 ? 'less than 1' : 3 + trialDaysLeft} day${3 + trialDaysLeft === 1 ? '' : 's'}.`
+                        ) : (
+                            `Free Trial: ${trialDaysLeft} day${trialDaysLeft === 1 ? '' : 's'} left.`
+                        )}
+                        <span
+                            onClick={() => navigate(`/client/${slug}/subscription`)}
+                            className="underline cursor-pointer hover:text-white/80 ml-1"
                         >
                             Subscribe now to keep access.
                         </span>

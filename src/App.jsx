@@ -21,6 +21,14 @@ import ClientFinance from './pages/client/Finance';
 import ClientSettings from './pages/client/Settings';
 import Subscription from './pages/client/Subscription';
 
+import ProtectedRoute from './components/auth/ProtectedRoute';
+
+
+import ClientLogin from './pages/auth/ClientLogin';
+import ClientSignup from './pages/auth/ClientSignup';
+import ClientForgotPassword from './pages/auth/ClientForgotPassword';
+import ClientProtectedRoute from './components/auth/ClientProtectedRoute';
+
 
 function App() {
   return (
@@ -29,28 +37,42 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/terms" element={<Terms />} />
-
-        <Route path="/app/login" element={<Login />} />
         <Route path="/onboarding" element={<Onboarding />} />
 
-        {/* Admin Dashboard Routes */}
-        <Route path="/app" element={<DashboardLayout />}>
-          <Route index element={<DashboardHome />} />
-          <Route path="crm" element={<CRM />} />
-          <Route path="finance" element={<Finance />} />
-          <Route path="notifications" element={<AdminNotifications />} />
-          <Route path="setup/:id" element={<SetupDashboard />} />
-          <Route path="client/:id" element={<ClientDetails />} />
+        {/* AXISPROMPT ADMIN (Internal) */}
+        <Route path="/admin/login" element={<Login />} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/admin" element={<DashboardLayout />}>
+            <Route index element={<DashboardHome />} />
+            <Route path="crm" element={<CRM />} />
+            <Route path="finance" element={<Finance />} />
+            <Route path="notifications" element={<AdminNotifications />} />
+            <Route path="settings" element={<SetupDashboard />} />
+            <Route path="client/:id" element={<ClientDetails />} />
+          </Route>
         </Route>
 
-        {/* Client Dashboard Routes */}
-        <Route path="/client/:slug" element={<ClientLayout />}>
-          <Route index element={<ClientOrders />} />
-          <Route path="menu" element={<ClientMenu />} />
-          <Route path="finance" element={<ClientFinance />} />
-          <Route path="settings" element={<ClientSettings />} />
-          <Route path="subscription" element={<Subscription />} />
+        {/* CLIENT DASHBOARD (External) */}
+        {/* Client Auth - Now Slug-Based */}
+        <Route path="/client/:slug/login" element={<ClientLogin />} />
+        <Route path="/client/:slug/signup" element={<ClientSignup />} />
+        <Route path="/client/:slug/forgot-password" element={<ClientForgotPassword />} />
+
+        {/* Protected Client Dashboard */}
+        <Route element={<ClientProtectedRoute />}>
+          <Route path="/client/:slug" element={<ClientLayout />}>
+            <Route index element={<ClientOrders />} />
+            <Route path="menu" element={<ClientMenu />} />
+            <Route path="finance" element={<ClientFinance />} />
+            <Route path="settings" element={<ClientSettings />} />
+            <Route path="subscription" element={<Subscription />} />
+          </Route>
         </Route>
+
+        {/* LEGACY / COMPATIBILITY REDIRECTS (Optional) */}
+        <Route path="/app/admin-login" element={<Login />} />
+        <Route path="/login" element={<ClientLogin />} />
+        <Route path="/signup" element={<ClientSignup />} />
       </Routes>
     </Router>
   );

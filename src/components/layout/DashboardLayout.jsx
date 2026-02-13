@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Outlet, NavLink, useLocation } from 'react-router-dom';
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { supabase } from '../../lib/supabase';
 import {
     LayoutDashboard,
     Users,
@@ -36,6 +37,22 @@ const SidebarLink = ({ to, icon: Icon, children }) => {
 
 const DashboardLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [user, setUser] = useState(null);
+    const [userMenuOpen, setUserMenuOpen] = useState(false);
+    const navigate = useNavigate();
+
+    React.useEffect(() => {
+        const getUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            setUser(user);
+        };
+        getUser();
+    }, []);
+
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
+        navigate('/admin/login');
+    };
 
     return (
         <div className="min-h-screen bg-gray-50 flex">
@@ -50,24 +67,54 @@ const DashboardLayout = () => {
                 </div>
 
                 <div className="flex-1 p-4 space-y-1 overflow-y-auto">
-                    <SidebarLink to="/app" icon={LayoutDashboard}>Dashboard</SidebarLink>
-                    <SidebarLink to="/app/crm" icon={Users}>CRM</SidebarLink>
-                    <SidebarLink to="/app/finance" icon={Wallet}>Finance</SidebarLink>
-                    <SidebarLink to="/app/notifications" icon={Bell}>Notifications</SidebarLink>
+                    <SidebarLink to="/admin" icon={LayoutDashboard}>Dashboard</SidebarLink>
+                    <SidebarLink to="/admin/crm" icon={Users}>CRM</SidebarLink>
+                    <SidebarLink to="/admin/finance" icon={Wallet}>Finance</SidebarLink>
+                    <SidebarLink to="/admin/notifications" icon={Bell}>Notifications</SidebarLink>
                     <div className="pt-4 mt-4 border-t border-gray-100">
-                        <SidebarLink to="/app/settings" icon={Settings}>Settings</SidebarLink>
+                        <SidebarLink to="/admin/settings" icon={Settings}>Settings</SidebarLink>
                     </div>
                 </div>
 
-                <div className="p-4 border-t border-gray-100">
-                    <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
-                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold">U</div>
+                <div className="p-4 border-t border-gray-100 relative">
+                    <button
+                        onClick={() => setUserMenuOpen(!userMenuOpen)}
+                        className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors text-left"
+                    >
+                        <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 font-bold">
+                            {user?.email?.[0].toUpperCase() || 'U'}
+                        </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">User Name</p>
-                            <p className="text-xs text-gray-500 truncate">user@example.com</p>
+                            <p className="text-sm font-medium text-gray-900 truncate">Admin</p>
+                            <p className="text-xs text-gray-500 truncate">{user?.email || 'Loading...'}</p>
                         </div>
                         <ChevronDown size={16} className="text-gray-400" />
-                    </div>
+                    </button>
+
+                    {/* User Menu Dropdown */}
+                    <AnimatePresence>
+                        {userMenuOpen && (
+                            <>
+                                <div className="fixed inset-0 z-10" onClick={() => setUserMenuOpen(false)} />
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: 10 }}
+                                    className="absolute bottom-full left-4 right-4 mb-2 bg-white rounded-xl shadow-lg border border-gray-100 p-1 z-20 overflow-hidden"
+                                >
+                                    <button
+                                        onClick={handleLogout}
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                                        </div>
+                                        Sign Out
+                                    </button>
+                                </motion.div>
+                            </>
+                        )}
+                    </AnimatePresence>
                 </div>
             </aside>
 
@@ -99,10 +146,10 @@ const DashboardLayout = () => {
                                 </button>
                             </div>
                             <div className="flex-1 p-4 space-y-1 overflow-y-auto">
-                                <SidebarLink to="/app" icon={LayoutDashboard}>Dashboard</SidebarLink>
-                                <SidebarLink to="/app/crm" icon={Users}>CRM</SidebarLink>
-                                <SidebarLink to="/app/finance" icon={Wallet}>Finance</SidebarLink>
-                                <SidebarLink to="/app/notifications" icon={Bell}>Notifications</SidebarLink>
+                                <SidebarLink to="/admin" icon={LayoutDashboard}>Dashboard</SidebarLink>
+                                <SidebarLink to="/admin/crm" icon={Users}>CRM</SidebarLink>
+                                <SidebarLink to="/admin/finance" icon={Wallet}>Finance</SidebarLink>
+                                <SidebarLink to="/admin/notifications" icon={Bell}>Notifications</SidebarLink>
                             </div>
                         </motion.aside>
                     </>

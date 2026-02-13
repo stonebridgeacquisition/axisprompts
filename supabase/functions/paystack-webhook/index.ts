@@ -25,12 +25,19 @@ async function verifySignature(body: string, signature: string): Promise<boolean
 }
 
 Deno.serve(async (req: Request) => {
+  if (req.method === 'GET') {
+    return new Response('Paystack Webhook is ACTIVE. Listening for POST requests from Paystack.', { status: 200 })
+  }
+
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 })
   }
 
   const body = await req.text()
   const signature = req.headers.get('x-paystack-signature') || ''
+
+  console.log('--- PAYSTACK WEBHOOK RECEIVED ---');
+  console.log('Body:', body);
 
   const isValid = await verifySignature(body, signature)
   if (!isValid) {
@@ -39,6 +46,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const event = JSON.parse(body)
+  console.log('Event Type:', event.event);
 
   if (event.event !== 'charge.success') {
     return new Response(JSON.stringify({ message: 'Event ignored' }), {
@@ -48,6 +56,13 @@ Deno.serve(async (req: Request) => {
   }
 
   const paymentData = event.data
+  console.log('Payment Data Details:', {
+    amount: paymentData.amount,
+    reference: paymentData.reference,
+    plan: paymentData.plan,
+    metadata: paymentData.metadata,
+    customer: paymentData.customer
+  });
   const amount = paymentData.amount / 100
   const reference = paymentData.reference
   const planCode = paymentData.plan?.plan_code || paymentData.metadata?.plan_code || null
@@ -62,16 +77,24 @@ Deno.serve(async (req: Request) => {
   if (planCode || !subaccountCode) {
     console.log(`Subscription Payment Detected: ${amount} | Email: ${customerEmail}`)
 
-    // Find client by email (since subscription is paid by the client user)
-    const { data: client, error: clientError } = await supabase
-      .from('clients')
-      .select('id, business_name')
-      .eq('email', customerEmail)
-      .single()
+    // Priority 1: Use metadata client_id (FOOLPROOF)
+    // Priority 2: Use email (Fallback)
+    const metadataClientId = paymentData.metadata?.client_id;
+    let clientQuery;
+
+    if (metadataClientId) {
+      console.log(`Subscription Identification: Metadata Client ID found: ${metadataClientId}`);
+      clientQuery = supabase.from('clients').select('id, business_name').eq('id', metadataClientId);
+    } else {
+      console.log(`Subscription Identification: Fallback to Customer Email: ${customerEmail}`);
+      clientQuery = supabase.from('clients').select('id, business_name').eq('email', customerEmail);
+    }
+
+    const { data: client, error: clientError } = await clientQuery.single();
 
     if (clientError || !client) {
-      console.error('Subscription: Could not find client by email:', customerEmail)
-      return new Response(JSON.stringify({ error: 'Client not found for subscription' }), { status: 200 })
+      console.error('Subscription: Could not identify client by ID or Email:', metadataClientId || customerEmail);
+      return new Response(JSON.stringify({ error: 'Client not identified for subscription' }), { status: 200 })
     }
 
     // Calculate new end date (30 days from now)
@@ -101,6 +124,22 @@ Deno.serve(async (req: Request) => {
         title: 'Subscription Renewed',
         message: `Your subscription has been successfully renewed until ${newEndDate.toLocaleDateString()}. Payment Ref: ${reference}`
       })
+
+      // Log Finance Record for Subscription Payment
+      await supabase.from('axis_finance').insert({
+        client_id: client.id,
+        paystack_reference: reference,
+        paystack_transaction_id: String(paymentData.id),
+        total_amount: amount,
+        axis_commission: amount, // Full subscription amount goes to AxisPrompt
+        client_revenue: 0,
+        commission_rate: 1.0,
+        client_name: client.business_name,
+        customer_name: customerEmail || 'Subscription',
+        status: 'completed'
+      })
+
+      console.log(`Finance record logged for subscription: ₦${amount}`)
     }
 
     return new Response(JSON.stringify({ message: 'Subscription processed' }), { status: 200 })

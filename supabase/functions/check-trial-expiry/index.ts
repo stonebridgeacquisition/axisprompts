@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts";
+import nodemailer from 'npm:nodemailer'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -16,24 +16,23 @@ const CORS_HEADERS = {
 }
 
 const sendEmail = async (to: string, subject: string, body: string) => {
-    const client = new SmtpClient();
-    try {
-        await client.connectTLS({
-            hostname: SMTP_HOSTNAME,
-            port: SMTP_PORT,
-            username: SMTP_USERNAME,
-            password: SMTP_PASSWORD,
-        });
+    const transporter = nodemailer.createTransport({
+        host: SMTP_HOSTNAME,
+        port: SMTP_PORT,
+        secure: true, // true for 465
+        auth: {
+            user: SMTP_USERNAME,
+            pass: SMTP_PASSWORD,
+        },
+    });
 
-        await client.send({
+    try {
+        await transporter.sendMail({
             from: SMTP_USERNAME,
             to: to,
             subject: subject,
-            content: body,
             html: body,
         });
-
-        await client.close();
         console.log(`Email sent successfully to ${to}`);
         return true;
     } catch (error) {
@@ -42,137 +41,226 @@ const sendEmail = async (to: string, subject: string, body: string) => {
     }
 };
 
+const getEmailTemplate = (businessName: string, titleCode: string, bodyContent: string, ctaLink: string, ctaText: string) => {
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #374151; margin: 0; padding: 0; background-color: #f9fafb; }
+            .container { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+            .header { background: #4f46e5; padding: 40px 20px; text-align: center; }
+            .header h1 { color: #ffffff; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.025em; }
+            .content { padding: 40px 30px; }
+            .content p { margin-bottom: 24px; font-size: 16px; }
+            .footer { padding: 20px; text-align: center; font-size: 12px; color: #9ca3af; border-top: 1px solid #f3f4f6; }
+            .button { display: inline-block; padding: 14px 32px; background-color: #4f46e5; color: #ffffff !important; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; transition: all 0.2s; }
+            .cta-area { text-align: center; margin-top: 32px; }
+            .badge { display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; margin-bottom: 16px; text-transform: uppercase; }
+            .badge-warning { background: #fef3c7; color: #92400e; }
+            .badge-error { background: #fee2e2; color: #991b1b; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>AxisPrompt</h1>
+            </div>
+            <div class="content">
+                ${titleCode}
+                <p>Hi ${businessName},</p>
+                ${bodyContent}
+                <div class="cta-area">
+                    <a href="${ctaLink}" class="button">${ctaText}</a>
+                </div>
+            </div>
+            <div class="footer">
+                &copy; 2026 AxisPrompt AI. All rights reserved.
+            </div>
+        </div>
+    </body>
+    </html>
+    `;
+};
+
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: CORS_HEADERS })
     }
 
     try {
+        if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+            throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables.");
+        }
+
         const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
         let processedCount = 0;
-        const errors = [];
+        const BASE_URL = Deno.env.get('SITE_URL') || 'https://axisprompts.com';
+
+        console.log("Starting trial and subscription check...");
 
         // ==========================================
-        // 1. CHECK TRIALS (Existing Logic)
+        // 1. CHECK TRIALS (Expiry & Reminders)
         // ==========================================
-        const { data: trialClients } = await supabase
+        const { data: trialClients, error: fetchError } = await supabase
             .from('clients')
             .select('*')
             .eq('subscription_status', 'trial')
 
+        if (fetchError) throw fetchError;
+
         if (trialClients) {
+            console.log(`Found ${trialClients.length} clients in trial status.`);
             for (const client of trialClients) {
                 if (!client.trial_end_date) continue;
+
                 const now = new Date();
                 const end = new Date(client.trial_end_date);
-                const diffDays = (end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+                const diffTime = end.getTime() - now.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const subLink = `${BASE_URL}/client/${client.slug}/subscription`;
 
-                if (diffDays <= 0) {
-                    // EXPIRE TRIAL
-                    await supabase.from('clients').update({
-                        subscription_status: 'expired', status: 'Inactive', is_open: false
-                    }).eq('id', client.id);
+                console.log(`Checking Client: ${client.business_name} | Days Left: ${diffDays}`);
 
-                    await supabase.from('notifications').insert({
-                        client_id: client.id, title: 'Trial Expired', message: 'Your free trial has ended. Please subscribe.'
-                    });
-                    // Base URL for the application
-                    const BASE_URL = Deno.env.get('SITE_URL') || 'https://axisprompts.vercel.app';
+                if (diffDays <= -3) {
+                    console.log(`-> TRIAL BUFFER OVER for ${client.business_name}. Hard Lockout.`);
+                    // HARD LOCKOUT ON DAY 10
+                    await supabase.from('clients').update({ subscription_status: 'expired', status: 'Inactive', is_open: false }).eq('id', client.id);
+                    await supabase.from('notifications').insert({ client_id: client.id, title: 'Trial Buffer Ended', message: 'Your extra access has ended. Account suspended.' });
 
-                    // ... (existing code)
+                    const html = getEmailTemplate(
+                        client.business_name,
+                        '<div class="badge badge-error">Account Locked</div>',
+                        '<p>The 3-day buffer period has ended. Your access is now locked and your agent is offline.</p><p>Please subscribe immediately to reactivate your orders and menu.</p>',
+                        subLink,
+                        'Unlock Dashboard'
+                    );
+                    await sendEmail(client.email, "Action Required: Your Account is Locked", html);
+                    processedCount++;
+                } else if (diffDays === -2) {
+                    console.log(`-> Buffer Reminder (2 days left) for ${client.business_name}`);
+                    const html = getEmailTemplate(
+                        client.business_name,
+                        '<div class="badge badge-warning">Action Required</div>',
+                        '<p>Your free trial ended a few days ago. We have kept your agent live as a courtesy, but you have <b>2 days left</b> before your account is automatically locked.</p>',
+                        subLink,
+                        'Keep My Agent Live'
+                    );
+                    await sendEmail(client.email, "Urgent: 2 days left to subscribe", html);
+                    processedCount++;
+                } else if (diffDays === 0) {
+                    console.log(`-> Trial Expired Day 7 for ${client.business_name}`);
+                    // SOFT EXPIRY (Email only, no lockout)
+                    await supabase.from('notifications').insert({ client_id: client.id, title: 'Trial Ended', message: 'Your free trial has ended. You have a 3-day buffer to subscribe before lockout.' });
 
-                    // INSIDE existing logic (replacing specific lines):
-
-                    // Trial Expired
-                    await sendEmail(client.email, "AxisPrompt Trial Expired", `<p>Your trial has ended. <a href="${BASE_URL}/client/${client.slug}/subscription">Subscribe now</a>.</p>`);
-
-                    // Trial Ending Soon
-                    await sendEmail(client.email, "Trial Ends Tomorrow", `<p>1 day left. <a href="${BASE_URL}/client/${client.slug}/subscription">Subscribe now</a>.</p>`);
-
-                    // Grace Period
-                    await sendEmail(client.email, "Payment Failed - Grace Period Active",
-                        `<p>Your subscription has expired. We attempted to renew it but failed.</p><p>You have been placed on a <b>10-day grace period</b>. <a href="${BASE_URL}/client/${client.slug}/subscription">Update payment method</a> immediately to avoid account suspension.</p>`);
-
-                    // Account Suspended
-                    await sendEmail(client.email, "AxisPrompt Account Suspended",
-                        `<p>Your 10-day grace period has ended.</p><p>Your account has been <b>suspended</b>. Customers can no longer place orders.</p><p><a href="${BASE_URL}/client/${client.slug}/subscription">Pay now to reactivate</a>.</p>`);
+                    const html = getEmailTemplate(
+                        client.business_name,
+                        '<div class="badge badge-warning">Trial Ended</div>',
+                        '<p>Your free trial has officially ended today! We hope you loved using AxisPrompt.</p><p>We are giving you a <b>3-day buffer</b> to subscribe while keeping your agent live. Please subscribe now to avoid any service interruption on Day 10.</p>',
+                        subLink,
+                        'Subscribe Now'
+                    );
+                    await sendEmail(client.email, "Your Trial has Ended (3-day buffer started)", html);
+                    processedCount++;
+                } else if (diffDays === 1) {
+                    const html = getEmailTemplate(
+                        client.business_name,
+                        '<div class="badge badge-warning">Expires Tomorrow</div>',
+                        '<p>This is a reminder that your free trial expires <b>tomorrow</b>. Don\'t let your AI agent go offline!</p><p>Subscribe now to ensure uninterrupted service for your customers.</p>',
+                        subLink,
+                        'Keep My Agent Live'
+                    );
+                    await sendEmail(client.email, "Your Trial expires tomorrow", html);
+                    processedCount++;
+                } else if (diffDays === 3) {
+                    const html = getEmailTemplate(
+                        client.business_name,
+                        '<div class="badge badge-warning">3 Days Left</div>',
+                        '<p>You have 3 days left in your free trial. We hope AxisPrompt is helping you grow your business!</p><p>Upgrade now to a full plan to keep all your data and settings.</p>',
+                        subLink,
+                        'Upgrade Now'
+                    );
+                    await sendEmail(client.email, "3 Days left in your trial", html);
                     processedCount++;
                 }
             }
         }
 
         // ==========================================
-        // 2. CHECK ACTIVE SUBSCRIPTIONS (For Grace Period)
+        // 2. CHECK ACTIVE SUBSCRIPTIONS (Grace Period Start)
         // ==========================================
-        // Logic: If subscription_end_date has passed, put them in grace period.
         const { data: activeClients } = await supabase
             .from('clients')
             .select('*')
             .eq('subscription_status', 'active')
-            .lt('subscription_end_date', new Date().toISOString()) // Only those past due
+            .lt('subscription_end_date', new Date().toISOString())
 
         if (activeClients) {
             for (const client of activeClients) {
-                // Check if already in grace period
-                if (client.is_grace_period === true) continue; // Already handled
+                if (client.is_grace_period === true) continue;
 
                 console.log(`Setting Grace Period for ${client.business_name}`);
+                await supabase.from('clients').update({ is_grace_period: true }).eq('id', client.id);
+                await supabase.from('notifications').insert({ client_id: client.id, title: 'Payment Failed', message: 'First day of grace period. Please update card immediately.' });
 
-                // Set Grace Period
-                await supabase.from('clients').update({
-                    is_grace_period: true
-                }).eq('id', client.id);
-
-                // Notify
-                await supabase.from('notifications').insert({
-                    client_id: client.id, title: 'Payment Failed - Grace Period Started',
-                    message: 'Your subscripion payment failed or expired. You have entered a 10-day grace period.'
-                });
-                await sendEmail(client.email, "Payment Failed - Grace Period Active",
-                    `<p>Your subscription has expired. We attempted to renew it but failed.</p><p>You have been placed on a <b>10-day grace period</b>. Please update your payment method immediately to avoid account suspension.</p>`);
-
+                const html = getEmailTemplate(
+                    client.business_name,
+                    '<div class="badge badge-error">Payment Failed</div>',
+                    '<p>We were unable to process your subscription renewal today. Your account has been placed on a <b>10-day grace period</b> to keep your AI agent live while you resolve this.</p><p>Please update your payment method immediately to avoid account suspension.</p>',
+                    `${BASE_URL}/client/${client.slug}/subscription`,
+                    'Update Payment Method'
+                );
+                await sendEmail(client.email, "Urgent: Payment Failed - Grace Period Active", html);
                 processedCount++;
             }
         }
 
         // ==========================================
-        // 3. CHECK GRACE PERIOD EXPIRY (Suspension)
+        // 3. CHECK GRACE PERIOD (Reminders & Expiry)
         // ==========================================
-        // Logic: If is_grace_period AND (subscription_end_date + 10 days) < now -> Expire
-        const tenDaysAgo = new Date();
-        tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
-
         const { data: graceClients } = await supabase
             .from('clients')
             .select('*')
             .eq('is_grace_period', true)
-        // .lt('subscription_end_date', tenDaysAgo.toISOString()) // This query is tricky with multiple conditions, simpler to filter in loop
 
         if (graceClients) {
             for (const client of graceClients) {
+                const subLink = `${BASE_URL}/client/${client.slug}/subscription`;
                 const endDate = new Date(client.subscription_end_date);
-                const graceEndDate = new Date(endDate);
-                graceEndDate.setDate(graceEndDate.getDate() + 10);
+                const now = new Date();
 
-                if (new Date() > graceEndDate) {
-                    console.log(`Grace period expired for ${client.business_name}. Suspending.`);
+                // Calculate how many days have passed since the subscription ended
+                const diffTime = now.getTime() - endDate.getTime();
+                const daysInGrace = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                const daysRemainingInGrace = 10 - daysInGrace;
 
-                    // SUSPEND ACCOUNT
-                    await supabase.from('clients').update({
-                        subscription_status: 'expired',
-                        status: 'Inactive',
-                        is_open: false,
-                        is_grace_period: false
-                    }).eq('id', client.id);
+                console.log(`Checking Grace Period: ${client.business_name} | Day of Grace: ${daysInGrace} | Remaining: ${daysRemainingInGrace}`);
 
-                    // Notify
-                    await supabase.from('notifications').insert({
-                        client_id: client.id, title: 'Account Suspended',
-                        message: 'Your grace period has ended and your account is now suspended. Please pay to reactivate.'
-                    });
-                    await sendEmail(client.email, "AxisPrompt Account Suspended",
-                        `<p>Your 10-day grace period has ended.</p><p>Your account has been <b>suspended</b>. Customers can no longer place orders.</p><p><a href="https://axisprompt.com">Pay now to reactivate</a>.</p>`);
+                if (daysRemainingInGrace <= 0) {
+                    console.log(`-> Grace Period Expired for ${client.business_name}. Suspending.`);
+                    await supabase.from('clients').update({ subscription_status: 'expired', status: 'Inactive', is_open: false, is_grace_period: false }).eq('id', client.id);
+                    await supabase.from('notifications').insert({ client_id: client.id, title: 'Subscription Suspended', message: 'Grace period ended. Account suspended.' });
 
+                    const html = getEmailTemplate(
+                        client.business_name,
+                        '<div class="badge badge-error">Suspended</div>',
+                        '<p>Your 10-day grace period has ended and your account has been <b>suspended</b>. Your customers can no longer place orders.</p><p>Please pay now to reactivate your dashboard immediately.</p>',
+                        subLink,
+                        'Reactivate Now'
+                    );
+                    await sendEmail(client.email, "Action Required: Your Account has been Suspended", html);
+                    processedCount++;
+                } else if ([1, 3, 5, 7, 9, 10].includes(daysInGrace)) {
+                    // Send reminders on specific days of the grace period
+                    const html = getEmailTemplate(
+                        client.business_name,
+                        '<div class="badge badge-warning">Payment Overdue</div>',
+                        `<p>This is a reminder that your subscription payment is overdue. You have <b>${daysRemainingInGrace} days left</b> in your grace period.</p><p>Please update your payment details to prevent your account from being suspended and your AI agent going offline.</p>`,
+                        subLink,
+                        'Update Card'
+                    );
+                    await sendEmail(client.email, `Urgent: ${daysRemainingInGrace} days left to update payment`, html);
                     processedCount++;
                 }
             }

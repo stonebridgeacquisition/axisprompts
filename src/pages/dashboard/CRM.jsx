@@ -42,7 +42,7 @@ const CRM = () => {
                     <p className="text-gray-500 mt-1">Manage your onboarded clients and view their statuses.</p>
                 </div>
                 <button
-                    onClick={() => navigate('/app/setup/new')}
+                    onClick={() => navigate('/admin/setup/new')}
                     className="px-5 py-2.5 bg-brand-600 text-white rounded-xl font-bold hover:bg-brand-700 hover:shadow-lg hover:shadow-brand-500/20 transition-all flex items-center gap-2"
                 >
                     <Plus size={20} />
@@ -92,9 +92,6 @@ const CRM = () => {
                                         </span>
                                     </div>
                                 </div>
-                                <button className="text-gray-300 hover:text-gray-600">
-                                    <Settings size={18} />
-                                </button>
                             </div>
 
                             <div className="space-y-3 mb-6">
@@ -110,7 +107,7 @@ const CRM = () => {
 
                             <div className="flex gap-3">
                                 <button
-                                    onClick={() => navigate(`/app/client/${client.id}`)}
+                                    onClick={() => navigate(`/admin/client/${client.id}`)}
                                     className="flex-1 px-4 py-2 bg-gray-50 text-gray-700 font-bold rounded-lg hover:bg-gray-100 transition-colors text-sm"
                                 >
                                     View Details
