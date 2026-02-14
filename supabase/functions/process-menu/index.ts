@@ -157,6 +157,8 @@ Rules:
       price: Number(item.price) || 0,
       category: item.category || 'General',
       description: item.description || '',
+      track_inventory: false,
+      stock_level: null,
       options: [],
       is_available: true
     }))

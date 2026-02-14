@@ -17,6 +17,8 @@ const Onboarding = () => {
     const [newItemName, setNewItemName] = useState('');
     const [newItemPrice, setNewItemPrice] = useState('');
     const [newItemCategory, setNewItemCategory] = useState('');
+    const [newItemTrackInventory, setNewItemTrackInventory] = useState(false);
+    const [newItemStockLevel, setNewItemStockLevel] = useState(0);
 
     const [formData, setFormData] = useState({
         businessName: '',
@@ -100,11 +102,15 @@ const Onboarding = () => {
         setManualMenuItems(prev => [...prev, {
             name: newItemName,
             price: Number(newItemPrice),
-            category: newItemCategory || 'General'
+            category: newItemCategory || 'General',
+            track_inventory: newItemTrackInventory,
+            stock_level: newItemTrackInventory ? Number(newItemStockLevel) : null
         }]);
         setNewItemName('');
         setNewItemPrice('');
         setNewItemCategory('');
+        setNewItemTrackInventory(false);
+        setNewItemStockLevel(0);
     };
 
     const removeManualItem = (index) => {
@@ -249,6 +255,8 @@ const Onboarding = () => {
                         price: item.price,
                         category: item.category || 'General',
                         description: '',
+                        track_inventory: item.track_inventory,
+                        stock_level: item.stock_level,
                         options: [],
                         is_available: true
                     }));
@@ -564,6 +572,32 @@ const Onboarding = () => {
                                         </button>
                                     </div>
 
+                                    {/* Stock Toggle and Input */}
+                                    <div className="flex items-center gap-4 bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setNewItemTrackInventory(!newItemTrackInventory)}
+                                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${newItemTrackInventory ? 'bg-brand-600' : 'bg-gray-300'}`}
+                                            >
+                                                <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${newItemTrackInventory ? 'translate-x-5' : 'translate-x-1'}`} />
+                                            </button>
+                                            <span className="text-xs font-medium text-gray-600">Track Stock</span>
+                                        </div>
+                                        {newItemTrackInventory && (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs text-gray-500">Qty:</span>
+                                                <input
+                                                    type="number"
+                                                    value={newItemStockLevel}
+                                                    onChange={(e) => setNewItemStockLevel(e.target.value)}
+                                                    className="w-16 px-2 py-1 text-xs rounded border border-gray-300"
+                                                    min="0"
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+
                                     {manualMenuItems.length > 0 && (
                                         <div className="bg-gray-50 rounded-xl border border-gray-200 divide-y divide-gray-200">
                                             {manualMenuItems.map((item, idx) => (
@@ -571,6 +605,9 @@ const Onboarding = () => {
                                                     <div className="flex items-center gap-3">
                                                         <span className="font-medium text-gray-900 text-sm">{item.name}</span>
                                                         <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">{item.category}</span>
+                                                        {item.track_inventory && (
+                                                            <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold">STOCK: {item.stock_level}</span>
+                                                        )}
                                                     </div>
                                                     <div className="flex items-center gap-3">
                                                         <span className="font-bold text-gray-900 text-sm">₦{item.price.toLocaleString()}</span>

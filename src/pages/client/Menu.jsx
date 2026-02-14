@@ -19,6 +19,8 @@ const ClientMenu = () => {
         price: '',
         category: '',
         description: '',
+        track_inventory: false,
+        stock_level: 0,
         options: [] // e.g., [{ name: 'Large', price: '5000' }]
     });
 
@@ -78,6 +80,8 @@ const ClientMenu = () => {
                     price: newItem.price, // Base Price
                     category: newItem.category || 'General',
                     description: newItem.description,
+                    track_inventory: newItem.track_inventory,
+                    stock_level: newItem.track_inventory ? newItem.stock_level : null,
                     options: newItem.options,
                     is_available: true
                 }])
@@ -86,7 +90,7 @@ const ClientMenu = () => {
             if (error) throw error;
 
             setItems([data[0], ...items]);
-            setNewItem({ name: '', price: '', category: '', description: '', options: [] });
+            setNewItem({ name: '', price: '', category: '', description: '', track_inventory: false, stock_level: 0, options: [] });
             setIsAdding(false);
         } catch (error) {
             console.error("Error adding item:", error);
@@ -126,6 +130,8 @@ const ClientMenu = () => {
                     price: editingItem.price,
                     category: editingItem.category,
                     description: editingItem.description,
+                    track_inventory: editingItem.track_inventory,
+                    stock_level: editingItem.track_inventory ? editingItem.stock_level : null,
                     options: editingItem.options,
                     is_available: editingItem.is_available
                 })
@@ -256,19 +262,19 @@ const ClientMenu = () => {
                                     type="text"
                                     value={newItem.name}
                                     onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                                    placeholder="e.g. Asun Rice"
                                     className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                                    placeholder="e.g. Jollof Rice"
                                     required
                                 />
                             </div>
                             <div>
-                                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Base Price</label>
+                                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Price (₦)</label>
                                 <input
                                     type="number"
                                     value={newItem.price}
                                     onChange={(e) => setNewItem({ ...newItem, price: e.target.value })}
-                                    placeholder="e.g. 2000"
                                     className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                                    placeholder="0.00"
                                     required
                                 />
                             </div>
@@ -278,8 +284,8 @@ const ClientMenu = () => {
                                     type="text"
                                     value={newItem.category}
                                     onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
-                                    placeholder="e.g. Meals"
                                     className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                                    placeholder="e.g. Main Dish"
                                 />
                             </div>
                             <div>
@@ -294,29 +300,63 @@ const ClientMenu = () => {
                             </div>
                         </div>
 
+                        {/* Stock Management Section */}
+                        <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${newItem.track_inventory ? 'bg-brand-600 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                                    <Plus size={20} />
+                                </div>
+                                <div>
+                                    <p className="font-bold text-gray-900 text-sm">Inventory Tracking</p>
+                                    <p className="text-xs text-gray-500">Enable this if you want to limit stock for this item</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                {newItem.track_inventory && (
+                                    <div className="flex items-center gap-2">
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Qty:</label>
+                                        <input
+                                            type="number"
+                                            value={newItem.stock_level}
+                                            onChange={(e) => setNewItem({ ...newItem, stock_level: Number(e.target.value) })}
+                                            className="w-20 px-3 py-1.5 text-sm rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500"
+                                            min="0"
+                                        />
+                                    </div>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => setNewItem(prev => ({ ...prev, track_inventory: !prev.track_inventory }))}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${newItem.track_inventory ? 'bg-brand-600' : 'bg-gray-300'}`}
+                                >
+                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${newItem.track_inventory ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                        </div>
+
                         {/* Variants Section */}
                         <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
                             <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Variants / Sizes (Optional)</label>
 
-                            <div className="flex gap-2 mb-3">
+                            <div className="flex flex-wrap md:flex-nowrap gap-2 mb-3">
                                 <input
                                     type="text"
-                                    placeholder="Variant Name (e.g. Large)"
+                                    placeholder="Name (e.g. Large)"
                                     value={variantName}
                                     onChange={(e) => setVariantName(e.target.value)}
-                                    className="flex-1 px-3 py-2 text-sm rounded border border-gray-300"
+                                    className="flex-1 min-w-[120px] px-3 py-2 text-sm rounded border border-gray-300 focus:outline-none focus:border-brand-500"
                                 />
                                 <input
                                     type="number"
                                     placeholder="Price"
                                     value={variantPrice}
                                     onChange={(e) => setVariantPrice(e.target.value)}
-                                    className="w-32 px-3 py-2 text-sm rounded border border-gray-300"
+                                    className="w-full md:w-24 px-3 py-2 text-sm rounded border border-gray-300 focus:outline-none focus:border-brand-500"
                                 />
                                 <button
                                     type="button"
                                     onClick={handleAddVariant}
-                                    className="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm font-medium"
+                                    className="w-full md:w-auto px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-bold transition-colors"
                                 >
                                     Add
                                 </button>
@@ -370,6 +410,7 @@ const ClientMenu = () => {
                                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Item Name</th>
                                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Category</th>
                                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Price</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Stock</th>
                                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
                                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Variants</th>
                                 <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
@@ -407,6 +448,16 @@ const ClientMenu = () => {
                                         </td>
                                         <td className="px-6 py-4 text-sm font-bold text-gray-900">
                                             ₦{Number(item.price).toLocaleString()}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm">
+                                            {!item.track_inventory ? (
+                                                <span className="text-gray-400 text-xs font-medium italic">Unlimited</span>
+                                            ) : (
+                                                <span className={`inline-flex items-center gap-1.5 font-bold ${item.stock_level <= 0 ? 'text-red-600' : item.stock_level <= 5 ? 'text-orange-600' : 'text-gray-900'}`}>
+                                                    {item.stock_level}
+                                                    {item.stock_level <= 0 && <span className="text-[10px] uppercase bg-red-100 px-1.5 py-0.5 rounded">Out</span>}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 text-sm">
                                             <button
@@ -492,7 +543,7 @@ const ClientMenu = () => {
                                 </button>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Item Name</label>
                                     <input
@@ -533,28 +584,57 @@ const ClientMenu = () => {
                                 </div>
                             </div>
 
+                            {/* Edit Stock Section */}
+                            <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 flex items-center justify-between">
+                                <div>
+                                    <p className="font-bold text-gray-900 text-sm">Inventory Tracking</p>
+                                    <p className="text-xs text-gray-500">Control item availability by quantity</p>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    {editingItem.track_inventory && (
+                                        <div className="flex items-center gap-2">
+                                            <label className="text-xs font-bold text-gray-500 uppercase">Stock:</label>
+                                            <input
+                                                type="number"
+                                                value={editingItem.stock_level || 0}
+                                                onChange={(e) => setEditingItem({ ...editingItem, stock_level: Number(e.target.value) })}
+                                                className="w-20 px-3 py-1 text-sm rounded border border-gray-300"
+                                                min="0"
+                                            />
+                                        </div>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditingItem(prev => ({ ...prev, track_inventory: !prev.track_inventory }))}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${editingItem.track_inventory ? 'bg-brand-600' : 'bg-gray-300'}`}
+                                    >
+                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${editingItem.track_inventory ? 'translate-x-6' : 'translate-x-1'}`} />
+                                    </button>
+                                </div>
+                            </div>
+
                             {/* Edit Variants */}
                             <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
                                 <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Variants / Sizes</label>
-                                <div className="flex gap-2 mb-3">
+                                <div className="flex flex-wrap md:flex-nowrap gap-2 mb-3">
                                     <input
                                         type="text"
                                         placeholder="Variant name (e.g. Large)"
                                         value={variantName}
                                         onChange={(e) => setVariantName(e.target.value)}
-                                        className="flex-1 px-3 py-2 text-sm rounded border border-gray-300"
+                                        className="flex-1 min-w-[120px] px-3 py-2 text-sm rounded border border-gray-300"
                                     />
                                     <input
                                         type="number"
                                         placeholder="Price"
                                         value={variantPrice}
                                         onChange={(e) => setVariantPrice(e.target.value)}
-                                        className="w-28 px-3 py-2 text-sm rounded border border-gray-300"
+                                        className="w-full md:w-28 px-3 py-2 text-sm rounded border border-gray-300"
                                     />
                                     <button
                                         type="button"
                                         onClick={handleEditVariantAdd}
-                                        className="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm font-medium"
+                                        className="w-full md:w-auto px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm font-medium"
                                     >
                                         Add
                                     </button>

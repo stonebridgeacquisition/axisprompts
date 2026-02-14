@@ -25,7 +25,7 @@ const Hero = () => {
                 <div className="flex flex-col lg:flex-row items-center gap-0 lg:gap-20">
 
                     {/* Left: Content - First Screen on Mobile (Shortened to Peek) */}
-                    <div className="w-full lg:w-[55%] max-w-3xl text-center lg:text-left min-h-[75vh] lg:min-h-0 flex flex-col justify-start pt-4 lg:justify-center lg:pt-0 lg:py-0">
+                    <div className="w-full lg:w-[55%] max-w-3xl text-center lg:text-left flex flex-col justify-start pt-4 lg:justify-center lg:pt-0 lg:py-0">
                         <motion.div
                             initial={{ opacity: 0, y: 30 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -85,7 +85,7 @@ const Hero = () => {
                     </div>
 
                     {/* Right: Advanced 3D Device Visual - Second Screen on Mobile */}
-                    <div className="w-full lg:w-[45%] min-h-[100vh] lg:min-h-0 flex flex-col justify-center items-center perspective-1000 py-10 lg:py-0">
+                    <div className="w-full lg:w-[45%] flex flex-col justify-center items-center perspective-1000 py-10 lg:py-0">
                         <motion.div
                             initial={{ opacity: 0, rotateY: 10, scale: 0.9, y: 20 }}
                             animate={{ opacity: 1, rotateY: 0, scale: 1, y: 0 }}
@@ -141,7 +141,7 @@ const Hero = () => {
 // Sub-component for the Chat Simulation to keep main component clean
 const ChatSimulation = () => {
     const containerRef = useRef(null);
-    const isInView = useInView(containerRef, { once: true, amount: 0.3 });
+    const isInView = useInView(containerRef, { once: true, amount: 0.5 });
     const [step, setStep] = React.useState(0);
 
     React.useEffect(() => {

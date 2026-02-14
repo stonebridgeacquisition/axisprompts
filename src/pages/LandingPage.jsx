@@ -4,6 +4,7 @@ import Hero from '../components/sections/Hero';
 import WhatYouGet from '../components/sections/WhatYouGet';
 import WhoThisIsFor from '../components/sections/WhoThisIsFor';
 import HowWeDoIt from '../components/sections/HowWeDoIt';
+import MenuShowcase from '../components/sections/MenuShowcase';
 import Guarantee from '../components/sections/Guarantee';
 import WhyTrust from '../components/sections/WhyTrust';
 import CostOfMissedMessages from '../components/sections/CostOfMissedMessages';
@@ -20,6 +21,7 @@ const LandingPage = () => {
                 <WhatYouGet />
                 <WhoThisIsFor />
                 <HowWeDoIt />
+                <MenuShowcase />
                 <Guarantee />
                 <WhyTrust />
                 <CostOfMissedMessages />
