@@ -109,6 +109,17 @@ const ClientSignup = () => {
                 return;
             }
 
+            // 3. Send Welcome Email (Non-blocking)
+            supabase.functions.invoke('send-welcome-email', {
+                body: {
+                    email,
+                    businessName: client?.business_name || 'Business Owner',
+                    loginUrl: `${window.location.origin}/client/${client.slug}/login`
+                }
+            }).then(({ error }) => {
+                if (error) console.error('Failed to send welcome email:', error);
+            });
+
             navigate(`/client/${client.slug}`);
 
         } catch (err) {
@@ -197,8 +208,8 @@ const ClientSignup = () => {
                                 value={otp}
                                 onChange={(e) => setOtp(e.target.value)}
                                 className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none transition-all text-center tracking-widest font-mono text-xl"
-                                placeholder="000000"
-                                maxLength={6}
+                                placeholder="00000000"
+                                maxLength={8}
                             />
                         </div>
 

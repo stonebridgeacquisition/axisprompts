@@ -54,20 +54,20 @@ const Finance = () => {
         <div className="max-w-7xl mx-auto space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Axisprompt Finance</h2>
-                    <p className="text-gray-500">All transactions across clients — 0.5% commission tracking.</p>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Axisprompt Finance</h2>
+                    <p className="text-gray-500 dark:text-gray-400">All transactions across clients — 0.5% commission tracking.</p>
                 </div>
             </div>
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+                <div className="bg-white dark:bg-dark-900 p-5 rounded-2xl border border-gray-200 dark:border-dark-800 shadow-sm transition-colors">
                     <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-bold text-gray-500 uppercase">Total Volume</span>
-                        <div className="p-2 bg-blue-50 rounded-lg"><DollarSign size={16} className="text-blue-600" /></div>
+                        <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Total Volume</span>
+                        <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg"><DollarSign size={16} className="text-blue-600 dark:text-blue-400" /></div>
                     </div>
-                    <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalRevenue)}</p>
-                    <p className="text-xs text-gray-400 mt-1">{stats.transactionCount} transactions</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(stats.totalRevenue)}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{stats.transactionCount} transactions</p>
                 </div>
 
                 <div className="bg-gradient-to-br from-brand-600 to-brand-700 p-5 rounded-2xl shadow-lg shadow-brand-500/20 text-white">
@@ -79,81 +79,81 @@ const Finance = () => {
                     <p className="text-xs text-white/60 mt-1">0.5% of total volume</p>
                 </div>
 
-                <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+                <div className="bg-white dark:bg-dark-900 p-5 rounded-2xl border border-gray-200 dark:border-dark-800 shadow-sm transition-colors">
                     <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-bold text-gray-500 uppercase">Client Payouts</span>
-                        <div className="p-2 bg-green-50 rounded-lg"><ArrowUpRight size={16} className="text-green-600" /></div>
+                        <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Client Payouts</span>
+                        <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg"><ArrowUpRight size={16} className="text-green-600 dark:text-green-400" /></div>
                     </div>
-                    <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalClientPayouts)}</p>
-                    <p className="text-xs text-gray-400 mt-1">99.5% to clients</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(stats.totalClientPayouts)}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">99.5% to clients</p>
                 </div>
 
-                <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+                <div className="bg-white dark:bg-dark-900 p-5 rounded-2xl border border-gray-200 dark:border-dark-800 shadow-sm transition-colors">
                     <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-bold text-gray-500 uppercase">Active Clients</span>
-                        <div className="p-2 bg-purple-50 rounded-lg"><Users size={16} className="text-purple-600" /></div>
+                        <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Active Clients</span>
+                        <div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg"><Users size={16} className="text-purple-600 dark:text-purple-400" /></div>
                     </div>
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
                         {new Set(transactions.map(t => t.client_id).filter(Boolean)).size}
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">With transactions</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">With transactions</p>
                 </div>
             </div>
 
             {/* Transactions Table */}
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                <div className="p-6 border-b border-gray-200">
-                    <h3 className="text-lg font-bold text-gray-900">All Transactions</h3>
+            <div className="bg-white dark:bg-dark-900 border border-gray-200 dark:border-dark-800 rounded-xl overflow-hidden shadow-sm transition-colors">
+                <div className="p-6 border-b border-gray-200 dark:border-dark-800">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">All Transactions</h3>
                 </div>
                 <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-dark-800">
+                        <thead className="bg-gray-50 dark:bg-dark-800">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Date</th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Client</th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Customer</th>
-                                <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Total</th>
-                                <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Axis (0.5%)</th>
-                                <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Client (99.5%)</th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Reference</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Client</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Customer</th>
+                                <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total</th>
+                                <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Axis (0.5%)</th>
+                                <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Client (99.5%)</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Reference</th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-white dark:bg-dark-900 divide-y divide-gray-200 dark:divide-dark-800 text-gray-900 dark:text-white">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
+                                    <td colSpan="7" className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                                         <Loader2 className="animate-spin mx-auto mb-2 text-brand-600" size={24} />
                                         Loading transactions...
                                     </td>
                                 </tr>
                             ) : transactions.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
+                                    <td colSpan="7" className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                                         No transactions yet. They'll appear here after customers make payments.
                                     </td>
                                 </tr>
                             ) : (
                                 transactions.map((txn) => (
-                                    <tr key={txn.id} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    <tr key={txn.id} className="hover:bg-gray-50 dark:hover:bg-dark-800 transition-colors">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                             {formatDate(txn.created_at)}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                                             {txn.client_name || '—'}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                             {txn.customer_name || txn.customer_email || '—'}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900 dark:text-white">
                                             {formatCurrency(txn.total_amount)}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold text-brand-600">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold text-brand-600 dark:text-brand-400">
                                             {formatCurrency(txn.axis_commission)}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-green-600 font-medium">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-green-600 dark:text-green-400 font-medium">
                                             {formatCurrency(txn.client_revenue)}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-400 font-mono">
+                                        <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-400 dark:text-gray-500 font-mono">
                                             {txn.paystack_reference || '—'}
                                         </td>
                                     </tr>

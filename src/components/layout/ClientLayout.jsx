@@ -17,11 +17,12 @@ import {
     CreditCard
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ThemeToggle from '../ui/ThemeToggle'; // Adjust path if needed
 
 const ClientSidebarLink = ({ to, icon: Icon, children, end = false, disabled = false }) => {
     if (disabled) {
         return (
-            <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 cursor-not-allowed text-sm font-medium">
+            <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 dark:text-gray-600 cursor-not-allowed text-sm font-medium">
                 <Icon size={18} />
                 <span>{children}</span>
                 <Lock size={12} className="ml-auto" />
@@ -35,14 +36,14 @@ const ClientSidebarLink = ({ to, icon: Icon, children, end = false, disabled = f
             className={({ isActive }) => `
                 flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group text-sm font-medium
                 ${isActive
-                    ? 'bg-gray-100 text-gray-900 border-l-2 border-brand-600'
-                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900 border-l-2 border-transparent'
+                    ? 'bg-gray-100 text-gray-900 border-l-2 border-brand-600 dark:bg-dark-800 dark:text-white dark:border-brand-500'
+                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900 border-l-2 border-transparent dark:text-gray-400 dark:hover:bg-dark-800 dark:hover:text-gray-200'
                 }
             `}
         >
             {({ isActive }) => (
                 <>
-                    <Icon size={18} className={isActive ? 'text-brand-600' : 'text-gray-400 group-hover:text-gray-600'} />
+                    <Icon size={18} className={isActive ? 'text-brand-600 dark:text-brand-500' : 'text-gray-400 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300'} />
                     <span>{children}</span>
                 </>
             )}
@@ -184,7 +185,7 @@ const ClientLayout = () => {
 
     if (loading) {
         return (
-            <div className="flex h-screen items-center justify-center bg-gray-50">
+            <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-dark-900">
                 <Loader2 className="animate-spin text-brand-600" size={32} />
             </div>
         );
@@ -192,7 +193,7 @@ const ClientLayout = () => {
 
     if (!client) {
         return (
-            <div className="flex h-screen items-center justify-center bg-gray-50 text-gray-500">
+            <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-dark-900 text-gray-500 dark:text-gray-400">
                 Client not found.
             </div>
         );
@@ -205,7 +206,7 @@ const ClientLayout = () => {
     const isAccessBlocked = (client.subscription_status === 'expired' || client.subscription_status === 'inactive') || (isSubscriptionExpired && !client.is_grace_period);
 
     return (
-        <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
+        <div className="flex h-screen bg-gray-50 dark:bg-dark-950 overflow-hidden font-sans transition-colors duration-200">
 
             {/* Mobile Overlay */}
             <AnimatePresence>
@@ -225,29 +226,29 @@ const ClientLayout = () => {
                 initial={false}
                 animate={{ x: isMobile && !sidebarOpen ? '-100%' : '0%' }}
                 transition={{ type: "spring", bounce: 0, duration: 0.3 }}
-                className={`fixed md:relative z-50 w-72 h-full bg-white border-r border-gray-200 flex flex-col md:translate-x-0 shadow-xl md:shadow-none`}
+                className={`fixed md:relative z-50 w-72 h-full bg-white dark:bg-dark-900 border-r border-gray-200 dark:border-dark-800 flex flex-col md:translate-x-0 shadow-xl md:shadow-none transition-colors duration-200`}
             >
                 {/* Logo Area */}
-                <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                <div className="p-6 border-b border-gray-100 dark:border-dark-800 flex items-center justify-between">
                     <div className="flex items-center gap-3 overflow-hidden">
                         {client?.logo_url ? (
                             <img
                                 src={client.logo_url}
                                 alt={client.business_name}
-                                className="w-10 h-10 rounded-lg object-cover shadow-sm bg-gray-50 flex-shrink-0"
+                                className="w-10 h-10 rounded-lg object-cover shadow-sm bg-gray-50 dark:bg-dark-800 flex-shrink-0"
                             />
                         ) : (
                             <div className="w-10 h-10 bg-brand-600 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-brand-500/20 flex-shrink-0">
                                 {client?.business_name ? client.business_name.charAt(0).toUpperCase() : 'A'}
                             </div>
                         )}
-                        <span className="text-lg font-bold text-gray-900 truncate">
+                        <span className="text-lg font-bold text-gray-900 dark:text-white truncate">
                             {client?.business_name || 'AxisPrompt'}
                         </span>
                     </div>
                     <button
                         onClick={() => setSidebarOpen(false)}
-                        className="md:hidden p-1 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"
+                        className="md:hidden p-1 hover:bg-gray-100 dark:hover:bg-dark-800 rounded-lg text-gray-500 dark:text-gray-400 transition-colors"
                     >
                         <X size={20} />
                     </button>
@@ -255,7 +256,7 @@ const ClientLayout = () => {
 
                 {/* Navigation */}
                 <div className="flex-1 overflow-y-auto py-6 px-4 space-y-1">
-                    <p className="px-3 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Menu</p>
+                    <p className="px-3 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Menu</p>
 
                     {/* Block access to these links if expired */}
                     <ClientSidebarLink to={`/client/${slug}`} icon={ShoppingBag} end={true} disabled={isAccessBlocked}>
@@ -277,14 +278,21 @@ const ClientLayout = () => {
                     </ClientSidebarLink>
                 </div>
 
-                {/* Footer User Profile */}
-                <div className="p-4 border-t border-gray-100">
+                {/* Footer User Profile & Theme Toggle */}
+                <div className="p-4 border-t border-gray-100 dark:border-dark-800 space-y-4">
+
+                    {/* Theme Toggle */}
+                    <div className="bg-gray-50 dark:bg-dark-800 rounded-lg p-3 border border-gray-100 dark:border-dark-700">
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider">Appearance</p>
+                        <ThemeToggle />
+                    </div>
+
                     <button
                         onClick={async () => {
                             await supabase.auth.signOut();
                             navigate(`/client/${slug}/login`);
                         }}
-                        className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors text-sm font-medium"
+                        className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-sm font-medium"
                     >
                         <LogOut size={18} />
                         <span>Log Out</span>
@@ -330,15 +338,15 @@ const ClientLayout = () => {
                 )}
 
                 {/* Header */}
-                <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-8 z-10 shrink-0">
+                <header className="h-16 bg-white dark:bg-dark-900 border-b border-gray-200 dark:border-dark-800 flex items-center justify-between px-4 sm:px-8 z-10 shrink-0 transition-colors duration-200">
                     <div className="flex items-center gap-4">
                         <button
                             onClick={() => setSidebarOpen(true)}
-                            className="p-2 -ml-2 hover:bg-gray-100 rounded-lg text-gray-600 md:hidden transition-colors"
+                            className="p-2 -ml-2 hover:bg-gray-100 dark:hover:bg-dark-800 rounded-lg text-gray-600 dark:text-gray-400 md:hidden transition-colors"
                         >
                             <Menu size={20} />
                         </button>
-                        <h1 className="text-sm font-semibold text-gray-800 hidden md:block">
+                        <h1 className="text-sm font-semibold text-gray-800 dark:text-white hidden md:block">
                             Overview
                         </h1>
                     </div>
@@ -357,8 +365,8 @@ const ClientLayout = () => {
                                 }
                             }}
                             className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all text-sm font-bold cursor-pointer ${client.is_open !== false
-                                ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
-                                : 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100'
+                                ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400'
+                                : 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400'
                                 }`}
                         >
                             <span className={`w-2 h-2 rounded-full ${client.is_open !== false ? 'bg-green-500' : 'bg-red-500'}`} />
@@ -369,11 +377,11 @@ const ClientLayout = () => {
                         <div className="relative" ref={notifRef}>
                             <button
                                 onClick={() => setNotifOpen(!notifOpen)}
-                                className="relative p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-full transition-colors"
+                                className="relative p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 dark:hover:text-gray-200 dark:hover:bg-dark-800 rounded-full transition-colors"
                             >
                                 <Bell size={18} />
                                 {unreadCount > 0 && (
-                                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full border-2 border-white px-1">
+                                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full border-2 border-white dark:border-dark-900 px-1">
                                         {unreadCount > 9 ? '9+' : unreadCount}
                                     </span>
                                 )}
@@ -387,35 +395,35 @@ const ClientLayout = () => {
                                         animate={{ opacity: 1, y: 0, scale: 1 }}
                                         exit={{ opacity: 0, y: 8, scale: 0.95 }}
                                         transition={{ duration: 0.15 }}
-                                        className="absolute right-0 mt-2 w-80 bg-white rounded-xl border border-gray-200 shadow-xl z-50 overflow-hidden"
+                                        className="absolute right-0 mt-2 w-80 bg-white dark:bg-dark-900 rounded-xl border border-gray-200 dark:border-dark-700 shadow-xl dark:shadow-black/50 z-50 overflow-hidden"
                                     >
-                                        <div className="p-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-                                            <h3 className="font-bold text-sm text-gray-900">Notifications</h3>
+                                        <div className="p-3 border-b border-gray-100 dark:border-dark-800 flex items-center justify-between bg-gray-50/50 dark:bg-dark-800/50">
+                                            <h3 className="font-bold text-sm text-gray-900 dark:text-white">Notifications</h3>
                                             {unreadCount > 0 && (
-                                                <button onClick={handleMarkAllRead} className="text-xs font-medium text-brand-600 hover:text-brand-700">
+                                                <button onClick={handleMarkAllRead} className="text-xs font-medium text-brand-600 hover:text-brand-700 dark:hover:text-brand-400">
                                                     Mark all read
                                                 </button>
                                             )}
                                         </div>
                                         <div className="max-h-[320px] overflow-y-auto">
                                             {notifications.length === 0 ? (
-                                                <div className="p-8 text-center text-gray-400 text-sm">
+                                                <div className="p-8 text-center text-gray-400 dark:text-gray-500 text-sm">
                                                     No notifications yet
                                                 </div>
                                             ) : (
-                                                <div className="divide-y divide-gray-50">
+                                                <div className="divide-y divide-gray-50 dark:divide-dark-800">
                                                     {notifications.map((n) => (
-                                                        <div key={n.id} className={`p-4 hover:bg-gray-50 transition-colors ${!n.is_read ? 'bg-blue-50/30' : ''}`}>
+                                                        <div key={n.id} className={`p-4 hover:bg-gray-50 dark:hover:bg-dark-800 transition-colors ${!n.is_read ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}>
                                                             <div className="flex gap-3">
-                                                                <div className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${!n.is_read ? 'bg-blue-500' : 'bg-gray-300'}`} />
+                                                                <div className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${!n.is_read ? 'bg-blue-500' : 'bg-gray-300 dark:bg-dark-600'}`} />
                                                                 <div>
-                                                                    <p className={`text-sm ${!n.is_read ? 'font-bold text-gray-900' : 'font-medium text-gray-600'}`}>
+                                                                    <p className={`text-sm ${!n.is_read ? 'font-bold text-gray-900 dark:text-white' : 'font-medium text-gray-600 dark:text-gray-300'}`}>
                                                                         {n.title}
                                                                     </p>
-                                                                    <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                                                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
                                                                         {n.message}
                                                                     </p>
-                                                                    <p className="text-[10px] text-gray-400 mt-2">
+                                                                    <p className="text-[10px] text-gray-400 dark:text-gray-600 mt-2">
                                                                         {formatDate(n.created_at)}
                                                                     </p>
                                                                 </div>
@@ -433,15 +441,15 @@ const ClientLayout = () => {
                 </header>
 
                 {/* Content Area */}
-                <div className="flex-1 overflow-auto bg-gray-50 p-4 sm:p-8 relative">
+                <div className="flex-1 overflow-auto bg-gray-50 dark:bg-dark-950 p-4 sm:p-8 relative transition-colors duration-200">
                     {isAccessBlocked ? (
-                        <div className="absolute inset-0 z-30 flex items-center justify-center bg-gray-50/80 backdrop-blur-sm p-4">
-                            <div className="bg-white max-w-md w-full p-8 rounded-2xl shadow-xl text-center border border-gray-200">
-                                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6 text-red-600">
+                        <div className="absolute inset-0 z-30 flex items-center justify-center bg-gray-50/80 dark:bg-dark-950/80 backdrop-blur-sm p-4">
+                            <div className="bg-white dark:bg-dark-900 max-w-md w-full p-8 rounded-2xl shadow-xl text-center border border-gray-200 dark:border-dark-700">
+                                <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-6 text-red-600">
                                     <Lock size={32} />
                                 </div>
-                                <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Locked</h2>
-                                <p className="text-gray-600 mb-8">
+                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Access Locked</h2>
+                                <p className="text-gray-600 dark:text-gray-300 mb-8">
                                     Your free trial has ended. Please subscribe to continue accepting orders and managing your menu.
                                 </p>
                                 <button

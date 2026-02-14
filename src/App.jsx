@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
@@ -70,6 +70,7 @@ function App() {
         </Route>
 
         {/* LEGACY / COMPATIBILITY REDIRECTS (Optional) */}
+        <Route path="/app" element={<Navigate to="/admin" replace />} />
         <Route path="/app/admin-login" element={<Login />} />
         <Route path="/login" element={<ClientLogin />} />
         <Route path="/signup" element={<ClientSignup />} />

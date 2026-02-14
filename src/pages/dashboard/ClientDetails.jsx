@@ -51,7 +51,7 @@ const ClientDetails = () => {
             {/* Header */}
             <div className="flex items-center gap-4">
                 <button
-                    onClick={() => navigate('/app/crm')}
+                    onClick={() => navigate('/admin/crm')}
                     className="p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-200 text-gray-500"
                 >
                     <ChevronLeft size={20} />

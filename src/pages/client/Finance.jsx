@@ -125,79 +125,91 @@ const ClientFinance = () => {
                     </div>
 
                     {/* Transactions */}
-                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                        <div className="p-6 border-b border-gray-200">
-                            <h3 className="font-bold text-gray-900">Recent Transactions</h3>
+                    <div className="bg-white dark:bg-dark-900 rounded-2xl border border-gray-200 dark:border-dark-800 shadow-sm overflow-hidden transition-colors duration-200">
+                        <div className="p-6 border-b border-gray-200 dark:border-dark-800">
+                            <h3 className="font-bold text-gray-900 dark:text-white">Recent Transactions</h3>
                         </div>
 
                         {orders.length === 0 ? (
-                            <div className="p-12 text-center text-gray-500">
+                            <div className="p-12 text-center text-gray-500 dark:text-gray-400">
                                 No transactions yet. They'll appear here after customers make payments.
                             </div>
                         ) : (
-                            <div className="divide-y divide-gray-100">
+                            <div className="divide-y divide-gray-100 dark:divide-dark-800">
                                 {orders.map((order) => (
-                                    <div key={order.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${order.payment_status === 'Refunded'
-                                                    ? 'bg-gray-100 text-gray-400'
+                                    <div key={order.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-gray-50 dark:hover:bg-dark-800 transition-colors gap-4">
+                                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                                            <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center ${order.payment_status === 'Refunded'
+                                                    ? 'bg-gray-100 dark:bg-dark-800 text-gray-400'
                                                     : order.payment_status === 'Paid'
-                                                        ? 'bg-green-100 text-green-600'
-                                                        : 'bg-orange-100 text-orange-600'
+                                                        ? 'bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400'
+                                                        : 'bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
                                                 }`}>
                                                 {order.payment_status === 'Refunded'
-                                                    ? <RotateCcw size={16} />
+                                                    ? <RotateCcw size={18} />
                                                     : order.payment_status === 'Paid'
-                                                        ? <ArrowDownLeft size={16} />
-                                                        : <DollarSign size={16} />
+                                                        ? <ArrowDownLeft size={18} />
+                                                        : <DollarSign size={18} />
                                                 }
                                             </div>
-                                            <div>
-                                                <p className="text-sm font-medium text-gray-900">
-                                                    {order.customer_name || 'Customer'} — {order.items_summary || 'Order'}
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-2 mb-0.5">
+                                                    <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                                                        {order.customer_name || 'Customer'}
+                                                    </p>
+                                                    <span className="text-gray-300 dark:text-gray-700 hidden sm:inline">•</span>
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate hidden sm:block">
+                                                        {order.items_summary || 'Order'}
+                                                    </p>
+                                                </div>
+                                                <p className="text-xs text-gray-400 truncate sm:hidden mb-1">
+                                                    {order.items_summary || 'Order'}
                                                 </p>
-                                                <p className="text-xs text-gray-500">
-                                                    {formatDate(order.created_at)}
+                                                <div className="flex items-center gap-2 text-xs text-gray-400">
+                                                    <p>{formatDate(order.created_at)}</p>
                                                     {order.paystack_reference && (
-                                                        <span className="text-gray-400 ml-1 font-mono">• {order.paystack_reference}</span>
+                                                        <>
+                                                            <span>•</span>
+                                                            <span className="font-mono">{order.paystack_reference.slice(0, 8)}...</span>
+                                                        </>
                                                     )}
-                                                </p>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-3">
+
+                                        <div className="flex items-center justify-between sm:justify-end gap-4 sm:min-w-[200px]">
                                             <div className="text-right">
-                                                <p className={`font-bold ${order.payment_status === 'Refunded' ? 'text-gray-400 line-through'
-                                                        : order.payment_status === 'Paid' ? 'text-green-600'
+                                                <p className={`font-bold text-base ${order.payment_status === 'Refunded' ? 'text-gray-400 line-through'
+                                                        : order.payment_status === 'Paid' ? 'text-gray-900 dark:text-white' // Changed from green to neutral for better readability
                                                             : 'text-orange-600'
                                                     }`}>
                                                     {order.payment_status === 'Paid' ? '+' : ''}{formatCurrency(order.total_amount || 0)}
                                                 </p>
-                                                <p className={`text-xs capitalize font-medium ${order.payment_status === 'Refunded' ? 'text-gray-400' :
-                                                        order.status === 'Delivered' ? 'text-green-500' :
-                                                            order.status === 'In Progress' ? 'text-blue-500' : 'text-gray-400'
-                                                    }`}>
-                                                    {order.payment_status === 'Refunded' ? 'Refunded' : order.status}
-                                                </p>
+                                                <div className="flex justify-end mt-1">
+                                                    <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full ${order.payment_status === 'Refunded' ? 'bg-gray-100 text-gray-500 dark:bg-dark-800 dark:text-gray-400' :
+                                                            order.status === 'Delivered' ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400' :
+                                                                order.status === 'In Progress' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' :
+                                                                    'bg-gray-100 text-gray-600 dark:bg-dark-800 dark:text-gray-400'
+                                                        }`}>
+                                                        {order.payment_status === 'Refunded' ? 'Refunded' : order.status}
+                                                    </span>
+                                                </div>
                                             </div>
+
                                             {/* Refund Button */}
                                             {order.payment_status === 'Paid' && order.paystack_reference && (
                                                 <button
                                                     onClick={() => handleRefund(order)}
                                                     disabled={refundingId === order.id}
-                                                    className="px-3 py-1.5 text-xs font-medium border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                                                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all disabled:opacity-50 group"
+                                                    title="Process Refund"
                                                 >
                                                     {refundingId === order.id ? (
-                                                        <Loader2 size={12} className="animate-spin" />
+                                                        <Loader2 size={18} className="animate-spin text-red-600" />
                                                     ) : (
-                                                        <RotateCcw size={12} />
+                                                        <RotateCcw size={18} className="group-hover:-rotate-180 transition-transform duration-500" />
                                                     )}
-                                                    {refundingId === order.id ? 'Refunding...' : 'Refund'}
                                                 </button>
-                                            )}
-                                            {order.payment_status === 'Refunded' && (
-                                                <span className="px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-500 rounded-full">
-                                                    Refunded
-                                                </span>
                                             )}
                                         </div>
                                     </div>
