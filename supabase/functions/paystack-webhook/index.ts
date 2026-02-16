@@ -219,5 +219,13 @@ Deno.serve(async (req: Request) => {
     type: 'payment'
   })
 
+  // ADMIN NOTIFICATION
+  await supabase.from('notifications').insert({
+    title: '🍕 New Order Received',
+    message: `₦${amount} order for ${client.business_name} from ${paymentData.customer?.first_name || 'Customer'}.`,
+    is_system: true,
+    type: 'order'
+  })
+
   return new Response(JSON.stringify({ message: 'Order processed' }), { status: 200 })
 })
