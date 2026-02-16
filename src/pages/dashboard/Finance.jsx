@@ -8,21 +8,40 @@ const Finance = () => {
     const [stats, setStats] = useState({
         totalRevenue: 0,
         totalCommission: 0,
+        totalSubRevenue: 0,
         totalClientPayouts: 0,
         transactionCount: 0
     });
+    const [timeframe, setTimeframe] = useState('all'); // all, today, 7d, 30d
 
     useEffect(() => {
         fetchFinance();
-    }, []);
+    }, [timeframe]);
 
     const fetchFinance = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from('axis_finance')
                 .select('*')
                 .order('created_at', { ascending: false });
+
+            if (timeframe !== 'all') {
+                const now = new Date();
+                const startDate = new Date();
+
+                if (timeframe === 'today') {
+                    startDate.setHours(0, 0, 0, 0);
+                } else if (timeframe === '7d') {
+                    startDate.setDate(now.getDate() - 7);
+                } else if (timeframe === '30d') {
+                    startDate.setDate(now.getDate() - 30);
+                }
+
+                query = query.gte('created_at', startDate.toISOString());
+            }
+
+            const { data, error } = await query;
 
             if (error) throw error;
 
@@ -31,12 +50,20 @@ const Finance = () => {
 
             // Calculate stats
             const totalRevenue = rows.reduce((s, r) => s + Number(r.total_amount), 0);
-            const totalCommission = rows.reduce((s, r) => s + Number(r.axis_commission), 0);
+            const totalCommission = rows.reduce((s, r) => {
+                // Only count as commission if it's less than 100% (Order commissions are 0.5%)
+                return r.commission_rate < 1 ? s + Number(r.axis_commission) : s;
+            }, 0);
+            const totalSubRevenue = rows.reduce((s, r) => {
+                // Subscription revenue is where commission_rate is 100% (1.0)
+                return r.commission_rate >= 1 ? s + Number(r.axis_commission) : s;
+            }, 0);
             const totalClientPayouts = rows.reduce((s, r) => s + Number(r.client_revenue), 0);
 
             setStats({
                 totalRevenue,
                 totalCommission,
+                totalSubRevenue,
                 totalClientPayouts,
                 transactionCount: rows.length
             });
@@ -57,6 +84,26 @@ const Finance = () => {
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Axisprompt Finance</h2>
                     <p className="text-gray-500 dark:text-gray-400">All transactions across clients — 0.5% commission tracking.</p>
                 </div>
+
+                <div className="flex items-center gap-2 bg-gray-100 dark:bg-dark-800 p-1 rounded-xl border border-gray-200 dark:border-dark-700">
+                    {[
+                        { id: 'all', label: 'All Time' },
+                        { id: 'today', label: 'Today' },
+                        { id: '7d', label: '7 Days' },
+                        { id: '30d', label: '30 Days' }
+                    ].map((tf) => (
+                        <button
+                            key={tf.id}
+                            onClick={() => setTimeframe(tf.id)}
+                            className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${timeframe === tf.id
+                                    ? 'bg-white dark:bg-dark-700 text-brand-600 dark:text-brand-400 shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                                }`}
+                        >
+                            {tf.label}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {/* Stats Cards */}
@@ -72,11 +119,20 @@ const Finance = () => {
 
                 <div className="bg-gradient-to-br from-brand-600 to-brand-700 p-5 rounded-2xl shadow-lg shadow-brand-500/20 text-white">
                     <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-bold text-white/70 uppercase">Axis Commission</span>
+                        <span className="text-xs font-bold text-white/70 uppercase">Subscription Revenue</span>
                         <div className="p-2 bg-white/20 rounded-lg"><TrendingUp size={16} className="text-white" /></div>
                     </div>
-                    <p className="text-2xl font-bold">{formatCurrency(stats.totalCommission)}</p>
-                    <p className="text-xs text-white/60 mt-1">0.5% of total volume</p>
+                    <p className="text-2xl font-bold">{formatCurrency(stats.totalSubRevenue)}</p>
+                    <p className="text-xs text-white/60 mt-1">100% platform income</p>
+                </div>
+
+                <div className="bg-white dark:bg-dark-900 p-5 rounded-2xl border border-gray-200 dark:border-dark-800 shadow-sm transition-colors ring-2 ring-brand-500/10">
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-bold text-brand-600 dark:text-brand-400 uppercase">Only Commissions</span>
+                        <div className="p-2 bg-brand-50 dark:bg-brand-900/20 rounded-lg"><TrendingUp size={16} className="text-brand-600 dark:text-brand-400" /></div>
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(stats.totalCommission)}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">0.5% from orders</p>
                 </div>
 
                 <div className="bg-white dark:bg-dark-900 p-5 rounded-2xl border border-gray-200 dark:border-dark-800 shadow-sm transition-colors">

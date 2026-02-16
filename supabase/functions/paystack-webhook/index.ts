@@ -125,6 +125,14 @@ Deno.serve(async (req: Request) => {
         message: `Your subscription has been successfully renewed until ${newEndDate.toLocaleDateString()}. Payment Ref: ${reference}`
       })
 
+      // ADMIN NOTIFICATION
+      await supabase.from('notifications').insert({
+        title: '💰 Subscription Payment',
+        message: `₦${amount} received from ${client.business_name} (Subscription)`,
+        is_system: true,
+        type: 'payment'
+      })
+
       // Log Finance Record for Subscription Payment
       await supabase.from('axis_finance').insert({
         client_id: client.id,
@@ -201,6 +209,14 @@ Deno.serve(async (req: Request) => {
     client_name: client.business_name,
     customer_name: paymentData.customer?.email || 'Unknown',
     status: 'completed'
+  })
+
+  // ADMIN NOTIFICATION
+  await supabase.from('notifications').insert({
+    title: '💸 New Commission Earned',
+    message: `₦${axisCommission} commission from ${client.business_name} (Order ₦${amount})`,
+    is_system: true,
+    type: 'payment'
   })
 
   return new Response(JSON.stringify({ message: 'Order processed' }), { status: 200 })

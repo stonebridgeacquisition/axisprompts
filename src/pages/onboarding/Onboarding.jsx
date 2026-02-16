@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { Store, CreditCard, BookOpen, Globe, Upload, Check, ChevronRight, Loader2, Plus, X, FileText, PenLine } from 'lucide-react';
+import { Store, CreditCard, BookOpen, Globe, Upload, Check, ChevronRight, Loader2, Plus, X, FileText, PenLine, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { createSubaccount } from '../../lib/paystack';
 
 const Onboarding = () => {
     const navigate = useNavigate();
-    const [step, setStep] = useState(1);
+    const [step, setStep] = useState(0); // Changed to 0 for access code step
     const [loading, setLoading] = useState(false);
+    const [verifying, setVerifying] = useState(false);
+    const [enteredCode, setEnteredCode] = useState('');
+    const [requiredCode, setRequiredCode] = useState('');
 
     // File states
     const [logoFile, setLogoFile] = useState(null);
@@ -73,7 +76,24 @@ const Onboarding = () => {
                 setBanks(FALLBACK_BANKS);
             }
         };
+
+        const fetchAccessCode = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('platform_settings')
+                    .select('value')
+                    .eq('key', 'onboarding_access_code')
+                    .single();
+                if (!error && data) {
+                    setRequiredCode(data.value);
+                }
+            } catch (err) {
+                console.error("Error fetching access code:", err);
+            }
+        };
+
         fetchBanks();
+        fetchAccessCode();
     }, []);
 
     const handleChange = (e) => {
@@ -96,6 +116,20 @@ const Onboarding = () => {
 
     const handleNext = () => setStep(prev => prev + 1);
     const handlePrev = () => setStep(prev => prev - 1);
+
+    const handleVerifyCode = (e) => {
+        e.preventDefault();
+        setVerifying(true);
+        // Simulate a tiny delay for premium feel
+        setTimeout(() => {
+            if (enteredCode.trim().toUpperCase() === requiredCode.toUpperCase()) {
+                setStep(1);
+            } else {
+                alert('Invalid access code. Please contact your agency for the correct code.');
+            }
+            setVerifying(false);
+        }, 500);
+    };
 
     const addManualItem = () => {
         if (!newItemName || !newItemPrice) return;
@@ -208,7 +242,19 @@ const Onboarding = () => {
             const newClient = data[0];
             console.log("Client Created:", newClient);
 
-            // 4. Initialize Finance Table (Best effort)
+            // 4. Trigger Admin Notification (New User)
+            try {
+                await supabase.from('notifications').insert({
+                    title: '🎉 New Client Onboarded',
+                    message: `${newClient.business_name} just completed setup.`,
+                    is_system: true,
+                    type: 'user'
+                });
+            } catch (err) {
+                console.error("Notification Trigger Error:", err);
+            }
+
+            // 5. Initialize Finance Table (Best effort)
             try {
                 const { error: financeError } = await supabase
                     .from('finance')
@@ -295,17 +341,68 @@ const Onboarding = () => {
             <div className="w-full max-w-2xl bg-white rounded-2xl shadow-xl shadow-gray-200/50 overflow-hidden border border-gray-100">
 
                 {/* Progress Bar */}
-                <div className="bg-gray-50 border-b border-gray-100 px-8 py-4 flex items-center justify-between text-sm font-medium text-gray-500">
-                    <span className={step >= 1 ? "text-brand-600" : ""}>1. Business</span>
-                    <ChevronRight size={16} className="text-gray-300" />
-                    <span className={step >= 2 ? "text-brand-600" : ""}>2. Bank</span>
-                    <ChevronRight size={16} className="text-gray-300" />
-                    <span className={step >= 3 ? "text-brand-600" : ""}>3. Knowledge</span>
-                    <ChevronRight size={16} className="text-gray-300" />
-                    <span className={step >= 4 ? "text-brand-600" : ""}>4. Menu</span>
-                </div>
+                {step > 0 && (
+                    <div className="bg-gray-50 border-b border-gray-100 px-8 py-4 flex items-center justify-between text-sm font-medium text-gray-500 overflow-x-auto no-scrollbar">
+                        <span className={step >= 1 ? "text-brand-600 shrink-0" : "shrink-0"}>1. Business</span>
+                        <ChevronRight size={16} className="text-gray-300 shrink-0 mx-2" />
+                        <span className={step >= 2 ? "text-brand-600 shrink-0" : "shrink-0"}>2. Bank</span>
+                        <ChevronRight size={16} className="text-gray-300 shrink-0 mx-2" />
+                        <span className={step >= 3 ? "text-brand-600 shrink-0" : "shrink-0"}>3. Knowledge</span>
+                        <ChevronRight size={16} className="text-gray-300 shrink-0 mx-2" />
+                        <span className={step >= 4 ? "text-brand-600 shrink-0" : "shrink-0"}>4. Menu</span>
+                    </div>
+                )}
 
                 <div className="p-8">
+                    {/* Step 0: Gatekeeper */}
+                    {step === 0 && (
+                        <form onSubmit={handleVerifyCode} className="space-y-8 py-4">
+                            <div className="text-center space-y-2">
+                                <div className="w-16 h-16 bg-brand-50 rounded-full flex items-center justify-center mx-auto text-brand-600 mb-4 ring-8 ring-brand-50/50">
+                                    <Shield size={32} />
+                                </div>
+                                <h2 className="text-2xl font-bold text-gray-900">Protected Form</h2>
+                                <p className="text-gray-500">Please enter your agency's onboarding access code to continue.</p>
+                            </div>
+
+                            <div className="max-w-xs mx-auto space-y-4">
+                                <div>
+                                    <input
+                                        type="text"
+                                        value={enteredCode}
+                                        onChange={(e) => setEnteredCode(e.target.value)}
+                                        className="w-full text-center text-2xl font-bold tracking-[0.2em] font-mono px-4 py-4 rounded-xl border-2 border-gray-200 focus:border-brand-500 focus:ring-0 outline-none transition-all uppercase placeholder:text-gray-200"
+                                        placeholder="••••••••"
+                                        autoFocus
+                                        required
+                                    />
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={verifying}
+                                    className="w-full py-4 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-xl shadow-brand-500/20 flex items-center justify-center gap-2 transition-all disabled:opacity-70"
+                                >
+                                    {verifying ? (
+                                        <>
+                                            <Loader2 size={20} className="animate-spin" />
+                                            Verifying...
+                                        </>
+                                    ) : (
+                                        <>
+                                            Start Onboarding
+                                            <ChevronRight size={20} />
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+
+                            <div className="text-center pt-4">
+                                <p className="text-xs text-gray-400">
+                                    Only authorized businesses can access this setup flow.
+                                </p>
+                            </div>
+                        </form>
+                    )}
 
                     {/* Step 1: Business Info */}
                     {step === 1 && (
@@ -469,6 +566,17 @@ const Onboarding = () => {
                                     onChange={handleChange}
                                     className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
                                     placeholder="For issues requiring human intervention"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Opening Hours</label>
+                                <input
+                                    type="text"
+                                    name="openingHours"
+                                    value={formData.openingHours}
+                                    onChange={handleChange}
+                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                                    placeholder="e.g. 9:00 AM - 10:00 PM (Daily)"
                                 />
                             </div>
                         </div>
@@ -642,40 +750,42 @@ const Onboarding = () => {
                     )}
 
                     {/* Nav Actions */}
-                    <div className="mt-10 flex items-center justify-between pt-6 border-t border-gray-100">
-                        {step > 1 ? (
-                            <button
-                                type="button"
-                                onClick={handlePrev}
-                                className="px-6 py-2 text-gray-600 font-medium hover:bg-gray-100 rounded-lg transition-colors"
-                            >
-                                Back
-                            </button>
-                        ) : (
-                            <div></div>
-                        )}
+                    {step > 0 && (
+                        <div className="mt-10 flex items-center justify-between pt-6 border-t border-gray-100">
+                            {step > 1 ? (
+                                <button
+                                    type="button"
+                                    onClick={handlePrev}
+                                    className="px-6 py-2 text-gray-600 font-medium hover:bg-gray-100 rounded-lg transition-colors"
+                                >
+                                    Back
+                                </button>
+                            ) : (
+                                <div></div>
+                            )}
 
-                        {step < 4 ? (
-                            <button
-                                type="button"
-                                onClick={handleNext}
-                                className="px-6 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-lg shadow-lg shadow-brand-500/20 transition-all"
-                            >
-                                Continue
-                            </button>
-                        ) : (
-                            <button
-                                type="button"
-                                onClick={handleSubmit}
-                                disabled={loading}
-                                className={`px-8 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-lg shadow-green-500/20 flex items-center gap-2 transition-all ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
-                            >
-                                {loading ? 'Creating Dashboard...' : 'Complete Setup'}
-                                {loading && <Loader2 size={18} className="animate-spin" />}
-                                {!loading && <Check size={18} />}
-                            </button>
-                        )}
-                    </div>
+                            {step < 4 ? (
+                                <button
+                                    type="button"
+                                    onClick={handleNext}
+                                    className="px-6 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-lg shadow-lg shadow-brand-500/20 transition-all"
+                                >
+                                    Continue
+                                </button>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={handleSubmit}
+                                    disabled={loading}
+                                    className={`px-8 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-lg shadow-green-500/20 flex items-center gap-2 transition-all ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                >
+                                    {loading ? 'Creating Dashboard...' : 'Complete Setup'}
+                                    {loading && <Loader2 size={18} className="animate-spin" />}
+                                    {!loading && <Check size={18} />}
+                                </button>
+                            )}
+                        </div>
+                    )}
 
                 </div>
             </div>

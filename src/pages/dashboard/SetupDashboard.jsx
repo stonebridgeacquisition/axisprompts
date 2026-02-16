@@ -9,6 +9,8 @@ const SetupDashboard = () => {
     const [copied, setCopied] = useState(false);
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [accessCode, setAccessCode] = useState('');
+    const [savingCode, setSavingCode] = useState(false);
 
     // Mock Team Data (Replace with DB fetch later)
     const [teamMembers, setTeamMembers] = useState([
@@ -41,6 +43,18 @@ const SetupDashboard = () => {
                 }));
                 setTeamMembers(mappedAdmins);
             }
+
+            // 3. Get platform settings (access code)
+            const { data: settings, error: settingsError } = await supabase
+                .from('platform_settings')
+                .select('value')
+                .eq('key', 'onboarding_access_code')
+                .single();
+
+            if (!settingsError && settings) {
+                setAccessCode(settings.value);
+            }
+
             setLoading(false);
         };
         fetchUserAndTeam();
@@ -75,6 +89,25 @@ const SetupDashboard = () => {
             alert('Failed to send invite: ' + (err.message || 'Unknown error'));
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleUpdateCode = async () => {
+        if (!accessCode) return;
+        setSavingCode(true);
+        try {
+            const { error } = await supabase
+                .from('platform_settings')
+                .update({ value: accessCode })
+                .eq('key', 'onboarding_access_code');
+
+            if (error) throw error;
+            alert('Access code updated successfully!');
+        } catch (err) {
+            console.error('Error updating access code:', err);
+            alert('Failed to update access code');
+        } finally {
+            setSavingCode(false);
         }
     };
 
@@ -292,6 +325,39 @@ const SetupDashboard = () => {
 
                                         <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-xs text-blue-800 text-left">
                                             <strong>Security Note:</strong> This link allows anyone to create a client account under your agency. Do not share it publicly.
+                                        </div>
+
+                                        {/* Access Code Management */}
+                                        <div className="pt-8 mt-8 border-t border-gray-100 text-left">
+                                            <div className="flex items-center gap-2 mb-4 text-brand-600">
+                                                <Shield size={20} />
+                                                <h3 className="text-lg font-bold text-gray-900">Onboarding Security</h3>
+                                            </div>
+                                            <p className="text-sm text-gray-500 mb-4">
+                                                Require an access code for clients to fill the onboarding form. This prevents unauthorized submissions.
+                                            </p>
+
+                                            <div className="space-y-4">
+                                                <div>
+                                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Onboarding Access Code</label>
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={accessCode}
+                                                            onChange={(e) => setAccessCode(e.target.value)}
+                                                            className="flex-1 px-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-sm font-mono shadow-sm"
+                                                            placeholder="e.g. AXIS2026"
+                                                        />
+                                                        <button
+                                                            onClick={handleUpdateCode}
+                                                            disabled={savingCode}
+                                                            className="px-6 py-2.5 bg-gray-900 text-white rounded-lg font-bold text-sm hover:bg-gray-800 transition-all disabled:opacity-50"
+                                                        >
+                                                            {savingCode ? 'Updating...' : 'Update Code'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
