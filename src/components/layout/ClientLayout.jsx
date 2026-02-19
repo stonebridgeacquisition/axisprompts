@@ -203,7 +203,10 @@ const ClientLayout = () => {
     const isSubscriptionExpired = client.subscription_status === 'active' && client.subscription_end_date && new Date(client.subscription_end_date) < now;
     const isTrialExpired = client.subscription_status === 'trial' && client.trial_end_date && new Date(client.trial_end_date) < now;
 
-    const isAccessBlocked = (client.subscription_status === 'expired' || client.subscription_status === 'inactive') || (isSubscriptionExpired && !client.is_grace_period);
+    const isAccessBlocked = client.payment_model === 'subscription' && (
+        (client.subscription_status === 'expired' || client.subscription_status === 'inactive') ||
+        (isSubscriptionExpired && !client.is_grace_period)
+    );
 
     return (
         <div className="flex h-screen bg-gray-50 dark:bg-dark-950 overflow-hidden font-sans transition-colors duration-200">
@@ -273,9 +276,11 @@ const ClientLayout = () => {
                     <ClientSidebarLink to={`/client/${slug}/settings`} icon={Settings}>
                         Settings
                     </ClientSidebarLink>
-                    <ClientSidebarLink to={`/client/${slug}/subscription`} icon={CreditCard}>
-                        Subscription
-                    </ClientSidebarLink>
+                    {client.payment_model !== 'commission' && (
+                        <ClientSidebarLink to={`/client/${slug}/subscription`} icon={CreditCard}>
+                            Subscription
+                        </ClientSidebarLink>
+                    )}
                 </div>
 
                 {/* Footer User Profile & Theme Toggle */}
@@ -304,7 +309,7 @@ const ClientLayout = () => {
             <main className="flex-1 flex flex-col h-full overflow-hidden relative">
 
                 {/* Grace Period / Payment Failed Banner */}
-                {client.is_grace_period && (
+                {client.is_grace_period && client.payment_model !== 'commission' && (
                     <div className="bg-red-600 text-white px-4 py-2 text-sm font-bold flex items-center justify-center gap-2 shadow-md relative z-20 animate-pulse">
                         <AlertCircle size={18} />
                         <span>Payment Failed: Your subscription renewal was unsuccessful.</span>
@@ -318,7 +323,7 @@ const ClientLayout = () => {
                 )}
 
                 {/* Trial Banner */}
-                {client.subscription_status === 'trial' && trialDaysLeft !== null && (
+                {client.subscription_status === 'trial' && client.payment_model !== 'commission' && trialDaysLeft !== null && (
                     <div className={`${trialDaysLeft <= 1 ? 'bg-red-600' : 'bg-brand-600'} text-white px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 shadow-sm relative z-20`}>
                         <Clock size={16} />
                         {trialDaysLeft === 0 ? (

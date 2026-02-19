@@ -199,13 +199,52 @@ const ClientDetails = () => {
                                 }}
                                 className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
                             >
-                                <option value="trial">Trial</option>
-                                <option value="active">Active (Paid)</option>
+                                <option value="trial">Free Trial</option>
+                                <option value="active">Active Subscription</option>
+                                <option value="expired">Expired/Locked</option>
                                 <option value="inactive">Inactive</option>
-                                <option value="expired">Expired</option>
                             </select>
                             <p className="text-xs text-gray-400 mt-2 leading-tight">
                                 Manually override the subscription status. 'Active' enables full access. 'Expired' blocks access.
+                            </p>
+                        </div>
+
+                        {/* Payment Model Management */}
+                        <div className="mb-6 pb-6 border-b border-gray-100">
+                            <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Payment Model</label>
+                            <select
+                                value={client.payment_model || 'subscription'}
+                                onChange={async (e) => {
+                                    const newModel = e.target.value;
+                                    if (confirm(`Switch to ${newModel} model?`)) {
+                                        const updates = { payment_model: newModel };
+
+                                        // If switching to commission, we might want to null out subscription status to be clean
+                                        if (newModel === 'commission') {
+                                            updates.subscription_status = null;
+                                        } else if (newModel === 'subscription' && !client.subscription_status) {
+                                            updates.subscription_status = 'trial';
+                                        }
+
+                                        const { error } = await supabase
+                                            .from('clients')
+                                            .update(updates)
+                                            .eq('id', client.id);
+
+                                        if (!error) {
+                                            setClient({ ...client, ...updates });
+                                        }
+                                    }
+                                }}
+                                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                            >
+                                <option value="subscription">Standard (Subscription)</option>
+                                <option value="commission">Commission-Only (10%)</option>
+                            </select>
+                            <p className="text-[10px] text-gray-400 mt-2 leading-relaxed">
+                                {client.payment_model === 'commission'
+                                    ? "Client pays 10% on every order. No monthly fee."
+                                    : "Client pays monthly fee + 0.5% commission."}
                             </p>
                         </div>
 

@@ -20,7 +20,7 @@ Deno.serve(async (req: Request) => {
     }
 
     try {
-        const { subaccount_code, bank_code, account_number, business_name } = await req.json()
+        const { subaccount_code, bank_code, account_number, business_name, percentage_charge } = await req.json()
 
         if (!subaccount_code || !bank_code || !account_number) {
             return new Response(JSON.stringify({ error: 'subaccount_code, bank_code, and account_number are required' }), {
@@ -29,14 +29,15 @@ Deno.serve(async (req: Request) => {
             })
         }
 
-        console.log(`Updating subaccount ${subaccount_code}: bank=${bank_code}, acct=${account_number}`)
+        console.log(`Updating subaccount ${subaccount_code}: bank=${bank_code}, acct=${account_number}, split=${percentage_charge}`)
 
         // Call Paystack Update Subaccount API
-        const payload: Record<string, string> = {
+        const payload: Record<string, any> = {
             settlement_bank: bank_code,
             account_number: account_number,
         }
         if (business_name) payload.business_name = business_name
+        if (percentage_charge !== undefined && percentage_charge !== null) payload.percentage_charge = percentage_charge
 
         const paystackRes = await fetch(`https://api.paystack.co/subaccount/${subaccount_code}`, {
             method: 'PUT',

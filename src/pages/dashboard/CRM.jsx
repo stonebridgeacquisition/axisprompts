@@ -149,7 +149,7 @@ const CRM = () => {
                                     </div>
                                 </div>
 
-                                <div className="space-y-2 mb-6 border-t border-gray-50 dark:border-dark-800 pt-4">
+                                <div className="space-y-2 mb-4 border-t border-gray-50 dark:border-dark-800 pt-4">
                                     <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                                         <MapPin size={14} className="shrink-0" />
                                         <span className="truncate">{client.address || 'No location set'}</span>
@@ -158,6 +158,69 @@ const CRM = () => {
                                         <Phone size={14} className="shrink-0" />
                                         <span className="truncate">{client.phone_number || client.team_contact || 'No contact'}</span>
                                     </div>
+                                </div>
+
+                                {/* Subscription Status Bar */}
+                                <div className="mb-6">
+                                    {(() => {
+                                        const now = new Date();
+                                        const isGrace = client.is_grace_period;
+                                        const isSub = client.subscription_status === 'active';
+                                        const isTrial = client.subscription_status === 'trial';
+
+                                        let color = 'bg-gray-200 dark:bg-dark-700';
+                                        let label = 'Inactive';
+                                        let progress = 0;
+                                        let daysRemaining = 0;
+
+                                        if (client.payment_model === 'commission') {
+                                            color = 'bg-brand-500';
+                                            label = 'Commission Plan';
+                                            progress = 0;
+                                        } else if (isGrace) {
+                                            color = 'bg-red-500';
+                                            label = 'Grace Period';
+                                            progress = 100;
+                                        } else if (isSub && client.subscription_end_date) {
+                                            color = 'bg-green-500';
+                                            label = 'Subscription';
+                                            const end = new Date(client.subscription_end_date);
+                                            // Assume 30 day cycle if we don't have start date
+                                            const start = new Date(end.getTime() - (30 * 24 * 60 * 60 * 1000));
+                                            progress = Math.min(100, Math.max(0, ((now - start) / (end - start)) * 100));
+                                            daysRemaining = Math.max(0, Math.ceil((end - now) / (24 * 60 * 60 * 1000)));
+                                        } else if (isTrial && client.trial_end_date) {
+                                            color = 'bg-blue-500';
+                                            label = 'Free Trial';
+                                            const end = new Date(client.trial_end_date);
+                                            const start = new Date(client.created_at);
+                                            progress = Math.min(100, Math.max(0, ((now - start) / (end - start)) * 100));
+                                            daysRemaining = Math.max(0, Math.ceil((end - now) / (24 * 60 * 60 * 1000)));
+                                        }
+
+                                        if (isNaN(progress)) progress = 0;
+
+                                        return (
+                                            <>
+                                                <div className="flex justify-between items-end mb-1.5">
+                                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isGrace ? 'text-red-500' : 'text-gray-400'}`}>
+                                                        {label}
+                                                    </span>
+                                                    {((isSub || isTrial) && !isGrace && client.payment_model !== 'commission') && (
+                                                        <span className="text-[10px] font-bold text-gray-400">
+                                                            {daysRemaining} days left
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="h-1.5 w-full bg-gray-100 dark:bg-dark-800 rounded-full overflow-hidden">
+                                                    <div
+                                                        className={`h-full transition-all duration-500 ${color}`}
+                                                        style={{ width: `${client.payment_model === 'commission' ? 100 : progress}%` }}
+                                                    />
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
                                 </div>
 
                                 <div className="flex gap-3">

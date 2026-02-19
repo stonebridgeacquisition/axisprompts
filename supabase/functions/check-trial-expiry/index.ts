@@ -107,6 +107,7 @@ Deno.serve(async (req: Request) => {
             .from('clients')
             .select('*')
             .eq('subscription_status', 'trial')
+            .eq('payment_model', 'subscription')
 
         if (fetchError) throw fetchError;
 
@@ -194,6 +195,7 @@ Deno.serve(async (req: Request) => {
             .from('clients')
             .select('*')
             .eq('subscription_status', 'active')
+            .eq('payment_model', 'subscription')
             .lt('subscription_end_date', new Date().toISOString())
 
         if (activeClients) {

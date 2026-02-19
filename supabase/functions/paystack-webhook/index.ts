@@ -161,7 +161,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: client, error: clientError } = await supabase
     .from('clients')
-    .select('id, business_name')
+    .select('id, business_name, payment_model')
     .eq('paystack_subaccount_code', subaccountCode)
     .single()
 
@@ -169,6 +169,8 @@ Deno.serve(async (req: Request) => {
     console.error('Order: Client not found for subaccount:', subaccountCode)
     return new Response(JSON.stringify({ error: 'Client not found' }), { status: 200 })
   }
+
+  console.log(`Client Payment Model: ${client.payment_model}`);
 
   // Create Order
   const { data: order, error: orderError } = await supabase
@@ -193,7 +195,8 @@ Deno.serve(async (req: Request) => {
   }
 
   // Insert Finance Record (Commission)
-  const commissionRate = 0.005
+  const isCommissionModel = client.payment_model === 'commission'
+  const commissionRate = isCommissionModel ? 0.10 : 0.005
   const axisCommission = Math.round(amount * commissionRate * 100) / 100
   const clientRevenue = Math.round((amount - axisCommission) * 100) / 100
 

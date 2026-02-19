@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Store, CreditCard, BookOpen, Globe, Upload, Check, ChevronRight, Loader2, Plus, X, FileText, PenLine, Shield } from 'lucide-react';
+import { Store, CreditCard, BookOpen, Globe, Upload, Check, ChevronRight, Loader2, Plus, X, FileText, PenLine, Shield, ShoppingBag } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { createSubaccount } from '../../lib/paystack';
@@ -35,7 +35,8 @@ const Onboarding = () => {
         cuisine: '',
         contact: '',
         bankCode: '',
-        openingHours: ''
+        openingHours: '',
+        paymentModel: 'subscription' // 'subscription' or 'commission'
     });
 
     const [banks, setBanks] = useState([]);
@@ -171,7 +172,7 @@ const Onboarding = () => {
 
     const handleSubmit = async () => {
         // HARD BLOCK: Do absolutely NOTHING if not on the final step
-        if (step !== 4) {
+        if (step !== 5) {
             return;
         }
 
@@ -185,14 +186,18 @@ const Onboarding = () => {
 
             // 0. Create Paystack Subaccount
             if (formData.bankCode && formData.accountNumber) {
+                const splitPercentage = formData.paymentModel === 'commission' ? 10 : 0.5;
+                console.log('DEBUG: paymentModel =', formData.paymentModel);
+                console.log('DEBUG: splitPercentage =', splitPercentage);
                 try {
                     const subaccountData = await createSubaccount({
                         business_name: formData.businessName,
                         bank_code: formData.bankCode,
-                        account_number: formData.accountNumber
+                        account_number: formData.accountNumber,
+                        percentage_charge: splitPercentage
                     });
                     subaccountCode = subaccountData.subaccount_code;
-                    console.log("Subaccount Created:", subaccountCode);
+                    console.log("Subaccount Created:", subaccountCode, "with split:", splitPercentage + "%");
                 } catch (err) {
                     console.error("Subaccount Creation Failed:", err);
                     // Don't block onboarding if subaccount fails, just log it
@@ -232,7 +237,9 @@ const Onboarding = () => {
                         team_contact: formData.contact,
                         menu_url: menuUrl,
                         status: 'Active',
-                        opening_hours: formData.openingHours
+                        opening_hours: formData.openingHours,
+                        payment_model: formData.paymentModel,
+                        subscription_status: formData.paymentModel === 'commission' ? null : 'trial'
                     }
                 ])
                 .select();
@@ -345,11 +352,13 @@ const Onboarding = () => {
                     <div className="bg-gray-50 border-b border-gray-100 px-8 py-4 flex items-center justify-between text-sm font-medium text-gray-500 overflow-x-auto no-scrollbar">
                         <span className={step >= 1 ? "text-brand-600 shrink-0" : "shrink-0"}>1. Business</span>
                         <ChevronRight size={16} className="text-gray-300 shrink-0 mx-2" />
-                        <span className={step >= 2 ? "text-brand-600 shrink-0" : "shrink-0"}>2. Bank</span>
+                        <span className={step >= 2 ? "text-brand-600 shrink-0" : "shrink-0"}>2. Plan</span>
                         <ChevronRight size={16} className="text-gray-300 shrink-0 mx-2" />
-                        <span className={step >= 3 ? "text-brand-600 shrink-0" : "shrink-0"}>3. Knowledge</span>
+                        <span className={step >= 3 ? "text-brand-600 shrink-0" : "shrink-0"}>3. Bank</span>
                         <ChevronRight size={16} className="text-gray-300 shrink-0 mx-2" />
-                        <span className={step >= 4 ? "text-brand-600 shrink-0" : "shrink-0"}>4. Menu</span>
+                        <span className={step >= 4 ? "text-brand-600 shrink-0" : "shrink-0"}>4. Knowledge</span>
+                        <ChevronRight size={16} className="text-gray-300 shrink-0 mx-2" />
+                        <span className={step >= 5 ? "text-brand-600 shrink-0" : "shrink-0"}>5. Menu</span>
                     </div>
                 )}
 
@@ -472,8 +481,79 @@ const Onboarding = () => {
                         </div>
                     )}
 
-                    {/* Step 2: Bank Info - No changes needed to structure */}
+                    {/* Step 2: Plan Selection */}
                     {step === 2 && (
+                        <div className="space-y-6">
+                            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                                <Shield className="text-brand-600" size={24} />
+                                Select Your Plan
+                            </h2>
+                            <p className="text-gray-500 text-sm">Choose how you'd like to partner with AxisPrompt.</p>
+
+                            <div className="grid grid-cols-1 gap-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData(prev => ({ ...prev, paymentModel: 'subscription' }))}
+                                    className={`p-6 rounded-2xl border-2 text-left transition-all relative overflow-hidden group ${formData.paymentModel === 'subscription' ? 'border-brand-600 bg-brand-50/50' : 'border-gray-100 hover:border-brand-200 bg-white'}`}
+                                >
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className={`p-3 rounded-xl ${formData.paymentModel === 'subscription' ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                                            <CreditCard size={24} />
+                                        </div>
+                                        {formData.paymentModel === 'subscription' && (
+                                            <div className="bg-brand-600 text-white p-1 rounded-full">
+                                                <Check size={16} />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <h3 className="text-lg font-bold text-gray-900">Standard Plan</h3>
+                                    <p className="text-sm text-gray-600 mt-1">7-Day Free Trial, then ₦50k/month + 0.5% commission.</p>
+                                    <div className="mt-4 flex flex-col gap-2">
+                                        <div className="flex items-center gap-2 text-xs text-brand-700 font-medium">
+                                            <Check size={14} />
+                                            <span>Full platform access</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-xs text-brand-700 font-medium">
+                                            <Check size={14} />
+                                            <span>Priority support</span>
+                                        </div>
+                                    </div>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData(prev => ({ ...prev, paymentModel: 'commission' }))}
+                                    className={`p-6 rounded-2xl border-2 text-left transition-all relative overflow-hidden group ${formData.paymentModel === 'commission' ? 'border-brand-600 bg-brand-50/50' : 'border-gray-100 hover:border-brand-200 bg-white'}`}
+                                >
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className={`p-3 rounded-xl ${formData.paymentModel === 'commission' ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                                            <ShoppingBag size={24} />
+                                        </div>
+                                        {formData.paymentModel === 'commission' && (
+                                            <div className="bg-brand-600 text-white p-1 rounded-full">
+                                                <Check size={16} />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <h3 className="text-lg font-bold text-gray-900">Commission-Only</h3>
+                                    <p className="text-sm text-gray-600 mt-1">₦0 setup, ₦0 monthly. We only make money when you do (10% commission).</p>
+                                    <div className="mt-4 flex flex-col gap-2">
+                                        <div className="flex items-center gap-2 text-xs text-brand-700 font-medium">
+                                            <Check size={14} />
+                                            <span>No monthly commitments</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-xs text-brand-700 font-medium">
+                                            <Check size={14} />
+                                            <span>Unlimited agent activity</span>
+                                        </div>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Step 3: Bank Info */}
+                    {step === 3 && (
                         <div className="space-y-6">
                             <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                                 <CreditCard className="text-brand-600" size={24} />
@@ -528,8 +608,8 @@ const Onboarding = () => {
                         </div>
                     )}
 
-                    {/* Step 3: Knowledge Base - No changes needed to structure */}
-                    {step === 3 && (
+                    {/* Step 4: Knowledge Base */}
+                    {step === 4 && (
                         <div className="space-y-6">
                             <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                                 <BookOpen className="text-brand-600" size={24} />
@@ -582,8 +662,8 @@ const Onboarding = () => {
                         </div>
                     )}
 
-                    {/* Step 4: Menu (Optional) */}
-                    {step === 4 && (
+                    {/* Step 5: Menu (Optional) */}
+                    {step === 5 && (
                         <div className="space-y-6">
                             <div>
                                 <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -764,7 +844,7 @@ const Onboarding = () => {
                                 <div></div>
                             )}
 
-                            {step < 4 ? (
+                            {step < 5 ? (
                                 <button
                                     type="button"
                                     onClick={handleNext}
