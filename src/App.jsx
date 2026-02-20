@@ -39,7 +39,7 @@ function App() {
         <Route path="/terms" element={<Terms />} />
         <Route path="/onboarding" element={<Onboarding />} />
 
-        {/* AXISPROMPT ADMIN (Internal) */}
+        {/* SWIFT ORDER AI ADMIN (Internal) */}
         <Route path="/admin/login" element={<Login />} />
         <Route element={<ProtectedRoute />}>
           <Route path="/admin" element={<DashboardLayout />}>

@@ -81,7 +81,7 @@ const Finance = () => {
         <div className="max-w-7xl mx-auto space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Axisprompt Finance</h2>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Swift Order AI Finance</h2>
                     <p className="text-gray-500 dark:text-gray-400">All transactions across clients — 0.5% commission tracking.</p>
                 </div>
 

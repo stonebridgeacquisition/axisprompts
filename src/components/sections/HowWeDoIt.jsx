@@ -16,7 +16,7 @@ const HowWeDoIt = () => {
         {
             num: "03",
             title: "Launch",
-            desc: "AxisPrompt starts selling and answering questions 24/7."
+            desc: "Swift Order AI starts selling and answering questions 24/7."
         }
     ];
 

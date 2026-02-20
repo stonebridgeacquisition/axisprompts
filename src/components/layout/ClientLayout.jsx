@@ -246,7 +246,7 @@ const ClientLayout = () => {
                             </div>
                         )}
                         <span className="text-lg font-bold text-gray-900 dark:text-white truncate">
-                            {client?.business_name || 'AxisPrompt'}
+                            {client?.business_name || 'Swift Order AI'}
                         </span>
                     </div>
                     <button

@@ -65,7 +65,7 @@ const getEmailTemplate = (businessName: string, titleCode: string, bodyContent: 
     <body>
         <div class="container">
             <div class="header">
-                <h1>AxisPrompt</h1>
+                <h1>Swift Order AI</h1>
             </div>
             <div class="content">
                 ${titleCode}
@@ -76,7 +76,7 @@ const getEmailTemplate = (businessName: string, titleCode: string, bodyContent: 
                 </div>
             </div>
             <div class="footer">
-                &copy; 2026 AxisPrompt AI. All rights reserved.
+                &copy; 2026 Swift Order AI AI. All rights reserved.
             </div>
         </div>
     </body>
@@ -96,7 +96,7 @@ Deno.serve(async (req: Request) => {
 
         const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
         let processedCount = 0;
-        const BASE_URL = Deno.env.get('SITE_URL') || 'https://axisprompts.com';
+        const BASE_URL = Deno.env.get('SITE_URL') || 'https://swiftorderai.com';
 
         console.log("Starting trial and subscription check...");
 
@@ -158,7 +158,7 @@ Deno.serve(async (req: Request) => {
                     const html = getEmailTemplate(
                         client.business_name,
                         '<div class="badge badge-warning">Trial Ended</div>',
-                        '<p>Your free trial has officially ended today! We hope you loved using AxisPrompt.</p><p>We are giving you a <b>3-day buffer</b> to subscribe while keeping your agent live. Please subscribe now to avoid any service interruption on Day 10.</p>',
+                        '<p>Your free trial has officially ended today! We hope you loved using Swift Order AI.</p><p>We are giving you a <b>3-day buffer</b> to subscribe while keeping your agent live. Please subscribe now to avoid any service interruption on Day 10.</p>',
                         subLink,
                         'Subscribe Now'
                     );
@@ -178,7 +178,7 @@ Deno.serve(async (req: Request) => {
                     const html = getEmailTemplate(
                         client.business_name,
                         '<div class="badge badge-warning">3 Days Left</div>',
-                        '<p>You have 3 days left in your free trial. We hope AxisPrompt is helping you grow your business!</p><p>Upgrade now to a full plan to keep all your data and settings.</p>',
+                        '<p>You have 3 days left in your free trial. We hope Swift Order AI is helping you grow your business!</p><p>Upgrade now to a full plan to keep all your data and settings.</p>',
                         subLink,
                         'Upgrade Now'
                     );

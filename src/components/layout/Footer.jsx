@@ -9,7 +9,7 @@ const Footer = () => {
 
             <div className="container mx-auto px-6 relative z-10">
                 <div className="border-t border-transparent pt-8 flex flex-col md:flex-row justify-between items-center text-sm text-gray-500">
-                    <p>&copy; {new Date().getFullYear()} AxisPrompt. All rights reserved.</p>
+                    <p>&copy; {new Date().getFullYear()} Swift Order AI. All rights reserved.</p>
                     <div className="flex gap-8 mt-4 md:mt-0">
                         <Link to="/privacy" className="hover:text-brand-600 transition-colors">Privacy</Link>
                         <Link to="/terms" className="hover:text-brand-600 transition-colors">Terms</Link>

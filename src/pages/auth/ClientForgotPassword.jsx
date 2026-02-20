@@ -215,7 +215,7 @@ const ClientForgotPassword = () => {
             </div>
 
             <p className="text-center text-gray-400 text-sm mt-8">
-                &copy; {new Date().getFullYear()} AxisPrompt. All rights reserved.
+                &copy; {new Date().getFullYear()} Swift Order AI. All rights reserved.
             </p>
         </div>
     );

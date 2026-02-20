@@ -53,7 +53,7 @@ serve(async (req) => {
 
         // 4. Invite the user
         const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-            redirectTo: 'https://app.axisprompt.com/app/login'
+            redirectTo: 'https://app.swiftorderai.com/app/login'
         });
 
         if (inviteError) {

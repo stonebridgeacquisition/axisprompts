@@ -61,7 +61,7 @@ const SetupDashboard = () => {
     }, []);
 
     // The Onboarding Link
-    const onboardingLink = "https://app.axisprompt.com/onboarding";
+    const onboardingLink = "https://app.swiftorderai.com/onboarding";
 
     const handleCopy = () => {
         navigator.clipboard.writeText(onboardingLink);

@@ -173,7 +173,7 @@ const DashboardLayout = () => {
                 <div className="p-5 border-b border-gray-100 dark:border-dark-800 flex items-center justify-between">
                     <div className="flex items-center gap-2 text-brand-600 font-bold text-lg">
                         <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shadow-lg shadow-brand-500/20">A</div>
-                        <span className="dark:text-white">AxisPrompt</span>
+                        <span className="dark:text-white">Swift Order AI</span>
                     </div>
                 </div>
 
@@ -258,7 +258,7 @@ const DashboardLayout = () => {
                             <div className="p-5 border-b border-gray-100 dark:border-dark-800 flex items-center justify-between">
                                 <div className="flex items-center gap-2 text-brand-600 font-bold text-lg">
                                     <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white">A</div>
-                                    <span className="dark:text-white">AxisPrompt</span>
+                                    <span className="dark:text-white">Swift Order AI</span>
                                 </div>
                                 <button onClick={() => setSidebarOpen(false)} className="p-2 -mr-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                                     <X size={20} />

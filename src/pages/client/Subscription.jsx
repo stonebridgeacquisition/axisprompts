@@ -158,7 +158,7 @@ const Subscription = () => {
         <div className="max-w-2xl mx-auto py-12 px-4">
             <div className="text-center mb-8">
                 <h2 className="text-3xl font-bold text-gray-900">Subscription Status</h2>
-                <p className="text-gray-500 mt-2">Manage your automated AxisPrompt subscription.</p>
+                <p className="text-gray-500 mt-2">Manage your automated Swift Order AI subscription.</p>
             </div>
 
             {/* Main Status & Action Card */}

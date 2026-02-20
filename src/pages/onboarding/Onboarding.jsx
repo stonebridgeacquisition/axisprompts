@@ -340,7 +340,7 @@ const Onboarding = () => {
                 <div className="mx-auto w-12 h-12 bg-brand-600 rounded-xl flex items-center justify-center text-white font-bold text-xl mb-4 shadow-lg shadow-brand-500/20">
                     A
                 </div>
-                <h1 className="text-3xl font-bold text-gray-900">Welcome to AxisPrompt</h1>
+                <h1 className="text-3xl font-bold text-gray-900">Welcome to Swift Order AI</h1>
                 <p className="text-gray-500 mt-2">Let's get your AI Agent set up in minutes.</p>
             </div>
 
@@ -476,7 +476,7 @@ const Onboarding = () => {
                             </div>
                             <div className="bg-blue-50 p-4 rounded-lg flex gap-3 text-blue-700 text-sm">
                                 <Globe size={16} className="shrink-0 mt-0.5" />
-                                <p>Your dashboard will be created at: <br /><span className="font-mono font-bold">app.axisprompt.com/client/{formData.slug || '...'}</span></p>
+                                <p>Your dashboard will be created at: <br /><span className="font-mono font-bold">app.swiftorderai.com/client/{formData.slug || '...'}</span></p>
                             </div>
                         </div>
                     )}
@@ -488,7 +488,7 @@ const Onboarding = () => {
                                 <Shield className="text-brand-600" size={24} />
                                 Select Your Plan
                             </h2>
-                            <p className="text-gray-500 text-sm">Choose how you'd like to partner with AxisPrompt.</p>
+                            <p className="text-gray-500 text-sm">Choose how you'd like to partner with Swift Order AI.</p>
 
                             <div className="grid grid-cols-1 gap-4">
                                 <button
@@ -870,7 +870,7 @@ const Onboarding = () => {
                 </div>
             </div>
 
-            <p className="mt-8 text-gray-400 text-sm">Need help? Contact support@axisprompt.com</p>
+            <p className="mt-8 text-gray-400 text-sm">Need help? Contact support@swiftorderai.com</p>
         </div>
     );
 };

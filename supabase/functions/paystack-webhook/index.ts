@@ -139,7 +139,7 @@ Deno.serve(async (req: Request) => {
         paystack_reference: reference,
         paystack_transaction_id: String(paymentData.id),
         total_amount: amount,
-        axis_commission: amount, // Full subscription amount goes to AxisPrompt
+        axis_commission: amount, // Full subscription amount goes to Swift Order AI
         client_revenue: 0,
         commission_rate: 1.0,
         client_name: client.business_name,

@@ -122,7 +122,7 @@ const Login = () => {
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-dark-700 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:border-brand-500 dark:focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none transition-all placeholder-gray-400 dark:placeholder-gray-500"
-                            placeholder="admin@axisprompt.com"
+                            placeholder="admin@swiftorderai.com"
                         />
                     </div>
                     <div>
@@ -152,7 +152,7 @@ const Login = () => {
             </div>
 
             <p className="text-center text-gray-400 dark:text-gray-600 text-sm mt-8">
-                &copy; {new Date().getFullYear()} AxisPrompt. All rights reserved.
+                &copy; {new Date().getFullYear()} Swift Order AI. All rights reserved.
             </p>
         </div>
     );

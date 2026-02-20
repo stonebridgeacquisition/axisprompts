@@ -20,7 +20,7 @@ const Privacy = () => {
 
                     <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">1. Introduction</h2>
                     <p className="text-gray-600 mb-4">
-                        Welcome to AxisPrompt. We respect your privacy and are committed to protecting your personal data. This privacy policy will inform you as to how we look after your personal data when you visit our website and tell you about your privacy rights and how the law protects you.
+                        Welcome to Swift Order AI. We respect your privacy and are committed to protecting your personal data. This privacy policy will inform you as to how we look after your personal data when you visit our website and tell you about your privacy rights and how the law protects you.
                     </p>
 
                     <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">2. Data We Collect</h2>
@@ -50,7 +50,7 @@ const Privacy = () => {
 
                     <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">5. Contact Us</h2>
                     <p className="text-gray-600 mb-4">
-                        If you have any questions about this privacy policy or our privacy practices, please contact us at support@axisprompt.com.
+                        If you have any questions about this privacy policy or our privacy practices, please contact us at support@swiftorderai.com.
                     </p>
                 </div>
             </main>

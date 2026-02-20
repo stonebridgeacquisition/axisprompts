@@ -33,7 +33,7 @@ const Process = () => {
                             <span className="text-brand-500">stupid simple.</span>
                         </h2>
                         <p className="text-lg text-dark-600 mb-8">
-                            No coding required. If you can send an email, you can set up Axisprompt. We built this for busy business owners, not tech wizards.
+                            No coding required. If you can send an email, you can set up Swift Order AI. We built this for busy business owners, not tech wizards.
                         </p>
                         <a href="#cta" className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-surface-100 text-dark-900 font-semibold hover:bg-surface-200 transition-colors">
                             View Documentation

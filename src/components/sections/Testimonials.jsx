@@ -5,7 +5,7 @@ const testimonials = [
     {
         name: "Sarah Jenkins",
         role: "Owner, Bloom Boutique",
-        text: "Reviewing DMs used to take 3 hours a day. Now Axisprompt does it while I sleep. My sales are up 40%."
+        text: "Reviewing DMs used to take 3 hours a day. Now Swift Order AI does it while I sleep. My sales are up 40%."
     },
     {
         name: "Marcus Chen",

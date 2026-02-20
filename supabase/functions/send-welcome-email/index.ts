@@ -7,27 +7,27 @@ const SMTP_USERNAME = "team@studiocraftai.com";
 const SMTP_PASSWORD = "Saudiarabia123?";
 
 const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 const sendEmail = async (to: string, subject: string, html: string) => {
-    const transporter = nodemailer.createTransport({
-        host: SMTP_HOSTNAME,
-        port: SMTP_PORT,
-        secure: true,
-        auth: {
-            user: SMTP_USERNAME,
-            pass: SMTP_PASSWORD,
-        },
-    });
+  const transporter = nodemailer.createTransport({
+    host: SMTP_HOSTNAME,
+    port: SMTP_PORT,
+    secure: true,
+    auth: {
+      user: SMTP_USERNAME,
+      pass: SMTP_PASSWORD,
+    },
+  });
 
-    return await transporter.sendMail({
-        from: `"AxisPrompt Team" <${SMTP_USERNAME}>`,
-        to,
-        subject,
-        html,
-    });
+  return await transporter.sendMail({
+    from: `"Swift Order AI Team" <${SMTP_USERNAME}>`,
+    to,
+    subject,
+    html,
+  });
 };
 
 const getWelcomeTemplate = (businessName: string, loginLink: string) => `
@@ -47,12 +47,12 @@ const getWelcomeTemplate = (businessName: string, loginLink: string) => `
 <body>
   <div class="container">
     <div class="header">
-      <h1>Welcome to AxisPrompt! 🚀</h1>
+      <h1>Welcome to Swift Order AI! 🚀</h1>
     </div>
     <div class="content">
       <p>Hi <strong>${businessName}</strong>,</p>
       <p>We are thrilled to have you on board! Your 7-day free trial has officially started.</p>
-      <p>With AxisPrompt, you can automate your customer orders, manage your menu effortlessly, and let our AI agent handle the heavy lifting for you.</p>
+      <p>With Swift Order AI, you can automate your customer orders, manage your menu effortlessly, and let our AI agent handle the heavy lifting for you.</p>
       
       <h3>What's Next?</h3>
       <ul>
@@ -66,7 +66,7 @@ const getWelcomeTemplate = (businessName: string, loginLink: string) => `
       </div>
     </div>
     <div class="footer">
-      &copy; ${new Date().getFullYear()} AxisPrompt by StudioCraft AI. All rights reserved.
+      &copy; ${new Date().getFullYear()} Swift Order AI by StudioCraft AI. All rights reserved.
     </div>
   </div>
 </body>
@@ -74,27 +74,27 @@ const getWelcomeTemplate = (businessName: string, loginLink: string) => `
 `;
 
 serve(async (req) => {
-    if (req.method === 'OPTIONS') {
-        return new Response('ok', { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    const { email, businessName, loginUrl } = await req.json();
+
+    if (!email || !businessName) {
+      throw new Error('Missing email or businessName');
     }
 
-    try {
-        const { email, businessName, loginUrl } = await req.json();
+    const html = getWelcomeTemplate(businessName, loginUrl || 'https://app.swiftorderai.com');
+    await sendEmail(email, 'Welcome to Swift Order AI! 🚀', html);
 
-        if (!email || !businessName) {
-            throw new Error('Missing email or businessName');
-        }
-
-        const html = getWelcomeTemplate(businessName, loginUrl || 'https://app.axisprompt.com');
-        await sendEmail(email, 'Welcome to AxisPrompt! 🚀', html);
-
-        return new Response(JSON.stringify({ success: true }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-    } catch (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-    }
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
 });

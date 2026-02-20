@@ -79,7 +79,7 @@ const CostOfMissedMessages = () => {
 
                         <div className="inline-flex items-center gap-2 px-4 py-2 md:px-6 md:py-3 rounded-full bg-red-50 text-red-600 font-medium text-xs md:text-sm tracking-wide whitespace-nowrap mx-auto">
                             <span className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-red-500 shrink-0"></span>
-                            AxisPrompt replies to everyone instantly.
+                            Swift Order AI replies to everyone instantly.
                         </div>
                     </motion.div>
 
