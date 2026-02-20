@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Store, CreditCard, BookOpen, Globe, Upload, Check, ChevronRight, Loader2, Plus, X, FileText, PenLine, Shield, ShoppingBag } from 'lucide-react';
+import { Store, CreditCard, BookOpen, Globe, Upload, Check, ChevronRight, Loader2, Plus, X, FileText, PenLine, Shield, ShoppingBag, Truck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { createSubaccount } from '../../lib/paystack';
@@ -22,6 +22,14 @@ const Onboarding = () => {
     const [newItemCategory, setNewItemCategory] = useState('');
     const [newItemTrackInventory, setNewItemTrackInventory] = useState(false);
     const [newItemStockLevel, setNewItemStockLevel] = useState(0);
+
+    // Delivery Fee Onboarding State
+    const [deliveryFeeFile, setDeliveryFeeFile] = useState(null);
+    const [onboardingDeliveryFees, setOnboardingDeliveryFees] = useState([]);
+    const [newDeliveryLocation, setNewDeliveryLocation] = useState('');
+    const [newDeliveryFee, setNewDeliveryFee] = useState('');
+    const [onboardingDeliveryMethod, setOnboardingDeliveryMethod] = useState('rider_collects');
+    const [onboardingDeliveryInstructions, setOnboardingDeliveryInstructions] = useState('');
 
     const [formData, setFormData] = useState({
         businessName: '',
@@ -172,7 +180,7 @@ const Onboarding = () => {
 
     const handleSubmit = async () => {
         // HARD BLOCK: Do absolutely NOTHING if not on the final step
-        if (step !== 5) {
+        if (step !== 6) {
             return;
         }
 
@@ -186,7 +194,7 @@ const Onboarding = () => {
 
             // 0. Create Paystack Subaccount
             if (formData.bankCode && formData.accountNumber) {
-                const splitPercentage = formData.paymentModel === 'commission' ? 10 : 0.5;
+                const splitPercentage = formData.paymentModel === 'commission' ? 3 : 0.5;
                 console.log('DEBUG: paymentModel =', formData.paymentModel);
                 console.log('DEBUG: splitPercentage =', splitPercentage);
                 try {
@@ -239,7 +247,9 @@ const Onboarding = () => {
                         status: 'Active',
                         opening_hours: formData.openingHours,
                         payment_model: formData.paymentModel,
-                        subscription_status: formData.paymentModel === 'commission' ? null : 'trial'
+                        subscription_status: formData.paymentModel === 'commission' ? null : 'trial',
+                        delivery_method: onboardingDeliveryMethod,
+                        delivery_instructions: onboardingDeliveryInstructions || null
                     }
                 ])
                 .select();
@@ -321,6 +331,45 @@ const Onboarding = () => {
                 }
             }
 
+            // 5c. Insert delivery fees if added during onboarding
+            if (onboardingDeliveryFees.length > 0) {
+                try {
+                    const feeRows = onboardingDeliveryFees.map(f => ({
+                        client_id: newClient.id,
+                        location: f.location,
+                        fee: f.fee
+                    }));
+                    const { error: feeError } = await supabase.from('delivery_fees').insert(feeRows);
+                    if (feeError) console.error("Delivery fee insert error:", feeError);
+                    else console.log(`Inserted ${feeRows.length} delivery fees`);
+                } catch (err) {
+                    console.error("Delivery fee insert exception:", err);
+                }
+            }
+
+            // 5d. Process delivery fee image if uploaded
+            if (deliveryFeeFile) {
+                try {
+                    const feePath = `delivery-fees/${newClient.id}-${Date.now()}.${deliveryFeeFile.name.split('.').pop()}`;
+                    const feeImgUrl = await uploadFile(deliveryFeeFile, 'menus', feePath);
+                    if (feeImgUrl) {
+                        // Fire-and-forget: call the AI extraction function
+                        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-delivery-fees`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+                            },
+                            body: JSON.stringify({ client_id: newClient.id, image_url: feeImgUrl })
+                        }).then(r => r.json())
+                            .then(result => console.log("Delivery fee processing result:", result))
+                            .catch(err => console.error("Delivery fee processing error:", err));
+                    }
+                } catch (err) {
+                    console.error("Delivery fee upload error:", err);
+                }
+            }
+
             // Redirect
             navigate(`/client/${formData.slug}`);
 
@@ -359,6 +408,8 @@ const Onboarding = () => {
                         <span className={step >= 4 ? "text-brand-600 shrink-0" : "shrink-0"}>4. Knowledge</span>
                         <ChevronRight size={16} className="text-gray-300 shrink-0 mx-2" />
                         <span className={step >= 5 ? "text-brand-600 shrink-0" : "shrink-0"}>5. Menu</span>
+                        <ChevronRight size={16} className="text-gray-300 shrink-0 mx-2" />
+                        <span className={step >= 6 ? "text-brand-600 shrink-0" : "shrink-0"}>6. Delivery</span>
                     </div>
                 )}
 
@@ -536,7 +587,7 @@ const Onboarding = () => {
                                         )}
                                     </div>
                                     <h3 className="text-lg font-bold text-gray-900">Commission-Only</h3>
-                                    <p className="text-sm text-gray-600 mt-1">₦0 setup, ₦0 monthly. We only make money when you do (10% commission).</p>
+                                    <p className="text-sm text-gray-600 mt-1">₦0 setup, ₦0 monthly. We only make money when you do (3% commission).</p>
                                     <div className="mt-4 flex flex-col gap-2">
                                         <div className="flex items-center gap-2 text-xs text-brand-700 font-medium">
                                             <Check size={14} />
@@ -829,6 +880,161 @@ const Onboarding = () => {
                         </div>
                     )}
 
+                    {/* Step 6: Delivery Fees */}
+                    {step === 6 && (
+                        <div className="space-y-6">
+                            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                                <Truck className="text-brand-600" size={24} />
+                                Delivery Setup
+                            </h2>
+                            <p className="text-gray-500 text-sm">Tell us how your business handles delivery so the AI can assist your customers accurately.</p>
+
+                            {/* Delivery Method Selector */}
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase block">How do you charge for delivery?</label>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setOnboardingDeliveryMethod('rider_collects')}
+                                        className={`p-4 rounded-xl border-2 text-left transition-all ${onboardingDeliveryMethod === 'rider_collects' ? 'border-brand-600 bg-brand-50/50' : 'border-gray-100 hover:border-brand-200'}`}
+                                    >
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div className={`p-2 rounded-lg ${onboardingDeliveryMethod === 'rider_collects' ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                                                <Truck size={18} />
+                                            </div>
+                                            {onboardingDeliveryMethod === 'rider_collects' && (
+                                                <div className="bg-brand-600 text-white p-0.5 rounded-full"><Check size={14} /></div>
+                                            )}
+                                        </div>
+                                        <h4 className="font-bold text-gray-900 text-sm">Rider Collects Fee</h4>
+                                        <p className="text-xs text-gray-500 mt-1">Your rider/delivery company collects the fee separately on arrival.</p>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setOnboardingDeliveryMethod('added_to_order')}
+                                        className={`p-4 rounded-xl border-2 text-left transition-all ${onboardingDeliveryMethod === 'added_to_order' ? 'border-brand-600 bg-brand-50/50' : 'border-gray-100 hover:border-brand-200'}`}
+                                    >
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div className={`p-2 rounded-lg ${onboardingDeliveryMethod === 'added_to_order' ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                                                <ShoppingBag size={18} />
+                                            </div>
+                                            {onboardingDeliveryMethod === 'added_to_order' && (
+                                                <div className="bg-brand-600 text-white p-0.5 rounded-full"><Check size={14} /></div>
+                                            )}
+                                        </div>
+                                        <h4 className="font-bold text-gray-900 text-sm">Added to Order Total</h4>
+                                        <p className="text-xs text-gray-500 mt-1">Fee is added to the order. Customer pays everything together.</p>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setOnboardingDeliveryMethod('quoted_rider_collects')}
+                                        className={`p-4 rounded-xl border-2 text-left transition-all ${onboardingDeliveryMethod === 'quoted_rider_collects' ? 'border-brand-600 bg-brand-50/50' : 'border-gray-100 hover:border-brand-200'}`}
+                                    >
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div className={`p-2 rounded-lg ${onboardingDeliveryMethod === 'quoted_rider_collects' ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                                                <Store size={18} />
+                                            </div>
+                                            {onboardingDeliveryMethod === 'quoted_rider_collects' && (
+                                                <div className="bg-brand-600 text-white p-0.5 rounded-full"><Check size={14} /></div>
+                                            )}
+                                        </div>
+                                        <h4 className="font-bold text-gray-900 text-sm">Quoted &amp; Rider Collects</h4>
+                                        <p className="text-xs text-gray-500 mt-1">You quote the fee per location, but the rider collects it on delivery.</p>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Special Instructions */}
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase block">Special Delivery Instructions (Optional)</label>
+                                <textarea
+                                    value={onboardingDeliveryInstructions}
+                                    onChange={(e) => setOnboardingDeliveryInstructions(e.target.value)}
+                                    placeholder="e.g. We only deliver within Lagos Island. Free delivery for orders above ₦15,000..."
+                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-sm min-h-[80px] resize-y"
+                                />
+                            </div>
+
+                            {onboardingDeliveryMethod !== 'rider_collects' && (
+                                <>
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-gray-500 uppercase block">Upload Fee Document (Optional)</label>
+                                        <label className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed cursor-pointer transition-all ${deliveryFeeFile ? 'border-brand-500 bg-brand-50' : 'border-gray-200 hover:border-brand-300 bg-gray-50'}`}>
+                                            <input
+                                                type="file"
+                                                accept=".pdf,image/*"
+                                                className="hidden"
+                                                onChange={(e) => setDeliveryFeeFile(e.target.files[0] || null)}
+                                            />
+                                            <Upload size={20} className={deliveryFeeFile ? 'text-brand-600' : 'text-gray-400'} />
+                                            <span className={`text-sm font-medium ${deliveryFeeFile ? 'text-brand-700' : 'text-gray-500'}`}>
+                                                {deliveryFeeFile ? deliveryFeeFile.name : 'Click to upload an image or PDF'}
+                                            </span>
+                                        </label>
+                                    </div>
+
+                                    {/* Manual entry */}
+                                    <div className="space-y-3">
+                                        <label className="text-xs font-bold text-gray-500 uppercase block">Add Locations Manually</label>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                placeholder="Location (e.g. Lekki)"
+                                                value={newDeliveryLocation}
+                                                onChange={(e) => setNewDeliveryLocation(e.target.value)}
+                                                className="flex-1 px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500 text-sm"
+                                            />
+                                            <input
+                                                type="number"
+                                                placeholder="Fee (₦)"
+                                                value={newDeliveryFee}
+                                                onChange={(e) => setNewDeliveryFee(e.target.value)}
+                                                className="w-28 px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500 text-sm"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (!newDeliveryLocation || !newDeliveryFee) return;
+                                                    setOnboardingDeliveryFees(prev => [...prev, { location: newDeliveryLocation, fee: Number(newDeliveryFee) }]);
+                                                    setNewDeliveryLocation('');
+                                                    setNewDeliveryFee('');
+                                                }}
+                                                className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                                            >
+                                                <Plus size={18} />
+                                            </button>
+                                        </div>
+
+                                        {onboardingDeliveryFees.length > 0 && (
+                                            <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 overflow-hidden">
+                                                {onboardingDeliveryFees.map((f, idx) => (
+                                                    <div key={idx} className="flex items-center justify-between p-3">
+                                                        <span className="font-medium text-gray-900 text-sm">{f.location}</span>
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-sm font-bold text-gray-900">₦{Number(f.fee).toLocaleString()}</span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setOnboardingDeliveryFees(prev => prev.filter((_, i) => i !== idx))}
+                                                                className="text-red-400 hover:text-red-600"
+                                                            >
+                                                                <X size={16} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                </>
+                            )}
+
+                            <div className="bg-yellow-50 p-3 rounded-lg text-yellow-800 text-sm">
+                                <p>💡 You can always add or edit delivery fees from your dashboard later.</p>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Nav Actions */}
                     {step > 0 && (
                         <div className="mt-10 flex items-center justify-between pt-6 border-t border-gray-100">
@@ -844,7 +1050,7 @@ const Onboarding = () => {
                                 <div></div>
                             )}
 
-                            {step < 5 ? (
+                            {step < 6 ? (
                                 <button
                                     type="button"
                                     onClick={handleNext}

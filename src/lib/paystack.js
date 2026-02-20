@@ -15,7 +15,7 @@ export const createSubaccount = async ({ business_name, bank_code, account_numbe
         business_name,
         settlement_bank: bank_code,
         account_number,
-        percentage_charge, // e.g., 10 for 10% platform fee
+        percentage_charge, // e.g., 3 for 3% platform fee
         description: `Subaccount for ${business_name}`
     };
 

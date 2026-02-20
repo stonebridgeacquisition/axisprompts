@@ -196,7 +196,7 @@ Deno.serve(async (req: Request) => {
 
   // Insert Finance Record (Commission)
   const isCommissionModel = client.payment_model === 'commission'
-  const commissionRate = isCommissionModel ? 0.10 : 0.005
+  const commissionRate = isCommissionModel ? 0.03 : 0.005
   const axisCommission = Math.round(amount * commissionRate * 100) / 100
   const clientRevenue = Math.round((amount - axisCommission) * 100) / 100
 
