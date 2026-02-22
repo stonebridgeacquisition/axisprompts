@@ -322,7 +322,6 @@ const Onboarding = () => {
                         description: '',
                         track_inventory: item.track_inventory,
                         stock_level: item.stock_level,
-                        options: [],
                         is_available: true
                     }));
                     const { error: menuError } = await supabase.from('menu_items').insert(rows);

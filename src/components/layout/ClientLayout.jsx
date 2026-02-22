@@ -342,6 +342,29 @@ const ClientLayout = () => {
                     </div>
                 )}
 
+                {/* Store Closed Banner */}
+                {client.is_open === false && (
+                    <div className="bg-orange-500 text-white px-4 py-2 text-sm font-bold flex items-center justify-center gap-2 shadow-sm relative z-20">
+                        <AlertCircle size={18} />
+                        <span>Your store is currently closed. The AI will not take any orders.</span>
+                        <span
+                            onClick={async () => {
+                                const { error } = await supabase
+                                    .from('clients')
+                                    .update({ is_open: true })
+                                    .eq('id', client.id);
+                                if (!error) {
+                                    client.is_open = true;
+                                    setClient({ ...client, is_open: true });
+                                }
+                            }}
+                            className="underline cursor-pointer hover:text-white/80 ml-1"
+                        >
+                            Open now
+                        </span>
+                    </div>
+                )}
+
                 {/* Header */}
                 <header className="h-16 bg-white dark:bg-dark-900 border-b border-gray-200 dark:border-dark-800 flex items-center justify-between px-4 sm:px-8 z-10 shrink-0 transition-colors duration-200">
                     <div className="flex items-center gap-4">
@@ -357,32 +380,33 @@ const ClientLayout = () => {
                     </div>
 
                     <div className="flex items-center gap-4">
-                        <button
-                            onClick={async () => {
-                                const newVal = !(client.is_open !== false);
+                        <div className="flex items-center gap-2">
+                            <span className={`text-sm font-bold ${client.is_open !== false ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
+                                {client.is_open !== false ? 'Open' : 'Closed'}
+                            </span>
+                            <button
+                                onClick={async () => {
+                                    const newVal = !(client.is_open !== false);
 
-                                if (!newVal) {
-                                    const confirmClose = window.confirm("Are you sure you want to close manually?\n\nThe AI agent will immediately stop taking orders. It will not take any orders until your next scheduled open time tomorrow.");
-                                    if (!confirmClose) return;
-                                }
+                                    if (!newVal) {
+                                        const confirmClose = window.confirm("Are you sure you want to close manually?\n\nThe AI agent will immediately stop taking orders. It will not take any orders until your next scheduled open time tomorrow.");
+                                        if (!confirmClose) return;
+                                    }
 
-                                const { error } = await supabase
-                                    .from('clients')
-                                    .update({ is_open: newVal })
-                                    .eq('id', client.id);
-                                if (!error) {
-                                    client.is_open = newVal;
-                                    setClient({ ...client, is_open: newVal });
-                                }
-                            }}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all text-sm font-bold cursor-pointer ${client.is_open !== false
-                                ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400'
-                                : 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400'
-                                }`}
-                        >
-                            <span className={`w-2 h-2 rounded-full ${client.is_open !== false ? 'bg-green-500' : 'bg-red-500'}`} />
-                            {client.is_open !== false ? 'Open' : 'Closed'}
-                        </button>
+                                    const { error } = await supabase
+                                        .from('clients')
+                                        .update({ is_open: newVal })
+                                        .eq('id', client.id);
+                                    if (!error) {
+                                        client.is_open = newVal;
+                                        setClient({ ...client, is_open: newVal });
+                                    }
+                                }}
+                                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors ${client.is_open !== false ? 'bg-green-500' : 'bg-red-500'}`}
+                            >
+                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${client.is_open !== false ? 'translate-x-2.5' : '-translate-x-2.5'}`} />
+                            </button>
+                        </div>
 
                         {/* Notifications Bell */}
                         <div className="relative" ref={notifRef}>

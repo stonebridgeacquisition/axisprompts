@@ -50,12 +50,12 @@ const getEmailTemplate = (businessName: string, titleCode: string, bodyContent: 
         <style>
             body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #374151; margin: 0; padding: 0; background-color: #f9fafb; }
             .container { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-            .header { background: #4f46e5; padding: 40px 20px; text-align: center; }
+            .header { background: #ea580c; padding: 40px 20px; text-align: center; }
             .header h1 { color: #ffffff; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.025em; }
             .content { padding: 40px 30px; }
             .content p { margin-bottom: 24px; font-size: 16px; }
             .footer { padding: 20px; text-align: center; font-size: 12px; color: #9ca3af; border-top: 1px solid #f3f4f6; }
-            .button { display: inline-block; padding: 14px 32px; background-color: #4f46e5; color: #ffffff !important; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; transition: all 0.2s; }
+            .button { display: inline-block; padding: 14px 32px; background-color: #ea580c; color: #ffffff !important; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; transition: all 0.2s; }
             .cta-area { text-align: center; margin-top: 32px; }
             .badge { display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; margin-bottom: 16px; text-transform: uppercase; }
             .badge-warning { background: #fef3c7; color: #92400e; }
@@ -76,7 +76,7 @@ const getEmailTemplate = (businessName: string, titleCode: string, bodyContent: 
                 </div>
             </div>
             <div class="footer">
-                &copy; 2026 Swift Order AI AI. All rights reserved.
+                &copy; ${new Date().getFullYear()} Swift Order AI by Axis Prompts Ltd. All rights reserved.
             </div>
         </div>
     </body>

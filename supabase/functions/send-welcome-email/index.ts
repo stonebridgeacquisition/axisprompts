@@ -37,10 +37,10 @@ const getWelcomeTemplate = (businessName: string, loginLink: string) => `
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #374151; background-color: #f9fafb; margin: 0; padding: 0; }
     .container { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb; }
-    .header { background: #4f46e5; padding: 32px; text-align: center; }
+    .header { background: #ea580c; padding: 32px; text-align: center; }
     .header h1 { color: #ffffff; margin: 0; font-size: 24px; font-weight: 800; }
     .content { padding: 32px; }
-    .button { display: inline-block; padding: 12px 24px; background-color: #4f46e5; color: #ffffff !important; text-decoration: none; border-radius: 8px; font-weight: 600; margin-top: 24px; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #ea580c; color: #ffffff !important; text-decoration: none; border-radius: 8px; font-weight: 600; margin-top: 24px; }
     .footer { padding: 24px; text-align: center; font-size: 12px; color: #9ca3af; border-top: 1px solid #f3f4f6; }
   </style>
 </head>
@@ -55,18 +55,14 @@ const getWelcomeTemplate = (businessName: string, loginLink: string) => `
       <p>With Swift Order AI, you can automate your customer orders, manage your menu effortlessly, and let our AI agent handle the heavy lifting for you.</p>
       
       <h3>What's Next?</h3>
-      <ul>
-        <li>✅ Setup your menu</li>
-        <li>✅ Connect your WhatsApp</li>
-        <li>✅ Start receiving orders automatically</li>
-      </ul>
+      <p>A member of our team will reach out to you regarding setting up your account in the next 24 hours.</p>
 
       <div style="text-align: center;">
         <a href="${loginLink}" class="button">Go to Dashboard</a>
       </div>
     </div>
     <div class="footer">
-      &copy; ${new Date().getFullYear()} Swift Order AI by StudioCraft AI. All rights reserved.
+      &copy; ${new Date().getFullYear()} Swift Order AI by Axis Prompts Ltd. All rights reserved.
     </div>
   </div>
 </body>

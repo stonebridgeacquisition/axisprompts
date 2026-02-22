@@ -34,12 +34,8 @@ const ClientMenu = () => {
         description: '',
         track_inventory: false,
         stock_level: 0,
-        options: [] // e.g., [{ name: 'Large', price: '5000' }]
+        daily_stock: ''
     });
-
-    // Variant State
-    const [variantName, setVariantName] = useState('');
-    const [variantPrice, setVariantPrice] = useState('');
 
     useEffect(() => {
         if (client?.id) fetchMenuItems();
@@ -200,22 +196,7 @@ const ClientMenu = () => {
         }
     };
 
-    const handleAddVariant = () => {
-        if (!variantName || !variantPrice) return;
-        setNewItem(prev => ({
-            ...prev,
-            options: [...prev.options, { name: variantName, price: variantPrice }]
-        }));
-        setVariantName('');
-        setVariantPrice('');
-    };
 
-    const removeVariant = (index) => {
-        setNewItem(prev => ({
-            ...prev,
-            options: prev.options.filter((_, i) => i !== index)
-        }));
-    };
 
     const handleAddItem = async (e) => {
         e.preventDefault();
@@ -232,7 +213,7 @@ const ClientMenu = () => {
                     description: newItem.description,
                     track_inventory: newItem.track_inventory,
                     stock_level: newItem.track_inventory ? newItem.stock_level : null,
-                    options: newItem.options,
+                    daily_stock: (newItem.track_inventory && newItem.daily_stock) ? newItem.daily_stock : null,
                     is_available: true
                 }])
                 .select();
@@ -240,7 +221,7 @@ const ClientMenu = () => {
             if (error) throw error;
 
             setItems([data[0], ...items]);
-            setNewItem({ name: '', price: '', category: '', description: '', track_inventory: false, stock_level: 0, options: [] });
+            setNewItem({ name: '', price: '', category: '', description: '', track_inventory: false, stock_level: 0, daily_stock: '' });
             setIsAdding(false);
         } catch (error) {
             console.error("Error adding item:", error);
@@ -262,10 +243,8 @@ const ClientMenu = () => {
     const openEdit = (item) => {
         setEditingItem({
             ...item,
-            options: item.options || []
+            daily_stock: item.daily_stock || ''
         });
-        setVariantName('');
-        setVariantPrice('');
     };
 
     const handleUpdateItem = async (e) => {
@@ -282,7 +261,7 @@ const ClientMenu = () => {
                     description: editingItem.description,
                     track_inventory: editingItem.track_inventory,
                     stock_level: editingItem.track_inventory ? editingItem.stock_level : null,
-                    options: editingItem.options,
+                    daily_stock: (editingItem.track_inventory && editingItem.daily_stock) ? editingItem.daily_stock : null,
                     is_available: editingItem.is_available
                 })
                 .eq('id', editingItem.id)
@@ -318,22 +297,7 @@ const ClientMenu = () => {
         }
     };
 
-    const handleEditVariantAdd = () => {
-        if (!variantName || !variantPrice) return;
-        setEditingItem(prev => ({
-            ...prev,
-            options: [...(prev.options || []), { name: variantName, price: variantPrice }]
-        }));
-        setVariantName('');
-        setVariantPrice('');
-    };
 
-    const handleEditVariantRemove = (index) => {
-        setEditingItem(prev => ({
-            ...prev,
-            options: prev.options.filter((_, i) => i !== index)
-        }));
-    };
 
     const filteredItems = items.filter(item =>
         item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -491,15 +455,40 @@ const ClientMenu = () => {
                                     </div>
                                     <div className="flex items-center gap-4">
                                         {newItem.track_inventory && (
-                                            <div className="flex items-center gap-2">
-                                                <label className="text-xs font-bold text-gray-500 uppercase">Qty:</label>
-                                                <input
-                                                    type="number"
-                                                    value={newItem.stock_level}
-                                                    onChange={(e) => setNewItem({ ...newItem, stock_level: Number(e.target.value) })}
-                                                    className="w-20 px-3 py-1.5 text-sm rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500"
-                                                    min="0"
-                                                />
+                                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                                <div className="flex items-center gap-2">
+                                                    <label className="text-xs font-bold text-gray-500 uppercase">Qty:</label>
+                                                    <input
+                                                        type="number"
+                                                        value={newItem.stock_level}
+                                                        onChange={(e) => setNewItem({ ...newItem, stock_level: Number(e.target.value) })}
+                                                        className="w-20 px-3 py-1.5 text-sm rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500"
+                                                        min="0"
+                                                    />
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Daily Restock:</label>
+                                                    <div className="relative flex items-center">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setNewItem({ ...newItem, daily_stock: Math.max(1, (newItem.daily_stock || 1) - 1) })}
+                                                            className="absolute left-1 w-6 h-6 flex items-center justify-center bg-gray-100/50 hover:bg-gray-100 text-gray-600 rounded-md transition-colors"
+                                                        >−</button>
+                                                        <input
+                                                            type="number"
+                                                            placeholder="Click to set..."
+                                                            value={newItem.daily_stock || ''}
+                                                            onChange={(e) => setNewItem({ ...newItem, daily_stock: e.target.value ? Number(e.target.value) : '' })}
+                                                            className="w-[110px] px-8 py-1.5 text-center text-sm font-semibold rounded-lg border border-brand-200 focus:outline-none focus:border-brand-500 bg-brand-50/30 placeholder:text-brand-300 placeholder:font-normal"
+                                                            min="1"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setNewItem({ ...newItem, daily_stock: (newItem.daily_stock || 0) + 1 })}
+                                                            className="absolute right-1 w-6 h-6 flex items-center justify-center bg-gray-100/50 hover:bg-gray-100 text-gray-600 rounded-md transition-colors"
+                                                        >+</button>
+                                                    </div>
+                                                </div>
                                             </div>
                                         )}
                                         <button
@@ -512,51 +501,7 @@ const ClientMenu = () => {
                                     </div>
                                 </div>
 
-                                {/* Variants Section */}
-                                <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                                    <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Variants / Sizes (Optional)</label>
 
-                                    <div className="flex flex-wrap md:flex-nowrap gap-2 mb-3">
-                                        <input
-                                            type="text"
-                                            placeholder="Name (e.g. Large)"
-                                            value={variantName}
-                                            onChange={(e) => setVariantName(e.target.value)}
-                                            className="flex-1 min-w-[120px] px-3 py-2 text-sm rounded border border-gray-300 focus:outline-none focus:border-brand-500"
-                                        />
-                                        <input
-                                            type="number"
-                                            placeholder="Price"
-                                            value={variantPrice}
-                                            onChange={(e) => setVariantPrice(e.target.value)}
-                                            className="w-full md:w-24 px-3 py-2 text-sm rounded border border-gray-300 focus:outline-none focus:border-brand-500"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={handleAddVariant}
-                                            className="w-full md:w-auto px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-bold transition-colors"
-                                        >
-                                            Add
-                                        </button>
-                                    </div>
-
-                                    {newItem.options.length > 0 && (
-                                        <div className="space-y-2">
-                                            {newItem.options.map((opt, idx) => (
-                                                <div key={idx} className="flex items-center justify-between bg-white px-3 py-2 rounded border border-gray-200 text-sm">
-                                                    <span>{opt.name} - ₦{opt.price}</span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => removeVariant(idx)}
-                                                        className="text-red-500 hover:text-red-700"
-                                                    >
-                                                        <X size={14} />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
 
                                 <div className="flex justify-end gap-3 pt-2">
                                     <button type="button" onClick={() => setIsAdding(false)} className="px-4 py-2 text-gray-500 hover:text-gray-700 font-medium">Cancel</button>
@@ -590,7 +535,7 @@ const ClientMenu = () => {
                                         <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Price</th>
                                         <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Stock</th>
                                         <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Variants</th>
+                                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Daily Restock</th>
                                         <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
                                     </tr>
                                 </thead>
@@ -653,14 +598,10 @@ const ClientMenu = () => {
                                                     </button>
                                                 </td>
                                                 <td className="px-6 py-4 text-sm text-gray-500">
-                                                    {item.options && Array.isArray(item.options) && item.options.length > 0 ? (
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {item.options.map((opt, i) => (
-                                                                <span key={i} className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100">
-                                                                    {opt.name}: ₦{opt.price}
-                                                                </span>
-                                                            ))}
-                                                        </div>
+                                                    {item.track_inventory && item.daily_stock ? (
+                                                        <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-100 font-bold">
+                                                            Resets to {item.daily_stock}
+                                                        </span>
                                                     ) : (
                                                         <span className="text-gray-300 text-xs">—</span>
                                                     )}
@@ -763,22 +704,47 @@ const ClientMenu = () => {
                                     </div>
 
                                     {/* Edit Stock Section */}
-                                    <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 flex items-center justify-between">
+                                    <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
                                         <div>
                                             <p className="font-bold text-gray-900 text-sm">Inventory Tracking</p>
                                             <p className="text-xs text-gray-500">Control item availability by quantity</p>
                                         </div>
-                                        <div className="flex items-center gap-4">
+                                        <div className="flex flex-wrap items-center justify-end gap-4 w-full md:w-auto">
                                             {editingItem.track_inventory && (
-                                                <div className="flex items-center gap-2">
-                                                    <label className="text-xs font-bold text-gray-500 uppercase">Stock:</label>
-                                                    <input
-                                                        type="number"
-                                                        value={editingItem.stock_level || 0}
-                                                        onChange={(e) => setEditingItem({ ...editingItem, stock_level: Number(e.target.value) })}
-                                                        className="w-20 px-3 py-1 text-sm rounded border border-gray-300"
-                                                        min="0"
-                                                    />
+                                                <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <label className="text-xs font-bold text-gray-500 uppercase">Stock:</label>
+                                                        <input
+                                                            type="number"
+                                                            value={editingItem.stock_level || 0}
+                                                            onChange={(e) => setEditingItem({ ...editingItem, stock_level: Number(e.target.value) })}
+                                                            className="w-20 px-3 py-1 text-sm rounded border border-gray-300"
+                                                            min="0"
+                                                        />
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Daily Restock:</label>
+                                                        <div className="relative flex items-center">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setEditingItem({ ...editingItem, daily_stock: Math.max(1, (editingItem.daily_stock || 1) - 1) })}
+                                                                className="absolute left-1 w-6 h-6 flex items-center justify-center bg-gray-100/50 hover:bg-gray-100 text-gray-600 rounded-md transition-colors"
+                                                            >−</button>
+                                                            <input
+                                                                type="number"
+                                                                placeholder="Click to set..."
+                                                                value={editingItem.daily_stock || ''}
+                                                                onChange={(e) => setEditingItem({ ...editingItem, daily_stock: e.target.value ? Number(e.target.value) : '' })}
+                                                                className="w-[110px] px-8 py-1.5 text-center text-sm font-semibold rounded-lg border border-brand-200 focus:outline-none focus:border-brand-500 bg-brand-50/30 placeholder:text-brand-300 placeholder:font-normal"
+                                                                min="1"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setEditingItem({ ...editingItem, daily_stock: (editingItem.daily_stock || 0) + 1 })}
+                                                                className="absolute right-1 w-6 h-6 flex items-center justify-center bg-gray-100/50 hover:bg-gray-100 text-gray-600 rounded-md transition-colors"
+                                                            >+</button>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             )}
                                             <button
@@ -791,45 +757,7 @@ const ClientMenu = () => {
                                         </div>
                                     </div>
 
-                                    {/* Edit Variants */}
-                                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                                        <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Variants / Sizes</label>
-                                        <div className="flex flex-wrap md:flex-nowrap gap-2 mb-3">
-                                            <input
-                                                type="text"
-                                                placeholder="Variant name (e.g. Large)"
-                                                value={variantName}
-                                                onChange={(e) => setVariantName(e.target.value)}
-                                                className="flex-1 min-w-[120px] px-3 py-2 text-sm rounded border border-gray-300"
-                                            />
-                                            <input
-                                                type="number"
-                                                placeholder="Price"
-                                                value={variantPrice}
-                                                onChange={(e) => setVariantPrice(e.target.value)}
-                                                className="w-full md:w-28 px-3 py-2 text-sm rounded border border-gray-300"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={handleEditVariantAdd}
-                                                className="w-full md:w-auto px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm font-medium"
-                                            >
-                                                Add
-                                            </button>
-                                        </div>
-                                        {editingItem.options && editingItem.options.length > 0 && (
-                                            <div className="space-y-2">
-                                                {editingItem.options.map((opt, idx) => (
-                                                    <div key={idx} className="flex items-center justify-between bg-white px-3 py-2 rounded border border-gray-200 text-sm">
-                                                        <span>{opt.name} — ₦{Number(opt.price).toLocaleString()}</span>
-                                                        <button type="button" onClick={() => handleEditVariantRemove(idx)} className="text-red-500 hover:text-red-700">
-                                                            <X size={14} />
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
+
 
                                     <div className="flex justify-end gap-3 pt-2">
                                         <button type="button" onClick={() => setEditingItem(null)} className="px-4 py-2 text-gray-500 hover:text-gray-700 font-medium">
