@@ -360,6 +360,12 @@ const ClientLayout = () => {
                         <button
                             onClick={async () => {
                                 const newVal = !(client.is_open !== false);
+
+                                if (!newVal) {
+                                    const confirmClose = window.confirm("Are you sure you want to close manually?\n\nThe AI agent will immediately stop taking orders. It will not take any orders until your next scheduled open time tomorrow.");
+                                    if (!confirmClose) return;
+                                }
+
                                 const { error } = await supabase
                                     .from('clients')
                                     .update({ is_open: newVal })

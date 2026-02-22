@@ -139,7 +139,7 @@ const ClientDetails = () => {
                                 <Clock size={18} className="text-gray-400 mt-0.5" />
                                 <div>
                                     <p className="text-xs font-medium text-gray-500 uppercase">Opening Hours</p>
-                                    <p className="text-sm text-gray-900">{client.opening_hours || 'N/A'}</p>
+                                    <p className="text-sm text-gray-900">{client.open_time ? `${client.open_time.substring(0, 5)} - ${client.close_time.substring(0, 5)}` : 'N/A'}</p>
                                 </div>
                             </div>
                         </div>

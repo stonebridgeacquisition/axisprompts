@@ -57,7 +57,8 @@ const ClientSettings = () => {
         account_number: '',
         bank_name: '',
         bank_code: '',
-        opening_hours: ''
+        open_time: '',
+        close_time: ''
     });
 
     // Track original bank details to detect changes
@@ -76,7 +77,8 @@ const ClientSettings = () => {
                 account_number: client.account_number || '',
                 bank_name: client.bank_name || '',
                 bank_code: client.bank_code || '',
-                opening_hours: client.opening_hours || '',
+                open_time: client.open_time ? client.open_time.substring(0, 5) : '',
+                close_time: client.close_time ? client.close_time.substring(0, 5) : '',
                 logo_url: client.logo_url || ''
             };
             setForm(data);
@@ -183,7 +185,8 @@ const ClientSettings = () => {
                     account_number: form.account_number,
                     bank_name: form.bank_name,
                     bank_code: form.bank_code,
-                    opening_hours: form.opening_hours,
+                    open_time: form.open_time ? form.open_time + ':00' : null,
+                    close_time: form.close_time ? form.close_time + ':00' : null,
                     logo_url: form.logo_url
                 })
                 .eq('id', client.id);
@@ -293,8 +296,9 @@ const ClientSettings = () => {
                         <div className="sm:col-span-2">
                             <InputField label="Address" name="address" value={form.address} onChange={handleChange} icon={MapPin} placeholder="Business address" />
                         </div>
-                        <div className="sm:col-span-2">
-                            <InputField label="Opening Hours" name="opening_hours" value={form.opening_hours} onChange={handleChange} icon={Clock} placeholder="e.g. 9:00 AM - 10:00 PM (Daily)" />
+                        <div className="sm:col-span-2 grid grid-cols-2 gap-4">
+                            <InputField label="Open Time" name="open_time" type="time" value={form.open_time} onChange={handleChange} icon={Clock} />
+                            <InputField label="Close Time" name="close_time" type="time" value={form.close_time} onChange={handleChange} icon={Clock} />
                         </div>
                     </div>
                 </div>

@@ -43,7 +43,8 @@ const Onboarding = () => {
         cuisine: '',
         contact: '',
         bankCode: '',
-        openingHours: '',
+        openTime: '09:00',
+        closeTime: '22:00',
         paymentModel: 'subscription' // 'subscription' or 'commission'
     });
 
@@ -245,7 +246,8 @@ const Onboarding = () => {
                         team_contact: formData.contact,
                         menu_url: menuUrl,
                         status: 'Active',
-                        opening_hours: formData.openingHours,
+                        open_time: formData.openTime + ':00',
+                        close_time: formData.closeTime + ':00',
                         payment_model: formData.paymentModel,
                         subscription_status: formData.paymentModel === 'commission' ? null : 'trial',
                         delivery_method: onboardingDeliveryMethod,
@@ -699,16 +701,27 @@ const Onboarding = () => {
                                     placeholder="For issues requiring human intervention"
                                 />
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Opening Hours</label>
-                                <input
-                                    type="text"
-                                    name="openingHours"
-                                    value={formData.openingHours}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
-                                    placeholder="e.g. 9:00 AM - 10:00 PM (Daily)"
-                                />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Open Time</label>
+                                    <input
+                                        type="time"
+                                        name="openTime"
+                                        value={formData.openTime}
+                                        onChange={handleChange}
+                                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Close Time</label>
+                                    <input
+                                        type="time"
+                                        name="closeTime"
+                                        value={formData.closeTime}
+                                        onChange={handleChange}
+                                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                                    />
+                                </div>
                             </div>
                         </div>
                     )}
