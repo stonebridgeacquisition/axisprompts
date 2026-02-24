@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, Loader2, ArrowDownLeft, ShoppingBag, DollarSign, RotateCcw } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
@@ -89,37 +89,39 @@ const ClientFinance = () => {
             ) : (
                 <>
                     {/* Stats */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="bg-brand-900 rounded-2xl p-8 text-white relative overflow-hidden shadow-lg shadow-brand-900/20">
-                            <div className="relative z-10">
-                                <p className="text-brand-200 font-medium mb-1">Total Revenue</p>
-                                <h3 className="text-4xl font-bold">{formatCurrency(stats.totalRevenue)}</h3>
-                                <p className="text-brand-300 text-sm mt-2">{stats.paidOrders} paid orders</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+                        {/* Total Revenue */}
+                        <div className="bg-white rounded-2xl border border-gray-100 p-6 flex flex-col justify-center shadow-sm relative overflow-hidden">
+                            <div className="flex flex-col mb-4">
+                                <p className="text-sm font-medium text-gray-400 mb-1">Total Revenue</p>
+                                <h3 className="text-4xl font-extrabold text-gray-900 tracking-tight">{formatCurrency(stats.totalRevenue)}</h3>
                             </div>
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-brand-800 rounded-full blur-[80px] -mr-16 -mt-16"></div>
-                        </div>
-
-                        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600">
-                                    <TrendingUp size={20} />
-                                </div>
-                                <div>
-                                    <p className="text-sm text-gray-500">Paid Orders</p>
-                                    <p className="text-2xl font-bold text-gray-900">{stats.paidOrders}</p>
-                                </div>
+                            <div className="flex items-center text-sm mt-auto pt-4 border-t border-gray-50">
+                                <span className="font-medium text-brand-600">
+                                    {stats.paidOrders} paid orders
+                                </span>
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
-                                    <ShoppingBag size={20} />
-                                </div>
-                                <div>
-                                    <p className="text-sm text-gray-500">Pending Orders</p>
-                                    <p className="text-2xl font-bold text-gray-900">{stats.pendingOrders}</p>
-                                </div>
+                        {/* Paid Orders */}
+                        <div className="bg-white rounded-2xl border border-gray-100 p-6 flex flex-col justify-center shadow-sm">
+                            <div className="flex flex-col mb-4">
+                                <p className="text-sm font-medium text-gray-400 mb-1">Paid Orders</p>
+                                <h3 className="text-4xl font-extrabold text-gray-900 tracking-tight">{stats.paidOrders}</h3>
+                            </div>
+                            <div className="flex items-center text-sm mt-auto pt-4 border-t border-gray-50">
+                                <span className="text-gray-500 font-medium">Successfully completed</span>
+                            </div>
+                        </div>
+
+                        {/* Pending Orders */}
+                        <div className="bg-white rounded-2xl border border-gray-100 p-6 flex flex-col justify-center shadow-sm">
+                            <div className="flex flex-col mb-4">
+                                <p className="text-sm font-medium text-gray-400 mb-1">Pending Orders</p>
+                                <h3 className="text-4xl font-extrabold text-gray-900 tracking-tight">{stats.pendingOrders}</h3>
+                            </div>
+                            <div className="flex items-center text-sm mt-auto pt-4 border-t border-gray-50">
+                                <span className="text-gray-500 font-medium">Waiting for payment</span>
                             </div>
                         </div>
                     </div>
@@ -137,63 +139,56 @@ const ClientFinance = () => {
                         ) : (
                             <div className="divide-y divide-gray-100 dark:divide-dark-800">
                                 {orders.map((order) => (
-                                    <div key={order.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-gray-50 dark:hover:bg-dark-800 transition-colors gap-4">
-                                        <div className="flex items-center gap-4 flex-1 min-w-0">
-                                            <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center ${order.payment_status === 'Refunded'
-                                                    ? 'bg-gray-100 dark:bg-dark-800 text-gray-400'
-                                                    : order.payment_status === 'Paid'
-                                                        ? 'bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400'
-                                                        : 'bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
-                                                }`}>
-                                                {order.payment_status === 'Refunded'
-                                                    ? <RotateCcw size={18} />
-                                                    : order.payment_status === 'Paid'
-                                                        ? <ArrowDownLeft size={18} />
-                                                        : <DollarSign size={18} />
-                                                }
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <div className="flex items-center gap-2 mb-0.5">
-                                                    <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                                    <div key={order.id} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-gray-50 dark:hover:bg-dark-800 transition-colors gap-4 group border-b border-gray-100 dark:border-dark-800/50 last:border-0 relative">
+
+                                        {/* Left: Details */}
+                                        <div className="flex items-start gap-4 flex-1 min-w-0">
+                                            <div className="min-w-0 flex-1 flex flex-col justify-center">
+                                                <div className="flex items-center justify-between sm:justify-start gap-2 mb-1">
+                                                    <p className="font-bold text-gray-900 dark:text-white truncate text-base">
                                                         {order.customer_name || 'Customer'}
                                                     </p>
-                                                    <span className="text-gray-300 dark:text-gray-700 hidden sm:inline">•</span>
-                                                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate hidden sm:block">
-                                                        {order.items_summary || 'Order'}
+                                                    {/* Amount shows here on mobile next to name, instead of bottom */}
+                                                    <p className={`font-bold sm:hidden text-base shrink-0 ${order.payment_status === 'Refunded' ? 'text-gray-400 line-through'
+                                                        : order.payment_status === 'Paid' ? 'text-gray-900 dark:text-gray-100'
+                                                            : 'text-orange-600 dark:text-orange-400'
+                                                        }`}>
+                                                        {formatCurrency(order.total_amount || 0)}
                                                     </p>
                                                 </div>
-                                                <p className="text-xs text-gray-400 truncate sm:hidden mb-1">
+
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 truncate mb-2 line-clamp-1 pr-2">
                                                     {order.items_summary || 'Order'}
                                                 </p>
-                                                <div className="flex items-center gap-2 text-xs text-gray-400">
+
+                                                <div className="flex flex-wrap items-center gap-2 text-[11px] sm:text-xs text-gray-400 font-medium">
                                                     <p>{formatDate(order.created_at)}</p>
                                                     {order.paystack_reference && (
                                                         <>
-                                                            <span>•</span>
-                                                            <span className="font-mono">{order.paystack_reference.slice(0, 8)}...</span>
+                                                            <span className="hidden sm:inline text-gray-300 dark:text-gray-700">•</span>
+                                                            <span className="text-gray-400 tracking-wider text-[10px]">REF: {order.paystack_reference.slice(0, 8)}</span>
                                                         </>
                                                     )}
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center justify-between sm:justify-end gap-4 sm:min-w-[200px]">
-                                            <div className="text-right">
-                                                <p className={`font-bold text-base ${order.payment_status === 'Refunded' ? 'text-gray-400 line-through'
-                                                        : order.payment_status === 'Paid' ? 'text-gray-900 dark:text-white' // Changed from green to neutral for better readability
-                                                            : 'text-orange-600'
+                                        {/* Right: Amount & Status (Desktop) / Status & Action (Mobile) */}
+                                        <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 pt-3 sm:pt-0 border-t border-gray-100 dark:border-dark-800 sm:border-0 mt-2 sm:mt-0">
+                                            <div className="text-left sm:text-right flex items-center sm:block gap-3">
+                                                <p className={`hidden sm:block font-bold text-lg mb-1 ${order.payment_status === 'Refunded' ? 'text-gray-400 line-through'
+                                                    : order.payment_status === 'Paid' ? 'text-gray-900 dark:text-white'
+                                                        : 'text-orange-600'
                                                     }`}>
-                                                    {order.payment_status === 'Paid' ? '+' : ''}{formatCurrency(order.total_amount || 0)}
+                                                    {formatCurrency(order.total_amount || 0)}
                                                 </p>
-                                                <div className="flex justify-end mt-1">
-                                                    <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full ${order.payment_status === 'Refunded' ? 'bg-gray-100 text-gray-500 dark:bg-dark-800 dark:text-gray-400' :
-                                                            order.status === 'Delivered' ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400' :
-                                                                order.status === 'In Progress' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' :
-                                                                    'bg-gray-100 text-gray-600 dark:bg-dark-800 dark:text-gray-400'
-                                                        }`}>
-                                                        {order.payment_status === 'Refunded' ? 'Refunded' : order.status}
-                                                    </span>
-                                                </div>
+                                                <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md inline-block ${order.payment_status === 'Refunded' ? 'bg-gray-100 text-gray-500 dark:bg-dark-800 dark:text-gray-400' :
+                                                    order.status === 'Delivered' ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400' :
+                                                        order.status === 'In Progress' ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' :
+                                                            'bg-gray-100 text-gray-600 dark:bg-dark-800 dark:text-gray-400'
+                                                    }`}>
+                                                    {order.payment_status === 'Refunded' ? 'Refunded' : order.status}
+                                                </span>
                                             </div>
 
                                             {/* Refund Button */}
@@ -201,13 +196,13 @@ const ClientFinance = () => {
                                                 <button
                                                     onClick={() => handleRefund(order)}
                                                     disabled={refundingId === order.id}
-                                                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all disabled:opacity-50 group"
+                                                    className="px-3 py-1.5 sm:px-4 sm:py-2 bg-gray-50 sm:bg-transparent text-gray-600 hover:text-red-700 hover:bg-red-50 dark:bg-dark-800 sm:dark:bg-transparent dark:hover:bg-red-900/30 rounded-lg transition-all disabled:opacity-50 shrink-0 border border-gray-200 sm:border-gray-200 dark:border-dark-700 ml-auto flex items-center gap-1.5"
                                                     title="Process Refund"
                                                 >
                                                     {refundingId === order.id ? (
-                                                        <Loader2 size={18} className="animate-spin text-red-600" />
+                                                        <Loader2 size={14} className="animate-spin text-red-600" />
                                                     ) : (
-                                                        <RotateCcw size={18} className="group-hover:-rotate-180 transition-transform duration-500" />
+                                                        <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Refund</span>
                                                     )}
                                                 </button>
                                             )}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, ChevronDown, CheckCircle, Truck, Package, Clock, Loader2, RefreshCw } from 'lucide-react';
+import { Search, ChevronDown, CheckCircle, Truck, Package, Clock, Loader2, RefreshCw, List, LayoutGrid } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
@@ -138,6 +138,74 @@ const OrderDetailsModal = ({ order, onClose }) => {
     );
 };
 
+const OrderCard = ({ order, formatItems, onUpdateStatus, updatingId, onClick }) => {
+    return (
+        <div
+            onClick={onClick}
+            className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow cursor-pointer flex flex-col gap-3 group relative"
+        >
+            <div className="flex justify-between items-start">
+                <div>
+                    <span className="text-sm font-bold text-gray-900">
+                        #{order.order_id ? order.order_id : order.id.slice(0, 6)}
+                    </span>
+                    <div className="text-xs text-gray-500 mt-0.5">
+                        {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                </div>
+                {updatingId === order.id ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                        <Loader2 size={12} className="animate-spin" />
+                    </span>
+                ) : (
+                    <StatusBadge status={order.status} />
+                )}
+            </div>
+
+            <div className="py-2 space-y-1">
+                <div className="text-sm font-medium text-gray-900">{order.customer_name}</div>
+                <div className="text-xs text-gray-500 flex items-center justify-between">
+                    <span>{order.customer_phone}</span>
+                </div>
+                <div className="text-xs text-gray-500 flex items-center gap-1 line-clamp-1" title={order.delivery_address}>
+                    <Truck size={12} className="shrink-0" />
+                    <span className="truncate">{order.delivery_address || 'No address provided'}</span>
+                </div>
+            </div>
+
+            <div className="pt-3 border-t border-gray-100 flex justify-between items-center mt-auto">
+                <div className="font-bold text-brand-700">
+                    ₦{order.total_amount ? Number(order.total_amount).toLocaleString() : '0'}
+                </div>
+                <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="relative inline-block text-left group/action"
+                >
+                    <button className="text-brand-600 hover:text-brand-800 font-medium text-xs border border-brand-200 bg-brand-50 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1 relative z-10">
+                        Update <ChevronDown size={14} />
+                    </button>
+                    {/* Dropdown */}
+                    <div className="hidden group-hover/action:block absolute right-0 bottom-full mb-1 w-40 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-20 p-1">
+                        {['In Progress', 'Out for Delivery', 'Delivered', 'Cancelled'].map((status) => (
+                            <button
+                                key={status}
+                                onClick={(e) => {
+                                    onUpdateStatus(e, order.id, status);
+                                    e.currentTarget.parentElement.classList.remove('group-hover/action:block');
+                                    setTimeout(() => e.currentTarget.parentElement.classList.add('group-hover/action:block'), 100);
+                                }}
+                                className={`block w-full text-left px-4 py-2 text-xs rounded-md ${order.status === status ? 'bg-gray-100 font-bold text-gray-900' : 'text-gray-700 hover:bg-gray-50'}`}
+                            >
+                                {status}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const ClientOrders = () => {
     const { client } = useOutletContext();
     const [orders, setOrders] = useState([]);
@@ -145,6 +213,13 @@ const ClientOrders = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [updatingId, setUpdatingId] = useState(null);
     const [selectedOrder, setSelectedOrder] = useState(null);
+    const [viewMode, setViewMode] = useState('list');
+
+    useEffect(() => {
+        if (window.innerWidth < 640) {
+            setViewMode('card');
+        }
+    }, []);
 
     useEffect(() => {
         if (client?.id) fetchOrders();
@@ -212,13 +287,30 @@ const ClientOrders = () => {
                     <h2 className="text-2xl font-bold text-gray-900">Orders</h2>
                     <p className="text-gray-500">Manage and track your delivery status.</p>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
+                        <button
+                            onClick={() => setViewMode('list')}
+                            className={`p-1.5 rounded-md transition-all flex items-center gap-1.5 px-3 text-sm font-medium ${viewMode === 'list' ? 'bg-gray-100 text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                            title="List View"
+                        >
+                            <List size={16} /> <span className="hidden sm:inline">List</span>
+                        </button>
+                        <button
+                            onClick={() => setViewMode('card')}
+                            className={`p-1.5 rounded-md transition-all flex items-center gap-1.5 px-3 text-sm font-medium ${viewMode === 'card' ? 'bg-gray-100 text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                            title="Card View"
+                        >
+                            <LayoutGrid size={16} /> <span className="hidden sm:inline">Grid</span>
+                        </button>
+                    </div>
                     <button
                         onClick={fetchOrders}
                         className="px-4 py-2 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 transition-colors shadow-lg shadow-brand-500/20 flex items-center gap-2"
                     >
                         <RefreshCw size={16} className={loading && !orders.length ? "animate-spin" : ""} />
-                        Refresh Orders
+                        <span className="hidden sm:inline">Refresh Orders</span>
+                        <span className="sm:hidden">Refresh</span>
                     </button>
                 </div>
             </div>
@@ -238,91 +330,106 @@ const ClientOrders = () => {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto min-h-[400px]">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Order ID</th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Customer</th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Delivery Address</th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Items Ordered</th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Total</th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                                <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {loading && orders.length === 0 ? (
-                                <tr>
-                                    <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
-                                        <Loader2 className="animate-spin mx-auto mb-2 text-brand-600" size={24} />
-                                        Loading orders...
-                                    </td>
-                                </tr>
-                            ) : filteredOrders.length === 0 ? (
-                                <tr>
-                                    <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
-                                        No recent orders found.
-                                    </td>
-                                </tr>
-                            ) : (
-                                filteredOrders.map((order) => (
-                                    <tr
-                                        key={order.id}
-                                        onClick={() => setSelectedOrder(order)}
-                                        className="hover:bg-gray-50 transition-colors group cursor-pointer"
-                                    >
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                            #{order.order_id ? order.order_id : order.id.slice(0, 6)}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm font-medium text-gray-900">{order.customer_name}</div>
-                                            <div className="text-xs text-gray-500">{order.customer_phone}</div>
-                                            <div className="text-xs text-gray-400">{new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" title={order.delivery_address}>
-                                            {order.delivery_address || '-'}
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                                            {formatItems(order.items_summary)}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
-                                            ₦{order.total_amount ? Number(order.total_amount).toLocaleString() : '0'}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            {updatingId === order.id ? (
-                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                                                    <Loader2 size={12} className="animate-spin" /> Updating...
-                                                </span>
-                                            ) : (
-                                                <StatusBadge status={order.status} />
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm" onClick={(e) => e.stopPropagation()}>
-                                            <div className="relative inline-block text-left group/action">
-                                                <button className="text-brand-600 hover:text-brand-800 font-medium text-xs border border-brand-200 bg-brand-50 px-3 py-1.5 rounded-lg transition-colors flex items-center justify-end gap-1 ml-auto">
-                                                    Update Status <ChevronDown size={14} />
-                                                </button>
-
-                                                {/* Dropdown */}
-                                                <div className="hidden group-hover/action:block absolute right-0 mt-1 w-40 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-20 p-1">
-                                                    {['In Progress', 'Out for Delivery', 'Delivered', 'Cancelled'].map((status) => (
-                                                        <button
-                                                            key={status}
-                                                            onClick={(e) => handleStatusUpdate(e, order.id, status)}
-                                                            className={`block w-full text-left px-4 py-2 text-xs rounded-md ${order.status === status ? 'bg-gray-100 font-bold text-gray-900' : 'text-gray-700 hover:bg-gray-50'}`}
-                                                        >
-                                                            {status}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </td>
+                <div className="min-h-[400px] bg-gray-50/30">
+                    {loading && orders.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+                            <Loader2 className="animate-spin mb-3 text-brand-600" size={32} />
+                            Loading orders...
+                        </div>
+                    ) : filteredOrders.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+                            No recent orders found.
+                        </div>
+                    ) : viewMode === 'card' ? (
+                        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            {filteredOrders.map((order) => (
+                                <OrderCard
+                                    key={order.id}
+                                    order={order}
+                                    formatItems={formatItems}
+                                    onUpdateStatus={handleStatusUpdate}
+                                    updatingId={updatingId}
+                                    onClick={() => setSelectedOrder(order)}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Order ID</th>
+                                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Customer</th>
+                                        <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Delivery Address</th>
+                                        <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Items Ordered</th>
+                                        <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Total</th>
+                                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th className="px-2 sm:px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
                                     </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {filteredOrders.map((order) => (
+                                        <tr
+                                            key={order.id}
+                                            onClick={() => setSelectedOrder(order)}
+                                            className="hover:bg-gray-50 transition-colors group cursor-pointer"
+                                        >
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                #{order.order_id ? order.order_id : order.id.slice(0, 6)}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="text-sm font-medium text-gray-900">{order.customer_name}</div>
+                                                <div className="text-xs text-gray-500">{order.customer_phone}</div>
+                                                <div className="text-xs text-gray-400">{new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                            </td>
+                                            <td className="hidden sm:table-cell px-6 py-4 text-sm text-gray-500 max-w-xs truncate" title={order.delivery_address}>
+                                                {order.delivery_address || '-'}
+                                            </td>
+                                            <td className="hidden sm:table-cell px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                                                {formatItems(order.items_summary)}
+                                            </td>
+                                            <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                                                ₦{order.total_amount ? Number(order.total_amount).toLocaleString() : '0'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                {updatingId === order.id ? (
+                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                                                        <Loader2 size={12} className="animate-spin" /> Updating...
+                                                    </span>
+                                                ) : (
+                                                    <StatusBadge status={order.status} />
+                                                )}
+                                            </td>
+                                            <td className="px-2 sm:px-6 py-4 whitespace-nowrap text-right text-sm" onClick={(e) => e.stopPropagation()}>
+                                                <div className="relative inline-block text-left group/action">
+                                                    <button className="text-brand-600 hover:text-brand-800 font-medium text-xs border border-brand-200 bg-brand-50 px-3 py-1.5 rounded-lg transition-colors flex items-center justify-end gap-1 ml-auto">
+                                                        Update Status <ChevronDown size={14} />
+                                                    </button>
+
+                                                    {/* Dropdown */}
+                                                    <div className="hidden group-hover/action:block absolute right-0 mt-1 w-40 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-20 p-1">
+                                                        {['In Progress', 'Out for Delivery', 'Delivered', 'Cancelled'].map((status) => (
+                                                            <button
+                                                                key={status}
+                                                                onClick={(e) => {
+                                                                    handleStatusUpdate(e, order.id, status);
+                                                                    e.currentTarget.parentElement.classList.remove('group-hover/action:block');
+                                                                    setTimeout(() => e.currentTarget.parentElement.classList.add('group-hover/action:block'), 100);
+                                                                }}
+                                                                className={`block w-full text-left px-4 py-2 text-xs rounded-md ${order.status === status ? 'bg-gray-100 font-bold text-gray-900' : 'text-gray-700 hover:bg-gray-50'}`}
+                                                            >
+                                                                {status}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             </div>
 

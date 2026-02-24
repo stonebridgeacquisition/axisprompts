@@ -1,7 +1,72 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Edit2, Trash2, X, Loader2, Check, ToggleLeft, ToggleRight, Upload, Save, Truck, Store } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, X, Loader2, Check, ToggleLeft, ToggleRight, Upload, Save, Truck, Store, List, LayoutGrid } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+
+const MenuItemCard = ({ item, handleToggleAvailability, openEdit, handleDelete }) => (
+    <div
+        onClick={() => openEdit(item)}
+        className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-3 relative group hover:shadow-md transition-shadow cursor-pointer"
+    >
+        <div className="flex justify-between items-start gap-2">
+            <div>
+                <h4 className={`text-sm font-bold text-gray-900 ${!item.is_available ? 'opacity-60' : ''}`}>{item.name}</h4>
+                <div className="text-xs text-gray-400 mt-1 line-clamp-2" title={item.description}>{item.description || "No description"}</div>
+            </div>
+            <button
+                onClick={(e) => { e.stopPropagation(); handleToggleAvailability(item); }}
+                className={`shrink-0 inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold transition-colors ${item.is_available
+                    ? 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
+                    : 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'
+                    }`}
+            >
+                {item.is_available ? (
+                    <><ToggleRight size={12} /> Active</>
+                ) : (
+                    <><ToggleLeft size={12} /> Hidden</>
+                )}
+            </button>
+        </div>
+
+        <div className={`flex items-center justify-between text-xs ${!item.is_available ? 'opacity-60' : ''}`}>
+            <span className="inline-flex px-2 py-1 rounded bg-gray-100 font-medium border border-gray-200 text-gray-500">
+                {item.category || 'General'}
+            </span>
+            <span className="font-bold text-gray-900 text-sm">₦{Number(item.price).toLocaleString()}</span>
+        </div>
+
+        <div className={`flex items-center justify-between text-xs pt-3 border-t border-gray-100 mt-auto ${!item.is_available ? 'opacity-60' : ''}`}>
+            <div className="flex flex-col gap-0.5">
+                {!item.track_inventory ? (
+                    <span className="text-gray-400 font-medium italic">Stock: Unlimited</span>
+                ) : (
+                    <span className={`font-bold flex items-center gap-1 z-10 ${item.stock_level <= 0 ? 'text-red-600' : item.stock_level <= 5 ? 'text-orange-600' : 'text-gray-900'}`}>
+                        Stock: {item.stock_level}
+                        {item.stock_level <= 0 && <span className="text-[9px] uppercase bg-red-100 px-1 rounded">Out</span>}
+                    </span>
+                )}
+                {item.track_inventory && item.daily_stock && (
+                    <span className="text-[10px] text-blue-600 font-medium">Resets to {item.daily_stock}</span>
+                )}
+            </div>
+
+            <div className="flex items-center gap-1 shrink-0 relative z-20">
+                <button
+                    onClick={(e) => { e.stopPropagation(); openEdit(item); }}
+                    className="p-1.5 hover:bg-brand-50 hover:text-brand-600 active:scale-95 rounded-lg transition-all text-gray-400"
+                >
+                    <Edit2 size={14} />
+                </button>
+                <button
+                    onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
+                    className="p-1.5 hover:bg-red-50 hover:text-red-600 active:scale-95 rounded-lg transition-all text-gray-400"
+                >
+                    <Trash2 size={14} />
+                </button>
+            </div>
+        </div>
+    </div>
+);
 
 const ClientMenu = () => {
     const { client } = useOutletContext();
@@ -15,6 +80,15 @@ const ClientMenu = () => {
 
     // Tabs
     const [activeTab, setActiveTab] = useState('menu'); // 'menu' or 'delivery'
+    const [menuViewMode, setMenuViewMode] = useState('list');
+    const [deliveryViewMode, setDeliveryViewMode] = useState('list');
+
+    useEffect(() => {
+        if (window.innerWidth < 640) {
+            setMenuViewMode('card');
+            setDeliveryViewMode('card');
+        }
+    }, []);
 
     // Delivery Fee State
     const [deliveryFees, setDeliveryFees] = useState([]);
@@ -313,10 +387,26 @@ const ClientMenu = () => {
                 </div>
 
                 {activeTab === 'menu' && (
-                    <div className="flex items-center gap-2">
-                        <label className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 cursor-pointer ${uploading
+                    <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex items-center bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
+                            <button
+                                onClick={() => setMenuViewMode('list')}
+                                className={`p-1.5 rounded-md transition-all flex items-center gap-1.5 px-3 text-sm font-medium ${menuViewMode === 'list' ? 'bg-gray-100 text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                                title="List View"
+                            >
+                                <List size={16} /> <span className="hidden sm:inline">List</span>
+                            </button>
+                            <button
+                                onClick={() => setMenuViewMode('card')}
+                                className={`p-1.5 rounded-md transition-all flex items-center gap-1.5 px-3 text-sm font-medium ${menuViewMode === 'card' ? 'bg-gray-100 text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                                title="Card View"
+                            >
+                                <LayoutGrid size={16} /> <span className="hidden sm:inline">Grid</span>
+                            </button>
+                        </div>
+                        <label className={`px-4 py-2 text-sm rounded-lg font-medium transition-colors flex items-center gap-2 cursor-pointer ${uploading
                             ? 'bg-gray-200 text-gray-500'
-                            : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                            : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm'
                             }`}>
                             <input
                                 type="file"
@@ -354,14 +444,16 @@ const ClientMenu = () => {
                                 }}
                             />
                             {uploading ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
-                            {uploading ? 'Processing...' : 'Upload AI Menu'}
+                            {uploading ? 'Processing...' : <span className="hidden sm:inline">Upload AI Menu</span>}
+                            {!uploading && <span className="sm:hidden">Upload</span>}
                         </label>
                         <button
                             onClick={() => setIsAdding(!isAdding)}
-                            className="px-4 py-2 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 transition-colors shadow-lg shadow-brand-500/20 flex items-center gap-2"
+                            className="px-4 py-2 text-sm bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 transition-colors shadow-lg shadow-brand-500/20 flex items-center gap-2"
                         >
-                            {isAdding ? <X size={18} /> : <Plus size={18} />}
-                            {isAdding ? 'Cancel' : 'Add Item'}
+                            {isAdding ? <X size={16} /> : <Plus size={16} />}
+                            {isAdding ? 'Cancel' : <span className="hidden sm:inline">Add Item</span>}
+                            {!isAdding && <span className="sm:hidden">Add</span>}
                         </button>
                     </div>
                 )}
@@ -526,107 +618,117 @@ const ClientMenu = () => {
                             </div>
                         </div>
 
-                        <div className="overflow-x-auto min-h-[400px]">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Item Name</th>
-                                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Category</th>
-                                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Price</th>
-                                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Stock</th>
-                                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Daily Restock</th>
-                                        <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {loading ? (
-                                        <tr>
-                                            <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
-                                                <Loader2 className="animate-spin mx-auto mb-2 text-brand-600" size={24} />
-                                                Loading items...
-                                            </td>
-                                        </tr>
-                                    ) : filteredItems.length === 0 ? (
-                                        <tr>
-                                            <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
-                                                No menu items found. Add some to get started.
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        filteredItems.map((item) => (
-                                            <tr
-                                                key={item.id}
-                                                className={`hover:bg-gray-50 transition-colors group cursor-pointer ${!item.is_available ? 'opacity-60' : ''}`}
-                                                onClick={() => openEdit(item)}
-                                            >
-                                                <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                                                    {item.name}
-                                                    {item.description && <p className="text-xs text-gray-400 font-normal mt-0.5">{item.description}</p>}
-                                                </td>
-                                                <td className="px-6 py-4 text-sm text-gray-500">
-                                                    <span className="inline-flex px-2 py-1 rounded bg-gray-100 text-xs font-medium border border-gray-200">
-                                                        {item.category || 'General'}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 text-sm font-bold text-gray-900">
-                                                    ₦{Number(item.price).toLocaleString()}
-                                                </td>
-                                                <td className="px-6 py-4 text-sm">
-                                                    {!item.track_inventory ? (
-                                                        <span className="text-gray-400 text-xs font-medium italic">Unlimited</span>
-                                                    ) : (
-                                                        <span className={`inline-flex items-center gap-1.5 font-bold ${item.stock_level <= 0 ? 'text-red-600' : item.stock_level <= 5 ? 'text-orange-600' : 'text-gray-900'}`}>
-                                                            {item.stock_level}
-                                                            {item.stock_level <= 0 && <span className="text-[10px] uppercase bg-red-100 px-1.5 py-0.5 rounded">Out</span>}
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4 text-sm">
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handleToggleAvailability(item); }}
-                                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${item.is_available
-                                                            ? 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
-                                                            : 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'
-                                                            }`}
-                                                    >
-                                                        {item.is_available ? (
-                                                            <><ToggleRight size={14} /> Available</>
-                                                        ) : (
-                                                            <><ToggleLeft size={14} /> Unavailable</>
-                                                        )}
-                                                    </button>
-                                                </td>
-                                                <td className="px-6 py-4 text-sm text-gray-500">
-                                                    {item.track_inventory && item.daily_stock ? (
-                                                        <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-100 font-bold">
-                                                            Resets to {item.daily_stock}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-gray-300 text-xs">—</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                                                    <div className="flex items-center justify-end gap-2 text-gray-400">
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); openEdit(item); }}
-                                                            className="p-2 hover:bg-brand-50 hover:text-brand-600 rounded-lg transition-colors"
-                                                        >
-                                                            <Edit2 size={16} />
-                                                        </button>
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
-                                                            className="p-2 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
-                                                        >
-                                                            <Trash2 size={16} />
-                                                        </button>
-                                                    </div>
-                                                </td>
+                        <div className="bg-gray-50/30 min-h-[400px]">
+                            {loading ? (
+                                <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+                                    <Loader2 className="animate-spin mx-auto mb-3 text-brand-600" size={32} />
+                                    Loading items...
+                                </div>
+                            ) : filteredItems.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-20 text-gray-500 text-center px-4">
+                                    No menu items found. Add some to get started.
+                                </div>
+                            ) : menuViewMode === 'card' ? (
+                                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                                    {filteredItems.map(item => (
+                                        <MenuItemCard
+                                            key={item.id}
+                                            item={item}
+                                            handleToggleAvailability={handleToggleAvailability}
+                                            openEdit={openEdit}
+                                            handleDelete={handleDelete}
+                                        />
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                <th className="px-4 sm:px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Item Name</th>
+                                                <th className="hidden lg:table-cell px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Category</th>
+                                                <th className="px-4 sm:px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Price</th>
+                                                <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Stock</th>
+                                                <th className="px-4 sm:px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                                                <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Daily Restock</th>
+                                                <th className="px-4 sm:px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
                                             </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {filteredItems.map((item) => (
+                                                <tr
+                                                    key={item.id}
+                                                    className={`hover:bg-gray-50 transition-colors group cursor-pointer ${!item.is_available ? 'opacity-60' : ''}`}
+                                                    onClick={() => openEdit(item)}
+                                                >
+                                                    <td className="px-4 sm:px-6 py-4 text-sm font-medium text-gray-900 max-w-[150px] sm:max-w-xs xl:max-w-sm shrink-0">
+                                                        <div className="line-clamp-2">{item.name}</div>
+                                                        {item.description && <p className="hidden md:block text-xs text-gray-400 font-normal mt-0.5 truncate">{item.description}</p>}
+                                                    </td>
+                                                    <td className="hidden lg:table-cell px-6 py-4 text-sm text-gray-500">
+                                                        <span className="inline-flex px-2 py-1 rounded bg-gray-100 text-xs font-medium border border-gray-200 whitespace-nowrap">
+                                                            {item.category || 'General'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 sm:px-6 py-4 text-sm font-bold text-gray-900">
+                                                        ₦{Number(item.price).toLocaleString()}
+                                                    </td>
+                                                    <td className="hidden sm:table-cell px-6 py-4 text-sm whitespace-nowrap">
+                                                        {!item.track_inventory ? (
+                                                            <span className="text-gray-400 text-xs font-medium italic">Unlimited</span>
+                                                        ) : (
+                                                            <span className={`inline-flex items-center gap-1.5 font-bold ${item.stock_level <= 0 ? 'text-red-600' : item.stock_level <= 5 ? 'text-orange-600' : 'text-gray-900'}`}>
+                                                                {item.stock_level}
+                                                                {item.stock_level <= 0 && <span className="text-[10px] uppercase bg-red-100 px-1.5 py-0.5 rounded">Out</span>}
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 sm:px-6 py-4 text-sm">
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleToggleAvailability(item); }}
+                                                            className={`inline-flex items-center justify-center p-1 sm:px-2.5 sm:py-1 rounded-full text-xs font-semibold transition-colors ${item.is_available
+                                                                ? 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
+                                                                : 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'
+                                                                }`}
+                                                        >
+                                                            {item.is_available ? (
+                                                                <><ToggleRight size={14} className="hidden sm:block" /><span className="sm:hidden w-2 h-2 rounded-full bg-green-500" title="Available"></span> <span className="hidden sm:inline">Available</span></>
+                                                            ) : (
+                                                                <><ToggleLeft size={14} className="hidden sm:block" /><span className="sm:hidden w-2 h-2 rounded-full bg-red-500" title="Unavailable"></span> <span className="hidden sm:inline">Unavailable</span></>
+                                                            )}
+                                                        </button>
+                                                    </td>
+                                                    <td className="hidden sm:table-cell px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
+                                                        {item.track_inventory && item.daily_stock ? (
+                                                            <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-100 font-bold">
+                                                                Resets to {item.daily_stock}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-gray-300 text-xs">—</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-sm">
+                                                        <div className="flex items-center justify-end gap-1 sm:gap-2 text-gray-400">
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); openEdit(item); }}
+                                                                className="p-1 sm:p-2 hover:bg-brand-50 hover:text-brand-600 rounded-lg transition-colors"
+                                                            >
+                                                                <Edit2 size={16} />
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
+                                                                className="p-1 sm:p-2 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -913,8 +1015,28 @@ const ClientMenu = () => {
 
                             {/* Manual Fee List Section */}
                             <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-                                <h3 className="text-lg font-bold text-gray-900 mb-1">Fee Locations</h3>
-                                <p className="text-sm text-gray-500 mb-6">Manually list your delivery zones and fees for simpler extraction.</p>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                                    <div>
+                                        <h3 className="text-lg font-bold text-gray-900 mb-1">Fee Locations</h3>
+                                        <p className="text-sm text-gray-500 max-w-md">Manually list your delivery zones and fees for simpler extraction.</p>
+                                    </div>
+                                    <div className="flex items-center bg-gray-50 p-1 rounded-lg border border-gray-200 shadow-sm shrink-0">
+                                        <button
+                                            onClick={() => setDeliveryViewMode('list')}
+                                            className={`p-1.5 rounded-md transition-all flex items-center gap-1.5 px-3 text-sm font-medium ${deliveryViewMode === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                            title="List View"
+                                        >
+                                            <List size={16} /> <span className="hidden sm:inline">List</span>
+                                        </button>
+                                        <button
+                                            onClick={() => setDeliveryViewMode('card')}
+                                            className={`p-1.5 rounded-md transition-all flex items-center gap-1.5 px-3 text-sm font-medium ${deliveryViewMode === 'card' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                            title="Card View"
+                                        >
+                                            <LayoutGrid size={16} /> <span className="hidden sm:inline">Grid</span>
+                                        </button>
+                                    </div>
+                                </div>
 
                                 <form onSubmit={handleAddDeliveryFee} className="flex flex-col sm:flex-row gap-3 mb-6">
                                     <input
@@ -946,26 +1068,49 @@ const ClientMenu = () => {
 
                                 {/* Fee List */}
                                 {deliveryFees && deliveryFees.length > 0 ? (
-                                    <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 overflow-hidden">
-                                        {deliveryFees.map((fee) => (
-                                            <div key={fee.id} className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
-                                                <div>
-                                                    <p className="font-bold text-gray-900">{fee.location}</p>
+                                    deliveryViewMode === 'card' ? (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                            {deliveryFees.map((fee) => (
+                                                <div key={fee.id} className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex flex-col gap-2 hover:border-brand-300 transition-colors">
+                                                    <div className="flex justify-between items-start">
+                                                        <p className="font-bold text-gray-900 line-clamp-2 pr-4">{fee.location}</p>
+                                                        <button
+                                                            onClick={() => handleRemoveDeliveryFee(fee.id)}
+                                                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0 -mt-1 -mr-1"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                    <div className="mt-auto pt-2">
+                                                        <span className="font-bold text-brand-700 bg-brand-50 px-2.5 py-1 rounded inline-block text-sm border border-brand-100">
+                                                            ₦{Number(fee.fee).toLocaleString()}
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center gap-4">
-                                                    <span className="font-bold text-gray-900 bg-gray-100 px-3 py-1 rounded-full text-sm">
-                                                        ₦{Number(fee.fee).toLocaleString()}
-                                                    </span>
-                                                    <button
-                                                        onClick={() => handleRemoveDeliveryFee(fee.id)}
-                                                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 overflow-hidden">
+                                            {deliveryFees.map((fee) => (
+                                                <div key={fee.id} className="flex items-center justify-between p-3 sm:p-4 hover:bg-gray-50 transition-colors">
+                                                    <div className="pr-4 mr-auto min-w-[50%]">
+                                                        <p className="font-bold text-gray-900 text-sm sm:text-base line-clamp-1">{fee.location}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                                                        <span className="font-bold text-gray-900 bg-gray-100 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm whitespace-nowrap border border-gray-200">
+                                                            ₦{Number(fee.fee).toLocaleString()}
+                                                        </span>
+                                                        <button
+                                                            onClick={() => handleRemoveDeliveryFee(fee.id)}
+                                                            className="p-1 sm:p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ))}
-                                    </div>
+                                            ))}
+                                        </div>
+                                    )
                                 ) : (
                                     <div className="text-center py-8 text-gray-500 text-sm border border-gray-100 rounded-lg bg-gray-50">
                                         No specific locations added yet. Add some above.
