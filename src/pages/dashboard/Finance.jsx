@@ -96,8 +96,8 @@ const Finance = () => {
                             key={tf.id}
                             onClick={() => setTimeframe(tf.id)}
                             className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${timeframe === tf.id
-                                    ? 'bg-white dark:bg-dark-700 text-brand-600 dark:text-brand-400 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                                ? 'bg-white dark:bg-dark-700 text-brand-600 dark:text-brand-400 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                                 }`}
                         >
                             {tf.label}
@@ -156,67 +156,80 @@ const Finance = () => {
                 </div>
             </div>
 
-            {/* Transactions Table */}
-            <div className="bg-white dark:bg-dark-900 border border-gray-200 dark:border-dark-800 rounded-xl overflow-hidden shadow-sm transition-colors">
+            {/* Transactions Table / List */}
+            <div className="bg-white dark:bg-dark-900 border border-gray-200 dark:border-dark-800 rounded-xl shadow-sm transition-colors">
                 <div className="p-6 border-b border-gray-200 dark:border-dark-800">
                     <h3 className="text-lg font-bold text-gray-900 dark:text-white">All Transactions</h3>
                 </div>
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 dark:divide-dark-800">
-                        <thead className="bg-gray-50 dark:bg-dark-800">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Client</th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Customer</th>
-                                <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total</th>
-                                <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Axis (0.5%)</th>
-                                <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Client (99.5%)</th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Reference</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white dark:bg-dark-900 divide-y divide-gray-200 dark:divide-dark-800 text-gray-900 dark:text-white">
-                            {loading ? (
-                                <tr>
-                                    <td colSpan="7" className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                                        <Loader2 className="animate-spin mx-auto mb-2 text-brand-600" size={24} />
-                                        Loading transactions...
-                                    </td>
-                                </tr>
-                            ) : transactions.length === 0 ? (
-                                <tr>
-                                    <td colSpan="7" className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                                        No transactions yet. They'll appear here after customers make payments.
-                                    </td>
-                                </tr>
-                            ) : (
-                                transactions.map((txn) => (
-                                    <tr key={txn.id} className="hover:bg-gray-50 dark:hover:bg-dark-800 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                            {formatDate(txn.created_at)}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                                            {txn.client_name || '—'}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                            {txn.customer_name || txn.customer_email || '—'}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900 dark:text-white">
+
+                <div className="divide-y divide-gray-100 dark:divide-dark-800">
+                    {loading ? (
+                        <div className="p-12 text-center text-gray-500 dark:text-gray-400">
+                            <Loader2 className="animate-spin mx-auto mb-2 text-brand-600" size={24} />
+                            Loading transactions...
+                        </div>
+                    ) : transactions.length === 0 ? (
+                        <div className="p-12 text-center text-gray-500 dark:text-gray-400">
+                            No transactions yet. They'll appear here after customers make payments.
+                        </div>
+                    ) : (
+                        transactions.map((txn) => (
+                            <div key={txn.id} className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between hover:bg-gray-50 dark:hover:bg-dark-800 transition-colors gap-4 group">
+
+                                {/* Left: Meta Info */}
+                                <div className="flex flex-col flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <p className="font-bold text-gray-900 dark:text-white text-base truncate">
+                                            {txn.client_name || 'Unknown Client'}
+                                        </p>
+                                        <span className="hidden sm:inline text-gray-300 dark:text-gray-700 font-bold">•</span>
+                                        <span className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                                            {txn.customer_name || txn.customer_email || 'Guest Customer'}
+                                        </span>
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-2 text-[11px] sm:text-xs text-gray-400 font-medium mt-1">
+                                        <p>{formatDate(txn.created_at)}</p>
+                                        {txn.paystack_reference && (
+                                            <>
+                                                <span className="hidden sm:inline text-gray-300 dark:text-gray-700">•</span>
+                                                <span className="text-gray-400 tracking-wider text-[10px] uppercase">REF: {txn.paystack_reference.slice(0, 8)}</span>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Right: Financial Breakdown */}
+                                <div className="flex flex-wrap lg:flex-nowrap items-center gap-3 sm:gap-6 pt-3 lg:pt-0 border-t border-gray-100 lg:border-0 dark:border-dark-800 w-full lg:w-auto mt-1 lg:mt-0">
+                                    <div className="flex-1 lg:flex-none text-left lg:text-right">
+                                        <p className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Total</p>
+                                        <p className="font-bold text-sm sm:text-base text-gray-900 dark:text-white">
                                             {formatCurrency(txn.total_amount)}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold text-brand-600 dark:text-brand-400">
+                                        </p>
+                                    </div>
+
+                                    <div className="w-px h-8 bg-gray-200 dark:bg-dark-700 hidden sm:block"></div>
+
+                                    <div className="flex-1 lg:flex-none text-left lg:text-right">
+                                        <p className="text-[10px] sm:text-xs font-semibold text-brand-500 dark:text-brand-400 uppercase tracking-wider mb-0.5">Axis (0.5%)</p>
+                                        <p className="font-bold text-sm sm:text-base text-brand-600 dark:text-brand-400">
                                             {formatCurrency(txn.axis_commission)}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-green-600 dark:text-green-400 font-medium">
+                                        </p>
+                                    </div>
+
+                                    <div className="w-px h-8 bg-gray-200 dark:bg-dark-700 hidden lg:block"></div>
+
+                                    <div className="flex-1 lg:flex-none text-left lg:text-right">
+                                        <p className="text-[10px] sm:text-xs font-semibold text-green-500 dark:text-green-600 uppercase tracking-wider mb-0.5">Client Payout</p>
+                                        <p className="font-bold text-sm sm:text-base text-green-600 dark:text-green-400">
                                             {formatCurrency(txn.client_revenue)}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-400 dark:text-gray-500 font-mono">
-                                            {txn.paystack_reference || '—'}
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+                                        </p>
+                                    </div>
+                                </div>
+
+                            </div>
+                        ))
+                    )}
                 </div>
             </div>
         </div>
