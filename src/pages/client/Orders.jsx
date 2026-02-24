@@ -138,6 +138,22 @@ const OrderDetailsModal = ({ order, onClose }) => {
     );
 };
 
+// Helper: check if order is < 1 hour old AND hasn't been out for delivery yet
+const isNewOrder = (order) => {
+    if (!order.created_at) return false;
+    const orderTime = new Date(order.created_at).getTime();
+    const now = Date.now();
+    const oneHour = 60 * 60 * 1000;
+
+    // If it's older than an hour, not new.
+    if (now - orderTime > oneHour) return false;
+
+    // If it's already dispatched or further, not new.
+    if (['Out for Delivery', 'Delivered', 'Cancelled'].includes(order.status)) return false;
+
+    return true;
+};
+
 const OrderCard = ({ order, formatItems, onUpdateStatus, updatingId, onClick }) => {
     return (
         <div
@@ -145,11 +161,18 @@ const OrderCard = ({ order, formatItems, onUpdateStatus, updatingId, onClick }) 
             className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow cursor-pointer flex flex-col gap-3 group relative"
         >
             <div className="flex justify-between items-start">
-                <div>
-                    <span className="text-sm font-bold text-gray-900">
-                        #{order.order_id ? order.order_id : order.id.slice(0, 6)}
-                    </span>
-                    <div className="text-xs text-gray-500 mt-0.5">
+                <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-gray-900">
+                            #{order.order_id ? order.order_id : order.id.slice(0, 6)}
+                        </span>
+                        {isNewOrder(order) && (
+                            <span className="animate-pulse bg-red-100 text-red-600 border border-red-200 text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                New
+                            </span>
+                        )}
+                    </div>
+                    <div className="text-xs text-gray-500">
                         {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                 </div>
@@ -374,8 +397,17 @@ const ClientOrders = () => {
                                             onClick={() => setSelectedOrder(order)}
                                             className="hover:bg-gray-50 transition-colors group cursor-pointer"
                                         >
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                #{order.order_id ? order.order_id : order.id.slice(0, 6)}
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-medium text-gray-900">
+                                                        #{order.order_id ? order.order_id : order.id.slice(0, 6)}
+                                                    </span>
+                                                    {isNewOrder(order) && (
+                                                        <span className="animate-pulse bg-red-100 text-red-600 border border-red-200 text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                                            New
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm font-medium text-gray-900">{order.customer_name}</div>
