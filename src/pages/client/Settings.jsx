@@ -297,8 +297,8 @@ const ClientSettings = () => {
                             <InputField label="Address" name="address" value={form.address} onChange={handleChange} icon={MapPin} placeholder="Business address" />
                         </div>
                         <div className="sm:col-span-2 grid grid-cols-2 gap-4">
-                            <InputField label="Open Time" name="open_time" type="time" value={form.open_time} onChange={handleChange} icon={Clock} />
-                            <InputField label="Close Time" name="close_time" type="time" value={form.close_time} onChange={handleChange} icon={Clock} />
+                            <InputField label="Open Time" name="open_time" type="time" value={form.open_time} onChange={handleChange} />
+                            <InputField label="Close Time" name="close_time" type="time" value={form.close_time} onChange={handleChange} />
                         </div>
                     </div>
                 </div>

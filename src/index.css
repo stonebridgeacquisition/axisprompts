@@ -13,6 +13,13 @@
   body {
     @apply antialiased font-sans selection:bg-brand-500 selection:text-white relative dark:bg-gray-900;
   }
+
+  /* Prevent iOS Safari from zooming in on inputs */
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }
 
 @layer utilities {
