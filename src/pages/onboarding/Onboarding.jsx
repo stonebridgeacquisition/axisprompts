@@ -124,8 +124,34 @@ const Onboarding = () => {
         }
     };
 
-    const handleNext = () => setStep(prev => prev + 1);
+    const handleNext = () => {
+        if (!validateStep()) return;
+        setStep(prev => prev + 1);
+    };
+
     const handlePrev = () => setStep(prev => prev - 1);
+
+    const validateStep = () => {
+        if (step === 1) {
+            if (!formData.businessName || !formData.email || !formData.phone) {
+                alert('Please fill in your Business Name, Email, and Phone Number to continue.');
+                return false;
+            }
+        }
+        if (step === 3) {
+            if (!formData.bankCode || !formData.accountNumber || !formData.accountName) {
+                alert('Please complete all your Bank Details to ensure you can receive payouts.');
+                return false;
+            }
+        }
+        if (step === 4) {
+            if (!formData.address || !formData.cuisine || !formData.contact) {
+                alert('Please provide your Address, Cuisine Type, and a Team Contact.');
+                return false;
+            }
+        }
+        return true;
+    };
 
     const handleVerifyCode = (e) => {
         e.preventDefault();
