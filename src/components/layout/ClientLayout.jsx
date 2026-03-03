@@ -19,6 +19,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '../ui/ThemeToggle'; // Adjust path if needed
 import OneSignal from 'react-onesignal';
+import IOSInstallPrompt from '../ui/IOSInstallPrompt';
 
 const ClientSidebarLink = ({ to, icon: Icon, children, end = false, disabled = false }) => {
     if (disabled) {
@@ -528,6 +529,10 @@ const ClientLayout = () => {
                     )}
                 </div>
             </main>
+
+            {/* iOS Web Push Install Helper */}
+            <IOSInstallPrompt />
+
         </div>
     );
 };
