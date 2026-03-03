@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '../ui/ThemeToggle'; // Adjust path if needed
+import OneSignal from 'react-onesignal';
 
 const ClientSidebarLink = ({ to, icon: Icon, children, end = false, disabled = false }) => {
     if (disabled) {
@@ -112,6 +113,30 @@ const ClientLayout = () => {
     // Fetch notifications when client is loaded
     useEffect(() => {
         if (!client?.id) return;
+
+        // --- Initialize OneSignal ---
+        const initOneSignal = async () => {
+            try {
+                if (!window.OneSignal) {
+                    await OneSignal.init({
+                        appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
+                        allowLocalhostAsSecureOrigin: true, // For testing local
+                    });
+                }
+
+                // Login the user to OneSignal using their Supabase Client ID
+                await OneSignal.login(client.id);
+
+                // Prompt for push notification permissions
+                await OneSignal.Slidedown.promptPush();
+                console.log('OneSignal initialized for client:', client.id);
+            } catch (err) {
+                console.error('OneSignal initialization failed:', err);
+            }
+        };
+        initOneSignal();
+        // -----------------------------
+
         const fetchNotifications = async () => {
             const { data } = await supabase
                 .from('notifications')

@@ -230,5 +230,43 @@ Deno.serve(async (req: Request) => {
     type: 'order'
   })
 
+  // --- Send OneSignal Web Push to Client ---
+  try {
+    const onesignalAppId = Deno.env.get('VITE_ONESIGNAL_APP_ID');
+    const onesignalRestKey = Deno.env.get('ONESIGNAL_REST_API_KEY');
+
+    if (onesignalAppId && onesignalRestKey) {
+      console.log(`Sending OneSignal Push to exactly client_id: ${client.id}`);
+      const pushPayload = {
+        app_id: onesignalAppId,
+        include_aliases: {
+          external_id: [client.id] // Targets the exact browser where OneSignal.login(client.id) was called
+        },
+        target_channel: 'push',
+        headings: { en: "🚨 New Customer Order! 🚨" },
+        contents: { en: `${paymentData.customer?.first_name || 'A customer'} just ordered ₦${amount.toLocaleString()} worth of food.` },
+        // Direct the user to the orders page when they click the notification
+        url: `https://app.swiftorderai.com/client/${client.slug}/orders`
+      };
+
+      const pushResponse = await fetch('https://onesignal.com/api/v1/notifications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Authorization': `Basic ${onesignalRestKey}`
+        },
+        body: JSON.stringify(pushPayload)
+      });
+
+      const pushResult = await pushResponse.json();
+      console.log('OneSignal Push Result:', pushResult);
+    } else {
+      console.warn("Skipping OneSignal: Missing credentials in Edge Function environment variables.");
+    }
+  } catch (err) {
+    console.error("OneSignal Push Notification Failed (non-fatal):", err);
+  }
+  // -----------------------------------------
+
   return new Response(JSON.stringify({ message: 'Order processed' }), { status: 200 })
 })
