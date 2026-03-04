@@ -6,29 +6,6 @@
   <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 
-  <!-- PWA / iOS Web Push requirements -->
-  <link rel="manifest" id="dynamic-manifest" href="/manifest.json" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="Axis Prompts" />
-
-  <script>
-    // iOS multi-tenant PWA fix: dynamically inject the current URL as the manifest start_url.
-    // This forces "Add to Home Screen" to install the current specific /client/slug page.
-    window.addEventListener('load', function () {
-      // Create a Blob from the static manifest, overriding start_url to the current full URL
-      fetch('/manifest.json')
-        .then(response => response.json())
-        .then(manifest => {
-          manifest.start_url = window.location.href;
-          const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
-          const manifestURL = URL.createObjectURL(blob);
-          document.getElementById('dynamic-manifest').setAttribute('href', manifestURL);
-        })
-        .catch(console.error);
-    });
-  </script>
-
   <title>Swift Order AI - AI Employee for Product Businesses</title>
 </head>
 

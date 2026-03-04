@@ -230,41 +230,46 @@ Deno.serve(async (req: Request) => {
     type: 'order'
   })
 
-  // --- Send OneSignal Web Push to Client ---
+  // --- Send Telegram Order Alert to Client ---
   try {
-    const onesignalAppId = Deno.env.get('VITE_ONESIGNAL_APP_ID');
-    const onesignalRestKey = Deno.env.get('ONESIGNAL_REST_API_KEY');
+    const { data: clientData } = await supabase
+      .from('clients')
+      .select('telegram_chat_id, slug')
+      .eq('id', client.id)
+      .single();
 
-    if (onesignalAppId && onesignalRestKey) {
-      console.log(`Sending OneSignal Push to exactly client_id: ${client.id}`);
-      const pushPayload = {
-        app_id: onesignalAppId,
-        include_aliases: {
-          external_id: [client.id] // Targets the exact browser where OneSignal.login(client.id) was called
-        },
-        target_channel: 'push',
-        headings: { en: "🚨 New Customer Order! 🚨" },
-        contents: { en: `${paymentData.customer?.first_name || 'A customer'} just ordered ₦${amount.toLocaleString()} worth of food.` },
-        // Direct the user to the orders page when they click the notification
-        url: `https://axispromptsai.com/client/${client.slug}/orders`
-      };
+    const telegramChatId = clientData?.telegram_chat_id;
+    const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
 
-      const pushResponse = await fetch('https://onesignal.com/api/v1/notifications', {
+    if (telegramChatId && botToken) {
+      console.log(`Sending Telegram Alert to chat_id: ${telegramChatId}`);
+
+      const messageText = `🚨 *New Customer Order!* 🚨\n\n*${paymentData.customer?.first_name || 'A customer'}* just ordered *₦${amount.toLocaleString()}* worth of food.\n\n[Tap here to view order details](https://axispromptsai.com/client/${clientData.slug}/orders)`;
+
+      const telegramResponse = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json; charset=utf-8',
-          'Authorization': `Basic ${onesignalRestKey}`
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify(pushPayload)
+        body: JSON.stringify({
+          chat_id: telegramChatId,
+          text: messageText,
+          parse_mode: "Markdown",
+          disable_web_page_preview: true
+        })
       });
 
-      const pushResult = await pushResponse.json();
-      console.log('OneSignal Push Result:', pushResult);
+      const telegramResult = await telegramResponse.json();
+      if (!telegramResult.ok) {
+        console.error('Telegram Push Result Error:', telegramResult);
+      } else {
+        console.log('Telegram Push Result Success:', telegramResult.result.message_id);
+      }
     } else {
-      console.warn("Skipping OneSignal: Missing credentials in Edge Function environment variables.");
+      console.warn("Skipping Telegram: Missing telegram_chat_id or bot token.");
     }
   } catch (err) {
-    console.error("OneSignal Push Notification Failed (non-fatal):", err);
+    console.error("Telegram Push Notification Failed (non-fatal):", err);
   }
   // -----------------------------------------
 
