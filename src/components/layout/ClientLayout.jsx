@@ -128,8 +128,19 @@ const ClientLayout = () => {
                 // Login the user to OneSignal using their Supabase Client ID
                 await OneSignal.login(client.id);
 
-                // Prompt for push notification permissions
-                await OneSignal.Slidedown.promptPush();
+                // Detect if the app is running in Standalone mode (iOS PWA)
+                const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+
+                if (isStandalone) {
+                    // On iOS PWA, the slidedown is often blocked or ignored by WebKit.
+                    // We must force the native permission prompt directly.
+                    console.log("Running in iOS Standalone mode. Forcing native push prompt.");
+                    await OneSignal.Notifications.requestPermission();
+                } else {
+                    // For typical desktop/android browsers, use the nice slidedown.
+                    await OneSignal.Slidedown.promptPush();
+                }
+
                 console.log('OneSignal initialized for client:', client.id);
             } catch (err) {
                 console.error('OneSignal initialization failed:', err);
