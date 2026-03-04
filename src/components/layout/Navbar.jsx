@@ -69,42 +69,26 @@ const Navbar = () => {
                         </a>
                     </div>
 
-                    {/* Mobile CTA Button - Premium Redesign */}
-                    <motion.a
-                        href="#cta"
-                        layout
-                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                        className={`
-                            md:hidden fixed top-6 right-6 z-50 flex items-center justify-center overflow-hidden
-                            bg-gray-900 text-white shadow-xl shadow-brand-500/20
-                            ${scrolled ? 'rounded-2xl px-5 py-2.5' : 'rounded-full w-10 h-10'}
-                        `}
-                    >
-                        <AnimatePresence mode="wait">
-                            {scrolled ? (
-                                <motion.span
-                                    key="text"
-                                    initial={{ opacity: 0, x: 10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: 10 }}
-                                    className="font-bold text-xs uppercase tracking-widest whitespace-nowrap"
-                                >
-                                    Start Free
-                                </motion.span>
-                            ) : (
-                                <motion.span
-                                    key="icon"
-                                    initial={{ opacity: 0, scale: 0.5 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.5 }}
-                                >
-                                    <ArrowRight size={18} className="text-white" />
-                                </motion.span>
-                            )}
-                        </AnimatePresence>
-                    </motion.a>
                 </div>
             </motion.nav>
+
+            {/* Mobile CTA Button - Arrow icon at top, expands to "Start Free" on scroll */}
+            <a
+                href="#cta"
+                style={{ position: 'fixed', top: '24px', right: '24px', zIndex: 9999 }}
+                className={`
+                    md:hidden flex items-center justify-center overflow-hidden
+                    bg-gray-900 text-white shadow-xl shadow-brand-500/20
+                    transition-all duration-300 ease-in-out
+                    ${scrolled ? 'rounded-2xl px-5 py-2.5 gap-1.5' : 'rounded-full w-10 h-10'}
+                `}
+            >
+                {scrolled ? (
+                    <span className="font-bold text-xs uppercase tracking-widest whitespace-nowrap">Start Free</span>
+                ) : (
+                    <ArrowRight size={18} />
+                )}
+            </a>
 
             {/* Mobile Menu Overlay */}
             <AnimatePresence>

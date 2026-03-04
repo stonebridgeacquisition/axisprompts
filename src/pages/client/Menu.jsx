@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { Plus, Search, Edit2, Trash2, X, Loader2, Check, ToggleLeft, ToggleRight, Upload, Save, Truck, Store, List, LayoutGrid } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
@@ -733,10 +734,27 @@ const ClientMenu = () => {
                     </div>
 
                     {/* Edit Item Modal */}
-                    {editingItem && (
-                        <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, left: 0, zIndex: 9999 }} className="bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setEditingItem(null)}>
+                    {editingItem && ReactDOM.createPortal(
+                        <div
+                            style={{
+                                position: 'fixed',
+                                top: 0,
+                                left: 0,
+                                width: '100vw',
+                                height: '100vh',
+                                zIndex: 9999,
+                                background: 'rgba(0,0,0,0.5)',
+                                backdropFilter: 'blur(4px)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: '16px',
+                                overscrollBehavior: 'contain'
+                            }}
+                            onClick={() => setEditingItem(null)}
+                        >
                             <div
-                                className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+                                className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto"
                                 onClick={(e) => e.stopPropagation()}
                             >
                                 <div className="p-6 border-b border-gray-100 flex items-center justify-between">
@@ -876,7 +894,8 @@ const ClientMenu = () => {
                                     </div>
                                 </form>
                             </div>
-                        </div>
+                        </div>,
+                        document.body
                     )}
                 </>
             )}
