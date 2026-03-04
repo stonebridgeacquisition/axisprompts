@@ -246,7 +246,7 @@ Deno.serve(async (req: Request) => {
         headings: { en: "🚨 New Customer Order! 🚨" },
         contents: { en: `${paymentData.customer?.first_name || 'A customer'} just ordered ₦${amount.toLocaleString()} worth of food.` },
         // Direct the user to the orders page when they click the notification
-        url: `https://app.swiftorderai.com/client/${client.slug}/orders`
+        url: `https://axispromptsai.com/client/${client.slug}/orders`
       };
 
       const pushResponse = await fetch('https://onesignal.com/api/v1/notifications', {
