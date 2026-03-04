@@ -74,6 +74,8 @@ const ClientLayout = () => {
     const [notifOpen, setNotifOpen] = useState(false);
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [isPushEnabled, setIsPushEnabled] = useState(true); // Default true to avoid flash
+    const [isStandalone, setIsStandalone] = useState(false);
     const notifRef = useRef(null);
 
     useEffect(() => {
@@ -129,13 +131,17 @@ const ClientLayout = () => {
                 await OneSignal.login(client.id);
 
                 // Detect if the app is running in Standalone mode (iOS PWA)
-                const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+                const standalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+                setIsStandalone(standalone);
 
-                if (isStandalone) {
-                    // On iOS PWA, the slidedown is often blocked or ignored by WebKit.
-                    // We must force the native permission prompt directly.
-                    console.log("Running in iOS Standalone mode. Forcing native push prompt.");
-                    await OneSignal.Notifications.requestPermission();
+                // Check actual opt-in permission
+                const hasPermission = OneSignal.User.PushSubscription.optedIn || Notification.permission === 'granted';
+                setIsPushEnabled(hasPermission);
+
+                if (standalone) {
+                    // On iOS PWA, Apple silently blocks programmatic permission requests.
+                    // We must wait for the user to explicitly tap an "Enable Notifications" button.
+                    console.log("iOS Standalone mode detected: Skipping auto-prompt to obey Apple's user-gesture rule.");
                 } else {
                     // For typical desktop/android browsers, use the nice slidedown.
                     await OneSignal.Slidedown.promptPush();
@@ -513,6 +519,26 @@ const ClientLayout = () => {
                 </header>
 
                 {/* Content Area */}
+
+                {/* iOS Standalone Push Notification Primer Banner */}
+                {isStandalone && !isPushEnabled && (
+                    <div className="bg-brand-600 dark:bg-brand-700 text-white px-4 justify-between sm:justify-start sm:px-8 py-3 flex items-center gap-4 z-40 relative shadow-sm shrink-0">
+                        <div className="flex items-center gap-2 flex-1">
+                            <Bell size={20} className="shrink-0" />
+                            <span className="text-sm font-medium leading-tight">Order alerts are disabled. Enable them now to receive real-time notifications.</span>
+                        </div>
+                        <button
+                            onClick={async () => {
+                                await OneSignal.Notifications.requestPermission();
+                                setIsPushEnabled(OneSignal.User.PushSubscription.optedIn || Notification.permission === 'granted');
+                            }}
+                            className="bg-white text-brand-700 hover:bg-brand-50 active:bg-brand-100 px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-colors shrink-0"
+                        >
+                            Enable Alerts
+                        </button>
+                    </div>
+                )}
+
                 <div className="flex-1 overflow-auto bg-gray-50 dark:bg-dark-950 p-4 sm:p-8 relative transition-colors duration-200">
                     {isAccessBlocked ? (
                         <div className="absolute inset-0 z-30 flex items-center justify-center bg-gray-50/80 dark:bg-dark-950/80 backdrop-blur-sm p-4">
