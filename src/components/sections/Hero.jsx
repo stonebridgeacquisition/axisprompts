@@ -39,12 +39,12 @@ const Hero = () => {
 
                             {/* Massive Headline */}
                             <h1 className="font-display text-4xl md:text-5xl lg:text-7xl font-bold text-gray-900 leading-[1.1] mb-6 lg:mb-8 -tracking-[0.03em] drop-shadow-sm">
-                                Never miss another order or customer message <br className="hidden lg:block" />
-                                even when <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 via-purple-600 to-brand-600 animate-shimmer bg-[length:200%_auto]">your staff is busy.</span>
+                                Every WhatsApp DM answered in 30 seconds. <br className="hidden lg:block" />
+                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 via-purple-600 to-brand-600 animate-shimmer bg-[length:200%_auto]">Or you don't pay.</span>
                             </h1>
 
                             <p className="text-lg md:text-2xl text-gray-500 mb-8 lg:mb-10 leading-relaxed font-light max-w-2xl mx-auto lg:mx-0 px-2 lg:px-0">
-                                For food businesses selling fast food, cakes, seafood, and everyday meals through WhatsApp or Instagram.
+                                Our AI employee handles every customer message on WhatsApp so you never lose a sale, even at 3am.
                             </p>
 
                             {/* CTA & Trust */}

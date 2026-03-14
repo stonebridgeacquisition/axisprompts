@@ -5,7 +5,7 @@ const WhatYouGet = () => {
     const features = [
         {
             title: "Instant Replies",
-            desc: "Answers every WhatsApp or Instagram message immediately, even when you’re busy.",
+            desc: "Answers every WhatsApp message immediately, even when you’re busy.",
             gradient: "from-blue-500/20 via-cyan-500/20 to-blue-500/5",
             hoverGradient: "group-hover:from-blue-500/30 group-hover:via-cyan-500/30",
             dotColor: "bg-blue-500"

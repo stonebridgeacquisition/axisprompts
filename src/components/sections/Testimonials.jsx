@@ -20,7 +20,7 @@ const testimonials = [
     {
         name: "David Kim",
         role: "CEO, StartUp Inc",
-        text: "Essential tool for any serious business on Instagram. The ROI was positive in the first week."
+        text: "Essential tool for any serious business on WhatsApp. The ROI was positive in the first week."
     }
 ];
 

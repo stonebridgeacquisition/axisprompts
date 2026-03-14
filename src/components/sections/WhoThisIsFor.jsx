@@ -34,7 +34,7 @@ const WhoThisIsFor = () => {
                             </h3>
                             <ul className="space-y-6">
                                 {[
-                                    "Sell food on WhatsApp or Instagram",
+                                    "Sell food on WhatsApp",
                                     "Are losing sales due to slow replies",
                                     "Want automated orders without hiring staff",
                                     "Value speed and customer experience"

@@ -1,14 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import nodemailer from 'npm:nodemailer'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-
-// SMTP Configuration (Hardcoded for now as per user setup)
-const SMTP_HOSTNAME = "mail.spacemail.com";
-const SMTP_PORT = 465;
-const SMTP_USERNAME = "team@studiocraftai.com";
-const SMTP_PASSWORD = "Saudiarabia123?";
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')!
 
 const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
@@ -16,23 +10,25 @@ const CORS_HEADERS = {
 }
 
 const sendEmail = async (to: string, subject: string, body: string) => {
-    const transporter = nodemailer.createTransport({
-        host: SMTP_HOSTNAME,
-        port: SMTP_PORT,
-        secure: true, // true for 465
-        auth: {
-            user: SMTP_USERNAME,
-            pass: SMTP_PASSWORD,
-        },
-    });
-
     try {
-        await transporter.sendMail({
-            from: SMTP_USERNAME,
-            to: to,
-            subject: subject,
-            html: body,
+        const res = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${RESEND_API_KEY}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                from: "Swift Order AI <info@swiftorderai.com>",
+                to,
+                subject,
+                html: body,
+            }),
         });
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error(`Resend error for ${to}: ${errorText}`);
+            return false;
+        }
         console.log(`Email sent successfully to ${to}`);
         return true;
     } catch (error) {

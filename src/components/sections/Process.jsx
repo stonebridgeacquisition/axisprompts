@@ -6,7 +6,7 @@ const Process = () => {
         {
             num: "01",
             title: "Connect",
-            desc: "Link your WhatsApp or Instagram account in one click."
+            desc: "We guide you on connecting your WhatsApp account during a quick 1-on-1 setup call."
         },
         {
             num: "02",

@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import nodemailer from "npm:nodemailer@6.9.1";
 
-const SMTP_HOSTNAME = "mail.spacemail.com";
-const SMTP_PORT = 465;
-const SMTP_USERNAME = "team@studiocraftai.com";
-const SMTP_PASSWORD = "Saudiarabia123?";
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,22 +8,24 @@ const corsHeaders = {
 };
 
 const sendEmail = async (to: string, subject: string, html: string) => {
-  const transporter = nodemailer.createTransport({
-    host: SMTP_HOSTNAME,
-    port: SMTP_PORT,
-    secure: true,
-    auth: {
-      user: SMTP_USERNAME,
-      pass: SMTP_PASSWORD,
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+      "Content-Type": "application/json",
     },
+    body: JSON.stringify({
+      from: "Swift Order AI <info@swiftorderai.com>",
+      to,
+      subject,
+      html,
+    }),
   });
-
-  return await transporter.sendMail({
-    from: `"Swift Order AI Team" <${SMTP_USERNAME}>`,
-    to,
-    subject,
-    html,
-  });
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Resend error: ${errorText}`);
+  }
+  return res.json();
 };
 
 const getWelcomeTemplate = (businessName: string, loginLink: string) => `
