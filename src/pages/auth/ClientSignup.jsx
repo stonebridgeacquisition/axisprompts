@@ -114,6 +114,7 @@ const ClientSignup = () => {
                 body: {
                     email,
                     businessName: client?.business_name || 'Business Owner',
+                    slug: client?.slug,
                     loginUrl: `${window.location.origin}/client/${client.slug}/login`
                 }
             }).then(({ error }) => {

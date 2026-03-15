@@ -93,7 +93,7 @@ const getEmailTemplate = (businessName: string, titleCode: string, bodyContent: 
                     <td class="footer">
                         <div class="divider"></div>
                         <p>&copy; ${new Date().getFullYear()} Swift Order AI.</p>
-                        <p>Questions? Reply to this email or visit our <a href="https://swiftorderai.com/#faq" class="footer-link">Help Center</a>.</p>
+                        <p>Questions? Reply to this email or contact <a href="mailto:support@swiftorderai.com" class="footer-link">support@swiftorderai.com</a>.</p>
                     </td>
                 </tr>
             </table>
@@ -139,7 +139,7 @@ Deno.serve(async (req: Request) => {
                 const end = new Date(client.trial_end_date);
                 const diffTime = end.getTime() - now.getTime();
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                const subLink = `${BASE_URL}/client/${client.slug}/subscription`;
+                const subLink = `${BASE_URL}/client/${client.slug}`;
 
                 console.log(`Checking Client: ${client.business_name} | Days Left: ${diffDays}`);
 
@@ -229,7 +229,7 @@ Deno.serve(async (req: Request) => {
                     client.business_name,
                     '<div class="badge badge-error">Payment Failed</div>',
                     '<p>We were unable to process your subscription renewal today. Your account has been placed on a <b>10-day grace period</b> to keep your AI agent live while you resolve this.</p><p>Please update your payment method immediately to avoid account suspension.</p>',
-                    `${BASE_URL}/client/${client.slug}/subscription`,
+                    `${BASE_URL}/client/${client.slug}`,
                     'Update Payment Method'
                 );
                 await sendEmail(client.email, "Urgent: Payment Failed - Grace Period Active", html);
@@ -247,7 +247,7 @@ Deno.serve(async (req: Request) => {
 
         if (graceClients) {
             for (const client of graceClients) {
-                const subLink = `${BASE_URL}/client/${client.slug}/subscription`;
+                const subLink = `${BASE_URL}/client/${client.slug}`;
                 const endDate = new Date(client.subscription_end_date);
                 const now = new Date();
 

@@ -86,7 +86,7 @@ const getWelcomeTemplate = (businessName: string, loginLink: string) => `
                 <td class="footer">
                     <div class="divider"></div>
                     <p>&copy; ${new Date().getFullYear()} Swift Order AI.</p>
-                    <p>Questions? Reply to this email or visit our <a href="https://swiftorderai.com/#faq" class="footer-link">Help Center</a>.</p>
+                    <p>Questions? Reply to this email or contact <a href="mailto:support@swiftorderai.com" class="footer-link">support@swiftorderai.com</a>.</p>
                 </td>
             </tr>
         </table>
@@ -101,13 +101,14 @@ serve(async (req) => {
   }
 
   try {
-    const { email, businessName, loginUrl } = await req.json();
+    const { email, businessName, slug, loginUrl } = await req.json();
 
     if (!email || !businessName) {
       throw new Error('Missing email or businessName');
     }
 
-    const html = getWelcomeTemplate(businessName, loginUrl || 'https://app.swiftorderai.com');
+    const finalUrl = slug ? `https://swiftorderai.com/client/${slug}` : (loginUrl || 'https://swiftorderai.com');
+    const html = getWelcomeTemplate(businessName, finalUrl);
     await sendEmail(email, 'Welcome to Swift Order AI! 🚀', html);
 
     return new Response(JSON.stringify({ success: true }), {
