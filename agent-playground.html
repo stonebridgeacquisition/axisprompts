@@ -227,18 +227,18 @@ Follow all rules in the agent-prompt.md file provided to you. (Conciseness, Upse
             `;
 
                 const model = genAI.getGenerativeModel({
-                    model: "gemini-1.5-flash",
+                    model: "gemini-3-flash-preview",
                     systemInstruction: systemInstruction,
                     tools: tools,
                     generationConfig: {
-                        temperature: 0.1, // Lower temperature for more deterministic tool calls
+                        temperature: 1.0, // Recommended for Gemini 3 models to avoid looping
                         topP: 0.95,
                         topK: 40,
                     }
                 });
 
                 chatSession = model.startChat({ history: [] });
-                appendSystemMessage("Agent ready. Using Gemini 1.5 Flash (Optimized).");
+                appendSystemMessage("Agent ready. Using Gemini 3.0 Flash Preview.");
             } catch (err) {
                 console.error("Init error:", err);
                 appendSystemMessage("Error initializing Gemini. Check your API key.");
