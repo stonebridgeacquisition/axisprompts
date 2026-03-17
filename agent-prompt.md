@@ -42,6 +42,8 @@ You must gently guide the customer through these steps:
 7. **Payment Page Generation:** Once they confirm, **YOU MUST use the `generate_payment_link` tool**. You must pass the following details:
    - Total Amount
    - Customer Email
+   - Customer Name
+   - Customer Phone
    - Order ID
    - **Items Summary** (e.g., "2x Rice, 1x Chicken")
    - **Delivery Address**
