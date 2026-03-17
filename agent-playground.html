@@ -162,8 +162,8 @@
         }
 
         // Tool execution function: GENERATE PAYSTACK LINK
-        async function generatePaymentLink(clientId, amount, email) {
-            console.log("TOOL EXECUTED: generatePaymentLink", { clientId, amount, email });
+        async function generatePaymentLink(clientId, amount) {
+            console.log("TOOL EXECUTED: generatePaymentLink", { clientId, amount });
             try {
                 // 1. Get client's subaccount
                 const { data: client, error: clientErr } = await supabase
@@ -181,7 +181,7 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        email: email || "customer@example.com",
+                        email: "customer@example.com", // Placeholder: Customer provides real email on Paystack page
                         amount: Math.round(amount * 100),
                         subaccount: client.paystack_subaccount_code,
                         metadata: { client_id: clientId, business_name: client.business_name }
@@ -203,8 +203,8 @@
         }
 
         // Tool execution function: UPDATE ORDER ITEMS
-        async function updateOrderItems(clientId, email, itemsSummary) {
-            console.log("TOOL EXECUTED: updateOrderItems", { clientId, email, itemsSummary });
+        async function updateOrderItems(clientId, itemsSummary) {
+            console.log("TOOL EXECUTED: updateOrderItems", { clientId, itemsSummary });
             try {
                 // Find the latest order for this email that is paid but has placeholder items
                 const { data: orders, error: fetchErr } = await supabase
@@ -269,10 +269,9 @@
                 type: "OBJECT",
                 properties: {
                     client_id: { type: "STRING", description: "The UUID of the client." },
-                    amount: { type: "NUMBER", description: "The total amount in NGN to charge." },
-                    customer_email: { type: "STRING", description: "The customer's email address." }
+                    amount: { type: "NUMBER", description: "The total amount in NGN to charge." }
                 },
-                required: ["client_id", "amount", "customer_email"],
+                required: ["client_id", "amount"],
             },
         };
 
@@ -283,10 +282,9 @@
                 type: "OBJECT",
                 properties: {
                     client_id: { type: "STRING", description: "The UUID of the client." },
-                    customer_email: { type: "STRING", description: "The customer's email address." },
                     items_summary: { type: "STRING", description: "A detailed summary of the items ordered (e.g. '2x KFC Bucket, 1x Coke')." }
                 },
-                required: ["client_id", "customer_email", "items_summary"],
+                required: ["client_id", "items_summary"],
             },
         };
 
@@ -442,10 +440,10 @@ Follow all rules in the agent-prompt.md file provided to you. (Conciseness, Upse
                             result = await fetchBusinessData(call.args.client_id);
                         } else if (call.name === "generate_payment_link") {
                             console.log("Executing tool:", call.name, call.args);
-                            result = await generatePaymentLink(call.args.client_id, call.args.amount, call.args.customer_email);
+                            result = await generatePaymentLink(call.args.client_id, call.args.amount);
                         } else if (call.name === "update_order_items") {
                             console.log("Executing tool:", call.name, call.args);
-                            result = await updateOrderItems(call.args.client_id, call.args.customer_email, call.args.items_summary);
+                            result = await updateOrderItems(call.args.client_id, call.args.items_summary);
                         }
 
                         if (result) {
