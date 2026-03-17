@@ -116,6 +116,7 @@
 
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         let genAI = null;
+        const PAYSTACK_SECRET = "sk_test_75f6a70b6f18d0692bd85e194e7826ae449f6de1"; // Injected for playground use
 
         // Tool execution function: FETCH FROM SUPABASE
         async function fetchBusinessData(clientId) {
@@ -160,6 +161,91 @@
             }
         }
 
+        // Tool execution function: GENERATE PAYSTACK LINK
+        async function generatePaymentLink(clientId, amount, email) {
+            console.log("TOOL EXECUTED: generatePaymentLink", { clientId, amount, email });
+            try {
+                // 1. Get client's subaccount
+                const { data: client, error: clientErr } = await supabase
+                    .from('clients')
+                    .select('paystack_subaccount_code, business_name')
+                    .eq('id', clientId)
+                    .single();
+
+                if (clientErr) throw clientErr;
+
+                const response = await fetch('https://api.paystack.co/transaction/initialize', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${PAYSTACK_SECRET}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: email || "customer@example.com",
+                        amount: Math.round(amount * 100),
+                        subaccount: client.paystack_subaccount_code,
+                        metadata: { client_id: clientId, business_name: client.business_name }
+                    })
+                });
+
+                const data = await response.json();
+                if (!data.status) throw new Error(data.message);
+
+                return {
+                    paymentUrl: data.data.authorization_url,
+                    reference: data.data.reference,
+                    instruction: "Send this URL to the customer. Once they pay, the webhook will create the order row. Then you can use update_order_items."
+                };
+            } catch (err) {
+                console.error("Paystack Error:", err);
+                return { error: err.message };
+            }
+        }
+
+        // Tool execution function: UPDATE ORDER ITEMS
+        async function updateOrderItems(clientId, email, itemsSummary) {
+            console.log("TOOL EXECUTED: updateOrderItems", { clientId, email, itemsSummary });
+            try {
+                // Find the latest order for this email that is paid but has placeholder items
+                const { data: orders, error: fetchErr } = await supabase
+                    .from('orders')
+                    .select('id, order_id')
+                    .eq('client_id', clientId)
+                    // We check for placeholder text or null order_id
+                    .eq('payment_status', 'Paid')
+                    .or(`items_summary.ilike.%Awaiting agent confirmation%,order_id.is.null`)
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+
+                if (fetchErr) throw fetchErr;
+                if (!orders || orders.length === 0) {
+                    return { error: "No pending paid order found for this customer. Please confirm they have completed the payment." };
+                }
+
+                const order = orders[0];
+                const generatedOrderId = `ORD-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+
+                const { error: updateErr } = await supabase
+                    .from('orders')
+                    .update({
+                        items_summary: itemsSummary,
+                        order_id: generatedOrderId
+                    })
+                    .eq('id', order.id);
+
+                if (updateErr) throw updateErr;
+
+                return {
+                    status: "Success",
+                    orderId: generatedOrderId,
+                    message: "Order items and ID updated successfully. You can now confirm the order details and the new Order ID to the customer."
+                };
+            } catch (err) {
+                console.error("Update Order Error:", err);
+                return { error: err.message };
+            }
+        }
+
         // Define the tool schema for Gemini
         const getBusinessInfoTool = {
             name: "get_business_info",
@@ -176,8 +262,36 @@
             },
         };
 
+        const generatePaymentLinkTool = {
+            name: "generate_payment_link",
+            description: "Generates a Paystack payment link for the customer. Call this after the user confirms their order details.",
+            parameters: {
+                type: "OBJECT",
+                properties: {
+                    client_id: { type: "STRING", description: "The UUID of the client." },
+                    amount: { type: "NUMBER", description: "The total amount in NGN to charge." },
+                    customer_email: { type: "STRING", description: "The customer's email address." }
+                },
+                required: ["client_id", "amount", "customer_email"],
+            },
+        };
+
+        const updateOrderItemsTool = {
+            name: "update_order_items",
+            description: "Updates the finalized order in the database with the actual items ordered and generates a human-readable Order ID. Call this AFTER the user confirms they have paid.",
+            parameters: {
+                type: "OBJECT",
+                properties: {
+                    client_id: { type: "STRING", description: "The UUID of the client." },
+                    customer_email: { type: "STRING", description: "The customer's email address." },
+                    items_summary: { type: "STRING", description: "A detailed summary of the items ordered (e.g. '2x KFC Bucket, 1x Coke')." }
+                },
+                required: ["client_id", "customer_email", "items_summary"],
+            },
+        };
+
         const tools = [{
-            functionDeclarations: [getBusinessInfoTool],
+            functionDeclarations: [getBusinessInfoTool, generatePaymentLinkTool, updateOrderItemsTool],
         }];
 
         // State
@@ -322,11 +436,20 @@ Follow all rules in the agent-prompt.md file provided to you. (Conciseness, Upse
                     const functionResponses = [];
 
                     for (const call of functionCalls) {
+                        let result;
                         if (call.name === "get_business_info") {
                             console.log("Executing tool:", call.name, call.args);
-                            const result = await fetchBusinessData(call.args.client_id);
-                            appendToolLog(call.name, call.args, result);
+                            result = await fetchBusinessData(call.args.client_id);
+                        } else if (call.name === "generate_payment_link") {
+                            console.log("Executing tool:", call.name, call.args);
+                            result = await generatePaymentLink(call.args.client_id, call.args.amount, call.args.customer_email);
+                        } else if (call.name === "update_order_items") {
+                            console.log("Executing tool:", call.name, call.args);
+                            result = await updateOrderItems(call.args.client_id, call.args.customer_email, call.args.items_summary);
+                        }
 
+                        if (result) {
+                            appendToolLog(call.name, call.args, result);
                             functionResponses.push({
                                 functionResponse: {
                                     name: call.name,
