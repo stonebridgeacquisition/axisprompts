@@ -179,6 +179,7 @@ Deno.serve(async (req: Request) => {
       client_id: client.id,
       customer_name: paymentData.customer?.first_name || 'Unknown',
       customer_phone: paymentData.customer?.phone || null,
+      customer_email: paymentData.customer?.email || null,
       total_amount: amount,
       payment_status: 'Paid',
       paystack_reference: reference,
