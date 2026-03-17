@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swift Order AI - Playground (Live DB)</title>
+    <!-- Tailwind CSS for quick styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Marked for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            background-color: #FAFAFB;
+        }
+
+        .chat-container {
+            height: calc(100vh - 180px);
+        }
+
+        .message-content p {
+            margin-bottom: 0.5rem;
+        }
+
+        .message-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        .message-content ul {
+            list-style-type: disc;
+            padding-left: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .message-content strong {
+            font-weight: 600;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 font-sans text-gray-900 h-screen flex flex-col">
+
+    <!-- Header -->
+    <header
+        class="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center shrink-0 shadow-sm gap-4">
+        <div class="flex items-center gap-3">
+            <div
+                class="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
+                ⚡️
+            </div>
+            <div>
+                <h1 class="text-lg font-bold truncate">Swift Order AI Playground</h1>
+                <p class="text-xs text-gray-500 whitespace-nowrap">Testing Live Supabase Data Integration</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3 flex-1 max-w-xl">
+            <div class="flex-1 flex items-center gap-2">
+                <label class="text-xs font-semibold text-gray-600 whitespace-nowrap">Client ID:</label>
+                <input id="clientIdInput" type="text" value="55d37a4e-9684-4daa-9f3c-26526e9837ae"
+                    class="bg-gray-100 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-orange-500 focus:border-orange-500 block w-full p-2 outline-none font-mono"
+                    placeholder="Paste Client UUID here...">
+            </div>
+            <button id="resetBtn"
+                class="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors whitespace-nowrap shrink-0">
+                Reset Chat
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-4xl w-full mx-auto p-4 flex flex-col">
+
+        <!-- Chat Area -->
+        <div class="bg-white border border-gray-200 rounded-2xl shadow-sm flex-1 flex flex-col overflow-hidden">
+
+            <!-- Messages Container -->
+            <div id="chatBox" class="flex-1 overflow-y-auto p-6 space-y-6">
+                <!-- Initial System Message -->
+                <div class="flex flex-col items-center justify-center h-full text-center text-gray-400" id="emptyState">
+                    <p class="mb-2">Say hi to start the conversation with the KFC agent.</p>
+                    <p class="text-sm">The agent will fetch the real menu and zones from Supabase using the ID above.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="border-t border-gray-100 p-4 bg-gray-50">
+                <form id="chatForm" class="flex gap-3">
+                    <input type="text" id="messageInput"
+                        class="flex-1 px-4 py-3 rounded-xl border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all"
+                        placeholder="Type a message as the customer..." autocomplete="off" required>
+                    <button type="submit" id="sendBtn"
+                        class="px-6 py-3 bg-gray-900 hover:bg-black text-white font-medium rounded-xl transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shrink-0">
+                        Send
+                    </button>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { GoogleGenerativeAI, FunctionDeclaration, Type } from "https://esm.run/@google/generative-ai";
+
+        // Configuration
+        const GEMINI_API_KEY = "AIzaSyC5E4kT-9Ly5C9ScqBl5skDiqr84tTLIxM";
+        const SUPABASE_URL = "https://chwxcfzqjxyorewehcwa.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNod3hjZnpxanh5b3Jld2VoY3dhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2MzcwNDYsImV4cCI6MjA4NjIxMzA0Nn0.K9bIUr-13_F7FvR6qDnwK2pvo_Tlae43opvMq2OyNbg";
+        
+        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Tool execution function: FETCH FROM SUPABASE
+        async function fetchBusinessData(clientId) {
+            console.log("TOOL EXECUTED: fetchBusinessData for", clientId);
+            
+            try {
+                // 1. Fetch Client info
+                const { data: client, error: clientErr } = await supabase
+                    .from('clients')
+                    .select('business_name, payment_model, delivery_instructions')
+                    .eq('id', clientId)
+                    .single();
+
+                if (clientErr) throw clientErr;
+
+                // 2. Fetch Menu Items
+                const { data: menu, error: menuErr } = await supabase
+                    .from('menu_items')
+                    .select('name, price, description, category, is_available')
+                    .eq('client_id', clientId)
+                    .eq('is_available', true);
+
+                if (menuErr) throw menuErr;
+
+                // 3. Fetch Delivery Fees
+                const { data: zones, error: zonesErr } = await supabase
+                    .from('delivery_fees')
+                    .select('location, fee')
+                    .eq('client_id', clientId);
+
+                if (zonesErr) throw zonesErr;
+
+                return {
+                    businessName: client.business_name,
+                    menu: menu.map(m => ({ item: m.name, price: m.price, description: m.description, category: m.category })),
+                    deliveryZones: zones.map(z => ({ zone: z.location, fee: z.fee })),
+                    paymentInfo: "Payment Link will be generated upon confirmation."
+                };
+            } catch (err) {
+                console.error("Supabase Fetch Error:", err);
+                return { error: `Database fetch failed: ${err.message}` };
+            }
+        }
+
+        // Define the tool schema for Gemini
+        const getBusinessInfoTool = {
+            name: "get_business_info",
+            description: "Fetches live business information including the menu and delivery fees from the database for a given client_id.",
+            parameters: {
+                type: Type.OBJECT,
+                properties: {
+                    client_id: {
+                        type: Type.STRING,
+                        description: "The unique UUID of the client.",
+                    }
+                },
+                required: ["client_id"],
+            },
+        };
+
+        const tools = [{
+            functionDeclarations: [getBusinessInfoTool],
+        }];
+
+        // State
+        let chatSession = null;
+        let isProcessing = false;
+
+        // DOM Elements
+        const chatForm = document.getElementById('chatForm');
+        const messageInput = document.getElementById('messageInput');
+        const chatBox = document.getElementById('chatBox');
+        const emptyState = document.getElementById('emptyState');
+        const sendBtn = document.getElementById('sendBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const clientIdInput = document.getElementById('clientIdInput');
+
+        // Initialize Chat
+        async function initChat() {
+            chatBox.innerHTML = '';
+            emptyState.style.display = 'flex';
+            chatBox.appendChild(emptyState);
+
+            const activeClientId = clientIdInput.value.trim();
+            if (!activeClientId) {
+                appendSystemMessage("Please enter a valid Client UUID to start.");
+                return;
+            }
+
+            console.log(`Initializing chat with Supabase for ${activeClientId}...`);
+
+            const systemInstruction = `
+You are a highly efficient, friendly, and professional virtual sales assistant for a premium food business.
+CRITICAL: Dynamic Business Context via Tools
+You are assigned to work for the client with ID: "${activeClientId}".
+You MUST use the get_business_info tool immediately to fetch your business name, menu, and prices.
+Follow all rules in the agent-prompt.md file provided to you. (Conciseness, Upselling, Character, Next Steps).
+            `;
+
+            const model = genAI.getGenerativeModel({ 
+                model: "gemini-2.0-flash", 
+                systemInstruction: systemInstruction,
+                tools: tools,
+                generationConfig: {
+                    temperature: 0.7, 
+                }
+            });
+
+            chatSession = model.startChat({ history: [] });
+        }
+
+        // UI Helpers
+        function appendMessage(text, isUser = false) {
+            if (emptyState && emptyState.parentNode === chatBox) {
+                chatBox.removeChild(emptyState);
+            }
+            const div = document.createElement('div');
+            div.className = `flex w-full ${isUser ? 'justify-end' : 'justify-start'}`;
+            const bubbleClasses = isUser ? 'bg-gray-900 text-white rounded-2xl rounded-tr-sm' : 'bg-white border border-gray-200 text-gray-800 rounded-2xl rounded-tl-sm shadow-sm';
+            const content = isUser ? text : marked.parse(text);
+            div.innerHTML = `<div class="max-w-[80%] px-5 py-3 ${bubbleClasses} message-content text-[15px] leading-relaxed">${isUser ? `<p>${content}</p>` : content}</div>`;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function appendSystemMessage(text) {
+            const div = document.createElement('div');
+            div.className = `flex w-full justify-center my-2`;
+            div.innerHTML = `<div class="px-4 py-1.5 bg-gray-100 text-gray-500 rounded-full text-xs font-medium font-mono">🤖 ${text}</div>`;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function appendTypingIndicator() {
+            const div = document.createElement('div');
+            div.id = 'typingIndicator';
+            div.className = `flex w-full justify-start`;
+            div.innerHTML = `<div class="px-5 py-4 bg-white border border-gray-200 rounded-2xl rounded-tl-sm shadow-sm flex gap-1 items-center"><div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0ms"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 150ms"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 300ms"></div></div>`;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            if (indicator) indicator.remove();
+        }
+
+        // Form Submit
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (isProcessing || !chatSession) return;
+            const msg = messageInput.value.trim();
+            if (!msg) return;
+            messageInput.value = '';
+            appendMessage(msg, true);
+            isProcessing = true;
+            sendBtn.disabled = true;
+            appendTypingIndicator();
+            try {
+                let result = await chatSession.sendMessage(msg);
+                while (result.response.functionCalls() && result.response.functionCalls().length > 0) {
+                    const call = result.response.functionCalls()[0];
+                    if (call.name === "get_business_info") {
+                        appendSystemMessage(`Fetching live Supabase data...`);
+                        const apiResponse = await fetchBusinessData(call.args.client_id);
+                        result = await chatSession.sendMessage([{ functionResponse: { name: "get_business_info", response: apiResponse } }]);
+                    }
+                }
+                removeTypingIndicator();
+                appendMessage(result.response.text(), false);
+            } catch (error) {
+                console.error(error);
+                removeTypingIndicator();
+                appendMessage("❌ API Error. Check console.", false);
+            } finally {
+                isProcessing = false;
+                sendBtn.disabled = false;
+            }
+        });
+
+        resetBtn.addEventListener('click', initChat);
+        initChat();
+    </script>
+</body>
+
+</html>
