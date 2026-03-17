@@ -170,10 +170,11 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: 'Client not found' }), { status: 200 })
   }
 
-  console.log(`Client Payment Model: ${client.payment_model}`);
-
-  // Extract Order ID if present in metadata
-  const metadataOrderId = paymentData.metadata?.order_id;
+  // Extract metadata for complete order fulfillment
+  const metadata = paymentData.metadata || {};
+  const orderId = metadata.order_id || null;
+  const itemsSummary = metadata.items_summary || 'Awaiting agent confirmation';
+  const deliveryAddress = metadata.delivery_details || null;
 
   // Create Order
   const { data: order, error: orderError } = await supabase
@@ -183,14 +184,15 @@ Deno.serve(async (req: Request) => {
       customer_name: paymentData.customer?.first_name || 'Unknown',
       customer_phone: paymentData.customer?.phone || null,
       customer_email: paymentData.customer?.email || null,
-      order_id: metadataOrderId || null,
+      order_id: orderId,
+      delivery_address: deliveryAddress,
       total_amount: amount,
       payment_status: 'Paid',
       paystack_reference: reference,
       paystack_transaction_id: paymentData.id,
       subaccount_code: subaccountCode,
       status: 'In Progress',
-      items_summary: 'Awaiting agent confirmation'
+      items_summary: itemsSummary
     })
     .select()
     .single()
