@@ -231,12 +231,14 @@ Follow all rules in the agent-prompt.md file provided to you. (Conciseness, Upse
                     systemInstruction: systemInstruction,
                     tools: tools,
                     generationConfig: {
-                        temperature: 0.7,
+                        temperature: 0.1, // Lower temperature for more deterministic tool calls
+                        topP: 0.95,
+                        topK: 40,
                     }
                 });
 
                 chatSession = model.startChat({ history: [] });
-                appendSystemMessage("Agent ready. Using Gemini 1.5 Flash.");
+                appendSystemMessage("Agent ready. Using Gemini 1.5 Flash (Optimized).");
             } catch (err) {
                 console.error("Init error:", err);
                 appendSystemMessage("Error initializing Gemini. Check your API key.");
@@ -251,8 +253,10 @@ Follow all rules in the agent-prompt.md file provided to you. (Conciseness, Upse
             const div = document.createElement('div');
             div.className = `flex w-full ${isUser ? 'justify-end' : 'justify-start'}`;
             const bubbleClasses = isUser ? 'bg-gray-900 text-white rounded-2xl rounded-tr-sm' : 'bg-white border border-gray-200 text-gray-800 rounded-2xl rounded-tl-sm shadow-sm';
+
+            // Render markdown for agent, plain text for user
             const content = isUser ? text : marked.parse(text);
-            div.innerHTML = `<div class="max-w-[80%] px-5 py-3 ${bubbleClasses} message-content text-[15px] leading-relaxed">${isUser ? `<p>${content}</p>` : content}</div>`;
+            div.innerHTML = `<div class="max-w-[80%] px-5 py-3 ${bubbleClasses} message-content text-[15px] leading-relaxed">${isUser ? `<p>${text}</p>` : content}</div>`;
             chatBox.appendChild(div);
             chatBox.scrollTop = chatBox.scrollHeight;
         }
@@ -261,6 +265,21 @@ Follow all rules in the agent-prompt.md file provided to you. (Conciseness, Upse
             const div = document.createElement('div');
             div.className = `flex w-full justify-center my-2`;
             div.innerHTML = `<div class="px-4 py-1.5 bg-gray-100 text-gray-500 rounded-full text-xs font-medium font-mono">🤖 ${text}</div>`;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function appendToolLog(name, args, result) {
+            const div = document.createElement('div');
+            div.className = `flex w-full justify-start my-2`;
+            const logContent = `**Tool:** \`${name}\`\n**Args:** \`${JSON.stringify(args)}\`\n**Result:** \`${JSON.stringify(result).substring(0, 100)}...\``;
+            div.innerHTML = `<div class="px-4 py-3 bg-orange-50 border border-orange-100 text-orange-800 rounded-xl text-[13px] font-mono w-full max-w-[90%] overflow-hidden">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></span>
+                    <span class="font-bold">TOOL_CALL: ${name}</span>
+                </div>
+                <div class="opacity-80">${logContent}</div>
+            </div>`;
             chatBox.appendChild(div);
             chatBox.scrollTop = chatBox.scrollHeight;
         }
@@ -285,30 +304,65 @@ Follow all rules in the agent-prompt.md file provided to you. (Conciseness, Upse
             if (isProcessing || !chatSession) return;
             const msg = messageInput.value.trim();
             if (!msg) return;
+
             messageInput.value = '';
             appendMessage(msg, true);
             isProcessing = true;
             sendBtn.disabled = true;
             appendTypingIndicator();
+
             try {
-                let result = await chatSession.sendMessage(msg);
-                while (result.response.functionCalls() && result.response.functionCalls().length > 0) {
-                    const call = result.response.functionCalls()[0];
-                    if (call.name === "get_business_info") {
-                        appendSystemMessage(`Fetching live Supabase data...`);
-                        const apiResponse = await fetchBusinessData(call.args.client_id);
-                        result = await chatSession.sendMessage([{ functionResponse: { name: "get_business_info", response: apiResponse } }]);
+                let response = await chatSession.sendMessage(msg);
+
+                // Infinite loop protection: Limit tool turns to 5
+                let turns = 0;
+                while (response.response.functionCalls()?.length > 0 && turns < 5) {
+                    turns++;
+                    const functionCalls = response.response.functionCalls();
+                    const functionResponses = [];
+
+                    for (const call of functionCalls) {
+                        if (call.name === "get_business_info") {
+                            console.log("Executing tool:", call.name, call.args);
+                            const result = await fetchBusinessData(call.args.client_id);
+                            appendToolLog(call.name, call.args, result);
+
+                            functionResponses.push({
+                                functionResponse: {
+                                    name: call.name,
+                                    response: result
+                                }
+                            });
+                        }
+                    }
+
+                    if (functionResponses.length > 0) {
+                        response = await chatSession.sendMessage(functionResponses);
+                    } else {
+                        break;
                     }
                 }
+
                 removeTypingIndicator();
-                appendMessage(result.response.text(), false);
+
+                // Final Check: finishReason
+                const candidate = response.response.candidates?.[0];
+                if (candidate?.finishReason === 'SAFETY') {
+                    appendMessage("⚠️ *Note: The response was partially filtered due to safety policies.*", false);
+                }
+
+                appendMessage(response.response.text(), false);
+
             } catch (error) {
-                console.error(error);
+                console.error("Full Error Context:", error);
                 removeTypingIndicator();
+
                 if (error.message?.includes("429") || error.message?.includes("Resource exhausted")) {
-                    appendMessage("⚠️ **Rate Limit Reached (429)**. Gemini free tier is limited. Please wait 60 seconds or use a different API key.", false);
+                    appendMessage("⚠️ **Rate Limit Reached (429)**. Gemini free tier is limited. Please wait 60 seconds or use a different API key in the header above.", false);
+                } else if (error.message?.includes("API_KEY_INVALID")) {
+                    appendMessage("❌ **Invalid API Key**. Please check the key in the header.", false);
                 } else {
-                    appendMessage("❌ Error: " + error.message, false);
+                    appendMessage("❌ **Error:** " + error.message, false);
                 }
             } finally {
                 isProcessing = false;
