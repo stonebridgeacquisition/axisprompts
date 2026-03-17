@@ -56,7 +56,13 @@
             </div>
         </div>
 
-        <div class="flex items-center gap-3 flex-1 max-w-xl">
+        <div class="flex items-center gap-3 flex-1 max-w-2xl">
+            <div class="flex-1 flex items-center gap-2">
+                <label class="text-xs font-semibold text-gray-600 whitespace-nowrap">API Key:</label>
+                <input id="apiKeyInput" type="password" value="AIzaSyC5E4kT-9Ly5C9ScqBl5skDiqr84tTLIxM"
+                    class="bg-gray-100 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-orange-500 focus:border-orange-500 block w-full p-2 outline-none font-mono"
+                    placeholder="Paste Gemini Key here...">
+            </div>
             <div class="flex-1 flex items-center gap-2">
                 <label class="text-xs font-semibold text-gray-600 whitespace-nowrap">Client ID:</label>
                 <input id="clientIdInput" type="text" value="55d37a4e-9684-4daa-9f3c-26526e9837ae"
@@ -81,8 +87,8 @@
                 <!-- Initial System Message -->
                 <div class="flex flex-col items-center justify-center h-full text-center text-gray-400" id="emptyState">
                     <p class="mb-2">Say hi to start the conversation with the KFC agent.</p>
-                    <p class="text-sm">The agent will fetch the real menu and zones from Supabase using the ID above.
-                    </p>
+                    <p class="text-sm">If you see a "429 Too Many Requests" error, please wait 60 seconds or use your
+                        own Gemini API Key in the field above.</p>
                 </div>
             </div>
 
@@ -105,12 +111,11 @@
         import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 
         // Configuration
-        const GEMINI_API_KEY = "AIzaSyC5E4kT-9Ly5C9ScqBl5skDiqr84tTLIxM";
         const SUPABASE_URL = "https://chwxcfzqjxyorewehcwa.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNod3hjZnpxanh5b3Jld2VoY3dhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2MzcwNDYsImV4cCI6MjA4NjIxMzA0Nn0.K9bIUr-13_F7FvR6qDnwK2pvo_Tlae43opvMq2OyNbg";
 
-        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        let genAI = null;
 
         // Tool execution function: FETCH FROM SUPABASE
         async function fetchBusinessData(clientId) {
@@ -187,6 +192,7 @@
         const sendBtn = document.getElementById('sendBtn');
         const resetBtn = document.getElementById('resetBtn');
         const clientIdInput = document.getElementById('clientIdInput');
+        const apiKeyInput = document.getElementById('apiKeyInput');
 
         // Initialize Chat
         async function initChat() {
@@ -194,7 +200,14 @@
             emptyState.style.display = 'flex';
             chatBox.appendChild(emptyState);
 
+            const apiKey = apiKeyInput.value.trim();
             const activeClientId = clientIdInput.value.trim();
+
+            if (!apiKey) {
+                appendSystemMessage("Please enter a Gemini API Key to start.");
+                return;
+            }
+
             if (!activeClientId) {
                 appendSystemMessage("Please enter a valid Client UUID to start.");
                 return;
@@ -202,7 +215,10 @@
 
             console.log(`Initializing chat with Supabase for ${activeClientId}...`);
 
-            const systemInstruction = `
+            try {
+                genAI = new GoogleGenerativeAI(apiKey);
+
+                const systemInstruction = `
 You are a highly efficient, friendly, and professional virtual sales assistant for a premium food business.
 CRITICAL: Dynamic Business Context via Tools
 You are assigned to work for the client with ID: "${activeClientId}".
@@ -210,16 +226,21 @@ You MUST use the get_business_info tool immediately to fetch your business name,
 Follow all rules in the agent-prompt.md file provided to you. (Conciseness, Upselling, Character, Next Steps).
             `;
 
-            const model = genAI.getGenerativeModel({
-                model: "gemini-2.0-flash",
-                systemInstruction: systemInstruction,
-                tools: tools,
-                generationConfig: {
-                    temperature: 0.7,
-                }
-            });
+                const model = genAI.getGenerativeModel({
+                    model: "gemini-1.5-flash",
+                    systemInstruction: systemInstruction,
+                    tools: tools,
+                    generationConfig: {
+                        temperature: 0.7,
+                    }
+                });
 
-            chatSession = model.startChat({ history: [] });
+                chatSession = model.startChat({ history: [] });
+                appendSystemMessage("Agent ready. Using Gemini 1.5 Flash.");
+            } catch (err) {
+                console.error("Init error:", err);
+                appendSystemMessage("Error initializing Gemini. Check your API key.");
+            }
         }
 
         // UI Helpers
@@ -284,7 +305,11 @@ Follow all rules in the agent-prompt.md file provided to you. (Conciseness, Upse
             } catch (error) {
                 console.error(error);
                 removeTypingIndicator();
-                appendMessage("❌ API Error. Check console.", false);
+                if (error.message?.includes("429") || error.message?.includes("Resource exhausted")) {
+                    appendMessage("⚠️ **Rate Limit Reached (429)**. Gemini free tier is limited. Please wait 60 seconds or use a different API key.", false);
+                } else {
+                    appendMessage("❌ Error: " + error.message, false);
+                }
             } finally {
                 isProcessing = false;
                 sendBtn.disabled = false;
