@@ -174,8 +174,8 @@
         }
 
         // Tool execution function: GENERATE PAYSTACK LINK
-        async function generatePaymentLink(clientId, amount, email) {
-            console.log("TOOL EXECUTED: generatePaymentLink", { clientId, amount, email });
+        async function generatePaymentLink(clientId, amount, email, orderId) {
+            console.log("TOOL EXECUTED: generatePaymentLink", { clientId, amount, email, orderId });
             try {
                 // 1. Get client's subaccount
                 const { data: client, error: clientErr } = await supabase
@@ -196,7 +196,11 @@
                         email: email || "customer@example.com",
                         amount: Math.round(amount * 100),
                         subaccount: client.paystack_subaccount_code,
-                        metadata: { client_id: clientId, business_name: client.business_name }
+                        metadata: {
+                            client_id: clientId,
+                            business_name: client.business_name,
+                            order_id: orderId
+                        }
                     })
                 });
 
@@ -206,7 +210,7 @@
                 return {
                     paymentUrl: data.data.authorization_url,
                     reference: data.data.reference,
-                    instruction: "Send this URL to the customer. Once they pay, the webhook will create the order row. Then you can use update_order_items."
+                    instruction: "Send this URL to the customer. Once they pay, the webhook will create the order row with the unique Order ID. Then you can use update_order_items."
                 };
             } catch (err) {
                 console.error("Paystack Error:", err);
@@ -215,34 +219,29 @@
         }
 
         // Tool execution function: UPDATE ORDER ITEMS
-        async function updateOrderItems(clientId, email, itemsSummary) {
-            console.log("TOOL EXECUTED: updateOrderItems", { clientId, email, itemsSummary });
+        async function updateOrderItems(clientId, orderId, itemsSummary) {
+            console.log("TOOL EXECUTED: updateOrderItems", { clientId, orderId, itemsSummary });
             try {
-                // Find the latest order for this email that is paid but has placeholder items
+                // Find the order for this unique order_id that is paid
                 const { data: orders, error: fetchErr } = await supabase
                     .from('orders')
-                    .select('id, order_id, items_summary')
+                    .select('id, order_id')
                     .eq('client_id', clientId)
-                    .eq('customer_email', email)
+                    .eq('order_id', orderId)
                     .eq('payment_status', 'Paid')
-                    // We check for null order_id to find the "pending" one
-                    .is('order_id', null)
-                    .order('created_at', { ascending: false })
                     .limit(1);
 
                 if (fetchErr) throw fetchErr;
                 if (!orders || orders.length === 0) {
-                    return { error: "No pending paid order found for this customer. Please confirm they have completed the payment." };
+                    return { error: `No paid order found for Order ID: ${orderId}. Please confirm they have completed the payment.` };
                 }
 
                 const order = orders[0];
-                const generatedOrderId = `ORD-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
 
                 const { error: updateErr } = await supabase
                     .from('orders')
                     .update({
-                        items_summary: itemsSummary,
-                        order_id: generatedOrderId
+                        items_summary: itemsSummary
                     })
                     .eq('id', order.id);
 
@@ -250,8 +249,8 @@
 
                 return {
                     status: "Success",
-                    orderId: generatedOrderId,
-                    message: "Order items and ID updated successfully. You can now confirm the order details and the new Order ID to the customer."
+                    orderId: orderId,
+                    message: "Order items updated successfully. You can now confirm the final order details to the customer."
                 };
             } catch (err) {
                 console.error("Update Order Error:", err);
@@ -283,23 +282,24 @@
                 properties: {
                     client_id: { type: "STRING", description: "The UUID of the client." },
                     amount: { type: "NUMBER", description: "The total amount in NGN to charge." },
-                    customer_email: { type: "STRING", description: "The customer's email address collected earlier." }
+                    customer_email: { type: "STRING", description: "The customer's email address collected earlier." },
+                    order_id: { type: "STRING", description: "The unique Order ID generated by the agent." }
                 },
-                required: ["client_id", "amount", "customer_email"],
+                required: ["client_id", "amount", "customer_email", "order_id"],
             },
         };
 
         const updateOrderItemsTool = {
             name: "update_order_items",
-            description: "Updates the finalized order in the database with the actual items ordered and generates a human-readable Order ID. Call this AFTER the user confirms they have paid.",
+            description: "Updates the finalized order in the database with the actual items ordered. Call this AFTER the user confirms they have paid.",
             parameters: {
                 type: "OBJECT",
                 properties: {
                     client_id: { type: "STRING", description: "The UUID of the client." },
-                    customer_email: { type: "STRING", description: "The customer's email address." },
-                    items_summary: { type: "STRING", description: "A detailed summary of the items ordered (e.g. '2x KFC Bucket, 1x Coke'). Include Name and Phone if available." }
+                    order_id: { type: "STRING", description: "The unique Order ID generated earlier and presented to the customer." },
+                    items_summary: { type: "STRING", description: "A detailed summary of the items ordered (e.g. '2x KFC Bucket, 1x Coke'). Include Name, Phone, and Address." }
                 },
-                required: ["client_id", "customer_email", "items_summary"],
+                required: ["client_id", "order_id", "items_summary"],
             },
         };
 
@@ -481,10 +481,10 @@ Follow all rules in the agent-prompt.md file provided to you.
                             result = await fetchBusinessData(call.args.client_id);
                         } else if (call.name === "generate_payment_link") {
                             console.log("Executing tool:", call.name, call.args);
-                            result = await generatePaymentLink(call.args.client_id, call.args.amount, call.args.customer_email);
+                            result = await generatePaymentLink(call.args.client_id, call.args.amount, call.args.customer_email, call.args.order_id);
                         } else if (call.name === "update_order_items") {
                             console.log("Executing tool:", call.name, call.args);
-                            result = await updateOrderItems(call.args.client_id, call.args.customer_email, call.args.items_summary);
+                            result = await updateOrderItems(call.args.client_id, call.args.order_id, call.args.items_summary);
                         }
 
                         if (result) {
@@ -514,7 +514,7 @@ Follow all rules in the agent-prompt.md file provided to you.
                 }
 
                 appendMessage(response.response.text(), false);
-                
+
                 // Persist History
                 saveHistory(await chatSession.getHistory());
 

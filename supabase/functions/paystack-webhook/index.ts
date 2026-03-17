@@ -172,6 +172,9 @@ Deno.serve(async (req: Request) => {
 
   console.log(`Client Payment Model: ${client.payment_model}`);
 
+  // Extract Order ID if present in metadata
+  const metadataOrderId = paymentData.metadata?.order_id;
+
   // Create Order
   const { data: order, error: orderError } = await supabase
     .from('orders')
@@ -180,6 +183,7 @@ Deno.serve(async (req: Request) => {
       customer_name: paymentData.customer?.first_name || 'Unknown',
       customer_phone: paymentData.customer?.phone || null,
       customer_email: paymentData.customer?.email || null,
+      order_id: metadataOrderId || null,
       total_amount: amount,
       payment_status: 'Paid',
       paystack_reference: reference,
