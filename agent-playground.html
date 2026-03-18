@@ -206,7 +206,7 @@
                 // 2. Fetch Menu Items
                 const { data: menu, error: menuErr } = await supabase
                     .from('menu_items')
-                    .select('name, price, description, category, is_available')
+                    .select('name, price, description, category, is_available, track_inventory, stock_level')
                     .eq('client_id', clientId)
                     .eq('is_available', true);
 
@@ -222,7 +222,13 @@
 
                 return {
                     businessName: client.business_name,
-                    menu: menu.map(m => ({ item: m.name, price: m.price, description: m.description, category: m.category })),
+                    menu: menu.map(m => ({
+                        item: m.name,
+                        price: m.price,
+                        description: m.description,
+                        category: m.category,
+                        inventory: m.track_inventory ? { stock: m.stock_level } : "unlimited"
+                    })),
                     deliveryZones: zones.map(z => ({ zone: z.location, fee: z.fee })),
                     paymentInfo: "Payment Link will be generated upon confirmation.",
                     supportContact: client.team_contact
