@@ -159,6 +159,7 @@ Deno.serve(async (req: Request) => {
   // ---------------------------------------------------------
   console.log(`Food Order Payment: ${amount} | Subaccount: ${subaccountCode}`)
 
+  // Verify Subaccount MATCHES the Client Record (Rigid Check)
   const { data: client, error: clientError } = await supabase
     .from('clients')
     .select('id, business_name, payment_model')
@@ -166,11 +167,20 @@ Deno.serve(async (req: Request) => {
     .single()
 
   if (clientError || !client) {
-    console.error('Order: Client not found for subaccount:', subaccountCode)
-    return new Response(JSON.stringify({ error: 'Client not found' }), { status: 200 })
+    console.error(`CRITICAL: Subaccount ${subaccountCode} NOT FOUND in database. Ref: ${reference}`)
+    return new Response(JSON.stringify({ error: 'Client not found for subaccount' }), { status: 200 }) // Return 200 to stop Paystack retries for invalid data
   }
 
   console.log(`Client Payment Model: ${client.payment_model}`);
+
+  // EXTRA SAFETY: If metadata includes business_id, verify it matches
+  const metaBusinessId = paymentData.metadata?.business_id
+  if (metaBusinessId && metaBusinessId !== client.id) {
+    console.error(`SECURITY ALERT: Subaccount ${subaccountCode} belongs to ${client.id} but metadata says ${metaBusinessId}`)
+    return new Response(JSON.stringify({ error: 'Subaccount Mismatch' }), { status: 400 })
+  }
+
+  console.log(`Verified Payment for: ${client.business_name} (${client.id})`)
 
   // Create Order
   const { data: order, error: orderError } = await supabase
@@ -229,6 +239,57 @@ Deno.serve(async (req: Request) => {
     is_system: true,
     type: 'order'
   })
+
+  // ---------------------------------------------------------
+  // SEND CONFIRMATION TO CUSTOMER VIA MANYCHAT
+  // ---------------------------------------------------------
+  const userId = paymentData.metadata?.user_id
+  if (userId) {
+    try {
+      // Fetch client's ManyChat API key
+      const { data: clientKeys } = await supabase
+        .from('clients')
+        .select('manychat_api_key')
+        .eq('id', client.id)
+        .single()
+
+      const manyChatKey = clientKeys?.manychat_api_key
+      if (manyChatKey) {
+        const confirmMsg = `Payment of ₦${amount.toLocaleString()} received. Your order is now being prepared. Thank you for ordering with ${client.business_name}.`
+
+        const mcResponse = await fetch('https://api.manychat.com/fb/sending/sendContent', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${manyChatKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            subscriber_id: userId,
+            data: {
+              version: 'v2',
+              content: {
+                type: 'instagram',
+                messages: [{ type: 'text', text: confirmMsg }]
+              }
+            }
+          })
+        })
+
+        const mcResult = await mcResponse.json()
+        if (mcResult.status === 'success') {
+          console.log(`Payment confirmation sent to user ${userId} via ManyChat`)
+        } else {
+          console.error('ManyChat send failed:', mcResult)
+        }
+      } else {
+        console.warn(`No ManyChat API key found for client ${client.id}`)
+      }
+    } catch (mcError) {
+      console.error('ManyChat confirmation error:', mcError)
+    }
+  } else {
+    console.warn('No user_id in payment metadata, skipping ManyChat confirmation')
+  }
 
   return new Response(JSON.stringify({ message: 'Order processed' }), { status: 200 })
 })

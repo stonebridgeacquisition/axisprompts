@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Loader2, Store, CreditCard, MapPin, Phone, Mail, Globe, User, Check, Clock, Upload } from 'lucide-react';
+import { Save, Loader2, Store, CreditCard, MapPin, Phone, Mail, Globe, User, Check, Clock, Upload, MessageCircle, Copy, RefreshCw, ExternalLink, Eye, EyeOff } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
@@ -48,6 +48,7 @@ const ClientSettings = () => {
 
     const [form, setForm] = useState({
         business_name: '',
+        agent_name: '',
         email: '',
         phone_number: '',
         address: '',
@@ -58,8 +59,21 @@ const ClientSettings = () => {
         bank_name: '',
         bank_code: '',
         open_time: '',
-        close_time: ''
+        close_time: '',
     });
+
+    // WhatsApp integration state
+    const [waForm, setWaForm] = useState({
+        whatsapp_verify_token: '',
+        whatsapp_app_secret: '',
+        whatsapp_phone_number_id: '',
+        whatsapp_access_token: '',
+    });
+    const [waSaving, setWaSaving] = useState(false);
+    const [waSaved, setWaSaved] = useState(false);
+    const [showSecret, setShowSecret] = useState(false);
+    const [showToken, setShowToken] = useState(false);
+    const [copiedField, setCopiedField] = useState(null);
 
     // Track original bank details to detect changes
     const [originalBank, setOriginalBank] = useState({ account_number: '', bank_code: '' });
@@ -68,6 +82,7 @@ const ClientSettings = () => {
         if (client) {
             const data = {
                 business_name: client.business_name || '',
+                agent_name: client.agent_name || '',
                 email: client.email || '',
                 phone_number: client.phone_number || '',
                 address: client.address || '',
@@ -79,11 +94,19 @@ const ClientSettings = () => {
                 bank_code: client.bank_code || '',
                 open_time: client.open_time ? client.open_time.substring(0, 5) : '',
                 close_time: client.close_time ? client.close_time.substring(0, 5) : '',
-                logo_url: client.logo_url || ''
+                logo_url: client.logo_url || '',
             };
             setForm(data);
             setLogoPreview(client.logo_url || null);
             setOriginalBank({ account_number: client.account_number || '', bank_code: client.bank_code || '' });
+
+            // Load existing WhatsApp credentials
+            setWaForm({
+                whatsapp_verify_token: client.whatsapp_verify_token || '',
+                whatsapp_app_secret: client.whatsapp_app_secret || '',
+                whatsapp_phone_number_id: client.whatsapp_phone_number_id || '',
+                whatsapp_access_token: client.whatsapp_access_token || '',
+            });
         }
     }, [client]);
 
@@ -110,6 +133,47 @@ const ClientSettings = () => {
             setForm(prev => ({ ...prev, bank_code: value, bank_name: selected?.name || '' }));
         } else {
             setForm(prev => ({ ...prev, [name]: value }));
+        }
+    };
+
+    const generateVerifyToken = () => {
+        const token = 'wa_' + Math.random().toString(36).substring(2, 10) + '_' + client.id.substring(0, 6);
+        setWaForm(prev => ({ ...prev, whatsapp_verify_token: token }));
+    };
+
+    const copyToClipboard = (text, field) => {
+        navigator.clipboard.writeText(text);
+        setCopiedField(field);
+        setTimeout(() => setCopiedField(null), 2000);
+    };
+
+    const handleWaChange = (e) => {
+        const { name, value } = e.target;
+        setWaForm(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSaveWhatsApp = async () => {
+        if (!waForm.whatsapp_verify_token || !waForm.whatsapp_phone_number_id || !waForm.whatsapp_access_token) {
+            alert('Please fill in all required WhatsApp fields.');
+            return;
+        }
+        setWaSaving(true);
+        setWaSaved(false);
+        const { error } = await supabase
+            .from('clients')
+            .update({
+                whatsapp_verify_token: waForm.whatsapp_verify_token,
+                whatsapp_app_secret: waForm.whatsapp_app_secret,
+                whatsapp_phone_number_id: waForm.whatsapp_phone_number_id,
+                whatsapp_access_token: waForm.whatsapp_access_token,
+            })
+            .eq('id', client.id);
+        setWaSaving(false);
+        if (!error) {
+            setWaSaved(true);
+            setTimeout(() => setWaSaved(false), 3000);
+        } else {
+            alert('Failed to save WhatsApp credentials.');
         }
     };
 
@@ -176,6 +240,7 @@ const ClientSettings = () => {
                 .from('clients')
                 .update({
                     business_name: form.business_name,
+                    agent_name: form.agent_name,
                     email: form.email,
                     phone_number: form.phone_number,
                     address: form.address,
@@ -289,6 +354,7 @@ const ClientSettings = () => {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <InputField label="Business Name" name="business_name" value={form.business_name} onChange={handleChange} icon={Store} placeholder="Your business name" />
+                        <InputField label="Agent Name" name="agent_name" value={form.agent_name} onChange={handleChange} icon={User} placeholder="e.g. Jade" />
                         <InputField label="Email" name="email" value={form.email} onChange={handleChange} type="email" icon={Mail} placeholder="email@example.com" />
                         <InputField label="Phone Number" name="phone_number" value={form.phone_number} onChange={handleChange} icon={Phone} placeholder="+234..." />
                         <InputField label="Team Contact" name="team_contact" value={form.team_contact} onChange={handleChange} icon={User} placeholder="Manager's phone" />
@@ -300,6 +366,203 @@ const ClientSettings = () => {
                             <InputField label="Open Time" name="open_time" type="time" value={form.open_time} onChange={handleChange} icon={Clock} />
                             <InputField label="Close Time" name="close_time" type="time" value={form.close_time} onChange={handleChange} icon={Clock} />
                         </div>
+                    </div>
+                </div>
+
+                {/* Onboarding SOP */}
+                <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 shadow-sm p-6 space-y-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-orange-400 to-amber-500 flex items-center justify-center shadow-lg shadow-orange-500/20 text-white text-xl font-bold">
+                            📋
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-bold text-gray-900">Meta App Setup — Onboarding Checklist</h3>
+                            <p className="text-sm text-gray-600 mt-0.5">Follow these steps during the onboarding call. Click each link to open the correct page.</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+
+                        {/* Step 1 */}
+                        <div className="bg-white rounded-xl border border-amber-100 p-4">
+                            <div className="flex items-start gap-3">
+                                <span className="w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+                                <div className="flex-1 space-y-2">
+                                    <p className="text-sm font-semibold text-gray-800">Create a Meta Developer App</p>
+                                    <p className="text-xs text-gray-500">Log in and create a new Business app, then add the WhatsApp product.</p>
+                                    <a href="https://developers.facebook.com/apps/create/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-amber-700 font-semibold bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors">
+                                        <ExternalLink size={12} /> Open App Creation Page
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Step 2 */}
+                        <div className="bg-white rounded-xl border border-amber-100 p-4">
+                            <div className="flex items-start gap-3">
+                                <span className="w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+                                <div className="flex-1 space-y-2">
+                                    <p className="text-sm font-semibold text-gray-800">Set App Profile Picture & Privacy Policy</p>
+                                    <p className="text-xs text-gray-500">Download the SwiftOrder logo below and upload it as the app icon. Paste the privacy policy URL into the app settings.</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        <a href="/IMG_6995.png" download="swiftorder-logo.png" className="inline-flex items-center gap-1.5 text-xs text-amber-700 font-semibold bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors">
+                                            ⬇ Download App Logo
+                                        </a>
+                                        <button type="button" onClick={() => copyToClipboard('https://www.swiftorderai.com/privacy', 'privacy')} className="inline-flex items-center gap-1.5 text-xs text-amber-700 font-semibold bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors">
+                                            {copiedField === 'privacy' ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
+                                            Copy Privacy Policy URL
+                                        </button>
+                                        <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-amber-700 font-semibold bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors">
+                                            <ExternalLink size={12} /> Go to App Basic Settings
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Step 3 */}
+                        <div className="bg-white rounded-xl border border-amber-100 p-4">
+                            <div className="flex items-start gap-3">
+                                <span className="w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
+                                <div className="flex-1 space-y-2">
+                                    <p className="text-sm font-semibold text-gray-800">Copy the App Secret</p>
+                                    <p className="text-xs text-gray-500">Go to App Settings → Basic → click "Show" next to App Secret. Copy and paste it into the App Secret field below.</p>
+                                    <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-amber-700 font-semibold bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors">
+                                        <ExternalLink size={12} /> Open App Settings → Basic
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Step 4 */}
+                        <div className="bg-white rounded-xl border border-amber-100 p-4">
+                            <div className="flex items-start gap-3">
+                                <span className="w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
+                                <div className="flex-1 space-y-2">
+                                    <p className="text-sm font-semibold text-gray-800">Generate Permanent Access Token</p>
+                                    <p className="text-xs text-gray-500">Go to Business Settings → System Users → Create a System User (Admin) → Add your app as an asset → Generate Token with <strong>whatsapp_business_messaging</strong> permission.</p>
+                                    <a href="https://business.facebook.com/settings/system-users" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-amber-700 font-semibold bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors">
+                                        <ExternalLink size={12} /> Open Business System Users
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Step 5 */}
+                        <div className="bg-white rounded-xl border border-amber-100 p-4">
+                            <div className="flex items-start gap-3">
+                                <span className="w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">5</span>
+                                <div className="flex-1 space-y-2">
+                                    <p className="text-sm font-semibold text-gray-800">Get Phone Number ID & Add a Real Number</p>
+                                    <p className="text-xs text-gray-500">Go to WhatsApp → API Setup. Copy the Phone Number ID. To go live, click "Add phone number" and verify their business WhatsApp number.</p>
+                                    <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-amber-700 font-semibold bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors">
+                                        <ExternalLink size={12} /> Open WhatsApp → API Setup
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Step 6 */}
+                        <div className="bg-white rounded-xl border border-amber-100 p-4">
+                            <div className="flex items-start gap-3">
+                                <span className="w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">6</span>
+                                <div className="flex-1 space-y-2">
+                                    <p className="text-sm font-semibold text-gray-800">Configure Webhook & Go Live</p>
+                                    <p className="text-xs text-gray-500">Go to WhatsApp → Configuration. Paste the Webhook URL and Verify Token from the section below. Click Verify & Save, then subscribe to <strong>messages</strong>. Finally, submit the app for review to go live.</p>
+                                    <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-amber-700 font-semibold bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors">
+                                        <ExternalLink size={12} /> Open WhatsApp → Configuration
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                {/* WhatsApp Integration */}
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl border border-green-100 shadow-sm p-6 space-y-5">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-green-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/30">
+                            <MessageCircle size={24} className="text-white" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-bold text-gray-900">WhatsApp AI Integration</h3>
+                            <p className="text-sm text-gray-600 mt-0.5">Connect your WhatsApp Business number so the AI can receive and reply to customer messages.</p>
+                        </div>
+                    </div>
+
+                    {/* Step 1: Webhook URL */}
+                    <div className="bg-white rounded-xl border border-green-100 p-4 space-y-3">
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Step 1 — Your Unique Webhook URL</p>
+                        <p className="text-xs text-gray-500">Copy this URL and paste it into the Webhook section of your Meta App.</p>
+                        <div className="flex items-center gap-2">
+                            <code className="flex-1 text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-gray-700 font-mono truncate">
+                                https://axisprompt-food.vercel.app/api/whatsapp-webhook/{client?.id}
+                            </code>
+                            <button type="button" onClick={() => copyToClipboard(`https://axisprompt-food.vercel.app/api/whatsapp-webhook/${client?.id}`, 'webhook')} className="p-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-500">
+                                {copiedField === 'webhook' ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Step 2: Verify Token */}
+                    <div className="bg-white rounded-xl border border-green-100 p-4 space-y-3">
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Step 2 — Verify Token</p>
+                        <p className="text-xs text-gray-500">Generate a token and paste it into the <strong>Verify Token</strong> field in your Meta App webhook setup.</p>
+                        <div className="flex items-center gap-2">
+                            <code className="flex-1 text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-gray-700 font-mono truncate">
+                                {waForm.whatsapp_verify_token || 'Click Generate →'}
+                            </code>
+                            {waForm.whatsapp_verify_token && (
+                                <button type="button" onClick={() => copyToClipboard(waForm.whatsapp_verify_token, 'token')} className="p-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-500">
+                                    {copiedField === 'token' ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+                                </button>
+                            )}
+                            <button type="button" onClick={generateVerifyToken} className="flex items-center gap-1.5 px-3 py-2.5 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition-colors">
+                                <RefreshCw size={13} /> Generate
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Step 3: Credentials */}
+                    <div className="bg-white rounded-xl border border-green-100 p-4 space-y-3">
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Step 3 — Paste Your Meta Credentials</p>
+                        <p className="text-xs text-gray-500">These are found in your Meta App Dashboard under WhatsApp → API Setup.</p>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Phone Number ID <span className="text-red-400">*</span></label>
+                                <input name="whatsapp_phone_number_id" value={waForm.whatsapp_phone_number_id} onChange={handleWaChange} placeholder="e.g. 123456789012345" className="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-sm font-mono" />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">App Secret <span className="text-gray-400">(for security verification)</span></label>
+                                <div className="relative">
+                                    <input name="whatsapp_app_secret" value={waForm.whatsapp_app_secret} onChange={handleWaChange} type={showSecret ? 'text' : 'password'} placeholder="Found in App Settings → Basic" className="w-full px-3 py-2.5 pr-10 rounded-lg border border-gray-300 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-sm font-mono" />
+                                    <button type="button" onClick={() => setShowSecret(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"><EyeOff size={15}/></button>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Permanent Access Token <span className="text-red-400">*</span></label>
+                                <div className="relative">
+                                    <input name="whatsapp_access_token" value={waForm.whatsapp_access_token} onChange={handleWaChange} type={showToken ? 'text' : 'password'} placeholder="Your System User Access Token" className="w-full px-3 py-2.5 pr-10 rounded-lg border border-gray-300 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-sm font-mono" />
+                                    <button type="button" onClick={() => setShowToken(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"><EyeOff size={15}/></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                        <a href="https://developers.facebook.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-emerald-700 font-semibold hover:underline">
+                            <ExternalLink size={13}/> Open Meta Developer Console
+                        </a>
+                        <button
+                            type="button"
+                            onClick={handleSaveWhatsApp}
+                            disabled={waSaving}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-md shadow-emerald-500/20 disabled:opacity-50"
+                        >
+                            {waSaving ? <Loader2 size={15} className="animate-spin" /> : waSaved ? <Check size={15} /> : <Save size={15} />}
+                            {waSaving ? 'Saving...' : waSaved ? 'Saved!' : 'Save WhatsApp Settings'}
+                        </button>
                     </div>
                 </div>
 

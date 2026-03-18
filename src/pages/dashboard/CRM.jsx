@@ -74,7 +74,7 @@ const CRM = () => {
                     <p className="text-gray-500 dark:text-gray-400 mt-1">Manage your onboarded clients and view their performance.</p>
                 </div>
                 <button
-                    onClick={() => navigate('/admin/setup/new')}
+                    onClick={() => navigate('/onboarding')}
                     className="px-5 py-2.5 bg-brand-600 text-white rounded-xl font-bold hover:bg-brand-700 hover:shadow-lg hover:shadow-brand-500/20 transition-all flex items-center gap-2"
                 >
                     <Plus size={20} />
