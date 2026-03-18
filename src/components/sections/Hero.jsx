@@ -49,13 +49,17 @@ const Hero = () => {
 
                             {/* CTA & Trust */}
                             <div className="flex flex-col sm:flex-row items-center gap-4 lg:gap-6 justify-center lg:justify-start mb-8 lg:mb-12">
-                                <a href="#cta" className="group relative px-6 py-3 lg:px-8 lg:py-4 rounded-2xl bg-gray-900 text-white font-bold text-base lg:text-lg overflow-hidden shadow-xl shadow-gray-900/20 transition-all hover:scale-[1.02] hover:shadow-gray-900/30 active:scale-[0.98]">
+                                <button
+                                    data-cal-link="swiftorderai/30min"
+                                    data-cal-config='{"layout":"month_view"}'
+                                    className="group relative px-6 py-3 lg:px-8 lg:py-4 rounded-2xl bg-gray-900 text-white font-bold text-base lg:text-lg overflow-hidden shadow-xl shadow-gray-900/20 transition-all hover:scale-[1.02] hover:shadow-gray-900/30 active:scale-[0.98]"
+                                >
                                     <span className="relative z-10 flex items-center gap-2">
                                         Start Free <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                                     </span>
                                     {/* Glassy sheen effect on button */}
                                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-[150%] skew-x-12 group-hover:animate-beam"></div>
-                                </a>
+                                </button>
 
                                 <div className="flex items-center gap-3 lg:gap-4 text-xs lg:text-sm font-medium text-gray-500">
                                     <div className="flex -space-x-2">

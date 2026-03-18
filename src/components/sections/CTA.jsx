@@ -30,8 +30,9 @@ const CTA = () => {
                             Join hundreds of smart food businesses reclaiming their time today.
                         </p>
 
-                        <motion.a
-                            href="#"
+                        <motion.button
+                            data-cal-link="swiftorderai/30min"
+                            data-cal-config='{"layout":"month_view"}'
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             className="inline-block relative px-6 py-3 md:px-10 md:py-5 rounded-full bg-gray-900 text-white font-medium text-sm md:text-lg shadow-2xl shadow-gray-900/20 hover:shadow-gray-900/40 transition-shadow overflow-hidden group whitespace-nowrap"
@@ -41,7 +42,7 @@ const CTA = () => {
                             </span>
                             {/* Soft Shine */}
                             <div className="absolute inset-0 bg-white/10 translate-y-[100%] group-hover:translate-y-0 transition-transform duration-500"></div>
-                        </motion.a>
+                        </motion.button>
 
                         <p className="mt-8 text-xs md:text-sm text-gray-400 font-medium tracking-wide uppercase opacity-70">
                             No credit card required
