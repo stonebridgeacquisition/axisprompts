@@ -64,6 +64,12 @@
                     placeholder="Paste Gemini Key here...">
             </div>
             <div class="flex-1 flex items-center gap-2">
+                <label class="text-xs font-semibold text-gray-600 whitespace-nowrap">Paystack SK:</label>
+                <input id="paystackKeyInput" type="password"
+                    class="bg-gray-100 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-orange-500 focus:border-orange-500 block w-full p-2 outline-none font-mono"
+                    placeholder="Paste Paystack Secret Key...">
+            </div>
+            <div class="flex-1 flex items-center gap-2">
                 <label class="text-xs font-semibold text-gray-600 whitespace-nowrap">Client ID:</label>
                 <input id="clientIdInput" type="text" value="55d37a4e-9684-4daa-9f3c-26526e9837ae"
                     class="bg-gray-100 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-orange-500 focus:border-orange-500 block w-full p-2 outline-none font-mono"
@@ -128,7 +134,10 @@
 
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         let genAI = null;
-        const PAYSTACK_SECRET = "sk_test_3a7749a2e01d8336e8044a04c460833a04fd9499"; // Injected for playground use
+        // Paystack key is read from the input field at runtime — NEVER hardcode it
+        function getPaystackSecret() {
+            return document.getElementById('paystackKeyInput').value.trim();
+        }
 
         // Tool execution function: FETCH FROM SUPABASE
         async function fetchBusinessData(clientId) {
@@ -188,7 +197,7 @@
                 const response = await fetch('https://api.paystack.co/transaction/initialize', {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${PAYSTACK_SECRET}`,
+                        'Authorization': `Bearer ${getPaystackSecret()}`,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
