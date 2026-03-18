@@ -334,6 +334,33 @@
             }
         }
 
+        // TOOL: Get order status
+        async function getOrderStatus(clientId, orderId) {
+            console.log("TOOL EXECUTED: getOrderStatus", { clientId, orderId });
+            try {
+                const { data, error } = await supabase
+                    .from('orders')
+                    .select('status, items_summary, created_at, total_amount')
+                    .eq('client_id', clientId)
+                    .eq('order_id', orderId)
+                    .maybeSingle();
+
+                if (error) throw error;
+                if (!data) return { error: `No order found with ID: ${orderId}` };
+
+                return {
+                    orderId: orderId,
+                    status: data.status,
+                    items: data.items_summary,
+                    pouredAt: data.created_at,
+                    total: data.total_amount
+                };
+            } catch (err) {
+                console.error("Get Order Status Error:", err);
+                return { error: err.message };
+            }
+        }
+
         // Define the tool schema for Gemini
         const getBusinessInfoTool = {
             name: "get_business_info",
@@ -383,8 +410,21 @@
             },
         };
 
+        const getOrderStatusTool = {
+            name: "get_order_status",
+            description: "Queries the current status of an order using its unique Order ID (e.g., ORD-12345).",
+            parameters: {
+                type: "OBJECT",
+                properties: {
+                    client_id: { type: "STRING", description: "The UUID of the client." },
+                    order_id: { type: "STRING", description: "The unique Order ID given to the customer when they ordered." }
+                },
+                required: ["client_id", "order_id"],
+            },
+        };
+
         const tools = [{
-            functionDeclarations: [getBusinessInfoTool, generatePaymentLinkTool, updateOrderItemsTool],
+            functionDeclarations: [getBusinessInfoTool, generatePaymentLinkTool, updateOrderItemsTool, getOrderStatusTool],
         }];
 
         // DOM Elements
@@ -571,6 +611,9 @@ ${promptTemplate}
                         } else if (call.name === "update_order_items") {
                             console.log("Executing tool:", call.name, call.args);
                             result = await updateOrderItems(call.args.client_id, call.args.order_id, call.args.items_summary);
+                        } else if (call.name === "get_order_status") {
+                            console.log("Executing tool:", call.name, call.args);
+                            result = await getOrderStatus(call.args.client_id, call.args.order_id);
                         }
 
                         if (result) {

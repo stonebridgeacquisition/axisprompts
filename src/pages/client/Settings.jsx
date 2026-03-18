@@ -45,6 +45,7 @@ const ClientSettings = () => {
     const [uploading, setUploading] = useState(false);
     const [banks, setBanks] = useState(FALLBACK_BANKS);
     const [logoPreview, setLogoPreview] = useState(null);
+    const [originalForm, setOriginalForm] = useState(null);
 
     const [form, setForm] = useState({
         business_name: '',
@@ -58,7 +59,8 @@ const ClientSettings = () => {
         bank_name: '',
         bank_code: '',
         open_time: '',
-        close_time: ''
+        close_time: '',
+        agent_name: 'Jade'
     });
 
     // Track original bank details to detect changes
@@ -79,10 +81,12 @@ const ClientSettings = () => {
                 bank_code: client.bank_code || '',
                 open_time: client.open_time ? client.open_time.substring(0, 5) : '',
                 close_time: client.close_time ? client.close_time.substring(0, 5) : '',
+                agent_name: client.agent_name || 'Jade',
                 logo_url: client.logo_url || ''
             };
             setForm(data);
             setLogoPreview(client.logo_url || null);
+            setOriginalForm(data);
             setOriginalBank({ account_number: client.account_number || '', bank_code: client.bank_code || '' });
         }
     }, [client]);
@@ -112,6 +116,8 @@ const ClientSettings = () => {
             setForm(prev => ({ ...prev, [name]: value }));
         }
     };
+
+    const isDirty = originalForm && JSON.stringify(form) !== JSON.stringify(originalForm);
 
     const handleLogoUpload = async (e) => {
         const file = e.target.files[0];
@@ -187,6 +193,7 @@ const ClientSettings = () => {
                     bank_code: form.bank_code,
                     open_time: form.open_time ? form.open_time + ':00' : null,
                     close_time: form.close_time ? form.close_time + ':00' : null,
+                    agent_name: form.agent_name,
                     logo_url: form.logo_url
                 })
                 .eq('id', client.id);
@@ -226,6 +233,7 @@ const ClientSettings = () => {
             }
 
             setOriginalBank({ account_number: form.account_number, bank_code: form.bank_code });
+            setOriginalForm(form);
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
         } catch (err) {
@@ -289,6 +297,7 @@ const ClientSettings = () => {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <InputField label="Business Name" name="business_name" value={form.business_name} onChange={handleChange} icon={Store} placeholder="Your business name" />
+                        <InputField label="AI Agent Name" name="agent_name" value={form.agent_name} onChange={handleChange} icon={User} placeholder="e.g. Jade, Sarah, Alex" />
                         <InputField label="Email" name="email" value={form.email} onChange={handleChange} type="email" icon={Mail} placeholder="email@example.com" />
                         <InputField label="Phone Number" name="phone_number" value={form.phone_number} onChange={handleChange} icon={Phone} placeholder="+234..." />
                         <InputField label="Team Contact" name="team_contact" value={form.team_contact} onChange={handleChange} icon={User} placeholder="Manager's phone" />
@@ -376,8 +385,13 @@ const ClientSettings = () => {
                 <div className="flex justify-end">
                     <button
                         type="submit"
-                        disabled={saving}
-                        className="px-6 py-2.5 bg-brand-600 text-white rounded-lg font-bold hover:bg-brand-700 transition-colors flex items-center gap-2 disabled:opacity-50 shadow-lg shadow-brand-500/20"
+                        disabled={saving || !isDirty}
+                        className={`
+                            px-6 py-2.5 rounded-lg font-bold transition-all flex items-center gap-2 shadow-lg
+                            ${isDirty
+                                ? 'bg-red-600 text-white hover:bg-red-700 shadow-red-500/20'
+                                : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'}
+                        `}
                     >
                         {saving ? (
                             <Loader2 size={16} className="animate-spin" />
@@ -386,10 +400,26 @@ const ClientSettings = () => {
                         ) : (
                             <Save size={16} />
                         )}
-                        {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Changes'}
+                        {saving ? 'Saving...' : saved ? 'Saved!' : isDirty ? 'Save Changes' : 'Saved'}
                     </button>
                 </div>
             </form>
+
+            {/* Unsaved Changes Reminder Popup */}
+            {isDirty && !saving && (
+                <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300 w-max max-w-[90vw]">
+                    <div className="bg-red-600 text-white px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3 border border-red-500/20 whitespace-nowrap">
+                        <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse shrink-0" />
+                        <span className="text-xs sm:text-sm font-bold">Unsaved changes</span>
+                        <button
+                            onClick={handleSave}
+                            className="px-3 py-1 bg-white text-red-600 rounded-lg text-xs font-bold hover:bg-gray-100 transition-colors shadow-sm active:scale-95"
+                        >
+                            Save Now
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

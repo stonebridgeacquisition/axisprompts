@@ -46,6 +46,7 @@ const Onboarding = () => {
         bankCode: '',
         openTime: '09:00',
         closeTime: '22:00',
+        agentName: 'Jade',
         paymentModel: 'subscription' // 'subscription' or 'commission'
     });
 
@@ -279,7 +280,8 @@ const Onboarding = () => {
                         subscription_status: formData.paymentModel === 'commission' ? null : 'trial',
                         delivery_method: onboardingDeliveryMethod,
                         delivery_instructions: onboardingDeliveryInstructions || null,
-                        offers_pickup: onboardingOffersPickup
+                        offers_pickup: onboardingOffersPickup,
+                        agent_name: formData.agentName || 'Jade'
                     }
                 ])
                 .select();
@@ -538,6 +540,19 @@ const Onboarding = () => {
                                         required
                                     />
                                 </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">AI Agent Name</label>
+                                <input
+                                    type="text"
+                                    name="agentName"
+                                    value={formData.agentName}
+                                    onChange={handleChange}
+                                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 shadow-sm transition-all text-sm font-medium"
+                                    placeholder="e.g. Jade, Sarah, Alex"
+                                    required
+                                />
+                                <p className="text-[10px] text-gray-400 mt-1">This is how your AI will introduce itself to your customers.</p>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Upload Logo</label>
