@@ -99,6 +99,7 @@ const ClientMenu = () => {
     const [uploadingImage, setUploadingImage] = useState(false);
     const [deliveryMethod, setDeliveryMethod] = useState(client?.delivery_method || 'rider_collects');
     const [deliveryInstructions, setDeliveryInstructions] = useState(client?.delivery_instructions || '');
+    const [offersPickup, setOffersPickup] = useState(client?.offers_pickup || false);
     const [savingDeliveryConfig, setSavingDeliveryConfig] = useState(false);
 
     // Form State
@@ -140,7 +141,7 @@ const ClientMenu = () => {
             // Fetch delivery config from client record
             const { data: clientData } = await supabase
                 .from('clients')
-                .select('delivery_fee_image_url, delivery_method, delivery_instructions')
+                .select('delivery_fee_image_url, delivery_method, delivery_instructions, offers_pickup')
                 .eq('id', client.id)
                 .single();
 
@@ -148,6 +149,7 @@ const ClientMenu = () => {
                 setDeliveryImage(clientData.delivery_fee_image_url);
                 setDeliveryMethod(clientData.delivery_method || 'rider_collects');
                 setDeliveryInstructions(clientData.delivery_instructions || '');
+                setOffersPickup(clientData.offers_pickup || false);
             }
 
         } catch (error) {
@@ -165,7 +167,8 @@ const ClientMenu = () => {
                 .from('clients')
                 .update({
                     delivery_method: deliveryMethod,
-                    delivery_instructions: deliveryInstructions
+                    delivery_instructions: deliveryInstructions,
+                    offers_pickup: offersPickup
                 })
                 .eq('id', client.id);
 
@@ -962,6 +965,26 @@ const ClientMenu = () => {
                                 </div>
                                 <h4 className="font-bold text-gray-900 text-sm">Quoted &amp; Rider Collects</h4>
                                 <p className="text-xs text-gray-500 mt-1">We quote the customer a fee based on their location, but the rider collects it on delivery.</p>
+                            </button>
+                        </div>
+
+                        {/* Pickup Toggle Section */}
+                        <div className="bg-gray-50/50 p-4 rounded-xl border border-gray-100 flex items-center justify-between gap-4 mb-6">
+                            <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${offersPickup ? 'bg-brand-600 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                                    <Store size={20} />
+                                </div>
+                                <div>
+                                    <p className="font-bold text-gray-900 text-sm">Pickup Availability</p>
+                                    <p className="text-xs text-gray-500">Enable this if customers can collect orders from your location.</p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setOffersPickup(!offersPickup)}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${offersPickup ? 'bg-brand-600' : 'bg-gray-300'}`}
+                            >
+                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${offersPickup ? 'translate-x-6' : 'translate-x-1'}`} />
                             </button>
                         </div>
 

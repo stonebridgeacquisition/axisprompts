@@ -30,6 +30,7 @@ const Onboarding = () => {
     const [newDeliveryFee, setNewDeliveryFee] = useState('');
     const [onboardingDeliveryMethod, setOnboardingDeliveryMethod] = useState('rider_collects');
     const [onboardingDeliveryInstructions, setOnboardingDeliveryInstructions] = useState('');
+    const [onboardingOffersPickup, setOnboardingOffersPickup] = useState(false);
 
     const [formData, setFormData] = useState({
         businessName: '',
@@ -277,7 +278,8 @@ const Onboarding = () => {
                         payment_model: formData.paymentModel,
                         subscription_status: formData.paymentModel === 'commission' ? null : 'trial',
                         delivery_method: onboardingDeliveryMethod,
-                        delivery_instructions: onboardingDeliveryInstructions || null
+                        delivery_instructions: onboardingDeliveryInstructions || null,
+                        offers_pickup: onboardingOffersPickup
                     }
                 ])
                 .select();
@@ -923,9 +925,29 @@ const Onboarding = () => {
                         <div className="space-y-6">
                             <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                                 <Truck className="text-brand-600" size={24} />
-                                Delivery Setup
+                                Delivery &amp; Pickup
                             </h2>
-                            <p className="text-gray-500 text-sm">Tell us how your business handles delivery so the AI can assist your customers accurately.</p>
+                            <p className="text-gray-500 text-sm">Tell us how your business handles fulfillment so the AI can assist your customers accurately.</p>
+
+                            {/* Pickup Selection */}
+                            <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${onboardingOffersPickup ? 'bg-brand-600 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                                        <Store size={20} />
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-gray-900 text-sm">Offer Order Pickup</p>
+                                        <p className="text-xs text-gray-500">Enable this if customers can collect orders from your location.</p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setOnboardingOffersPickup(!onboardingOffersPickup)}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${onboardingOffersPickup ? 'bg-brand-600' : 'bg-gray-300'}`}
+                                >
+                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${onboardingOffersPickup ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
 
                             {/* Delivery Method Selector */}
                             <div className="space-y-2">
