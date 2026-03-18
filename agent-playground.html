@@ -197,7 +197,7 @@
                 // 1. Fetch Client info
                 const { data: client, error: clientErr } = await supabase
                     .from('clients')
-                    .select('business_name, payment_model, delivery_instructions, team_contact')
+                    .select('*')
                     .eq('id', clientId)
                     .single();
 
@@ -221,7 +221,7 @@
                 if (zonesErr) throw zonesErr;
 
                 return {
-                    businessName: client.business_name,
+                    businessInfo: client,
                     menu: menu.map(m => ({
                         item: m.name,
                         price: m.price,
@@ -231,7 +231,7 @@
                     })),
                     deliveryZones: zones.map(z => ({ zone: z.location, fee: z.fee })),
                     paymentInfo: "Payment Link will be generated upon confirmation.",
-                    supportContact: client.team_contact
+                    currentTime: new Date().toLocaleTimeString('en-NG', { hour12: false, hour: '2-digit', minute: '2-digit' })
                 };
             } catch (err) {
                 console.error("Supabase Fetch Error:", err);
