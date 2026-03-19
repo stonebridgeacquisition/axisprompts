@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, Sparkles, ArrowRight } from 'lucide-react';
+import { getCalApi } from '@calcom/embed-react';
 
 const Navbar = () => {
     const [scrolled, setScrolled] = useState(false);
@@ -11,6 +12,22 @@ const Navbar = () => {
         window.addEventListener('scroll', handleScroll);
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
+
+    useEffect(() => {
+        (async function () {
+            const cal = await getCalApi();
+            cal("ui", {
+                styles: { branding: { brandColor: "#111827" } },
+                hideEventTypeDetails: false,
+                layout: "month_view",
+            });
+        })();
+    }, []);
+
+    const openCal = async () => {
+        const cal = await getCalApi();
+        cal("modal", { calLink: "swiftorderai/30min", config: { layout: "month_view" } });
+    };
 
     const navLinks = [
         { name: "Home", href: "/" },
@@ -54,8 +71,8 @@ const Navbar = () => {
 
                     {/* CTA Button (Desktop) - Soft Turn */}
                     <div className="hidden md:block absolute right-3 top-1/2 -translate-y-1/2">
-                        <a
-                            href="#cta"
+                        <button
+                            onClick={openCal}
                             className="
                                 relative overflow-hidden px-6 py-2.5 rounded-full text-sm font-bold text-white uppercase tracking-wide
                                 bg-gradient-to-r from-brand-600 to-brand-500
@@ -66,15 +83,15 @@ const Navbar = () => {
                             <span className="relative z-10">Start Free</span>
                             {/* Shine Effect */}
                             <div className="absolute inset-0 bg-white/20 translate-y-[100%] group-hover:translate-y-0 transition-transform duration-300"></div>
-                        </a>
+                        </button>
                     </div>
 
                 </div>
             </motion.nav>
 
             {/* Mobile CTA Button - Arrow icon at top, expands to "Start Free" on scroll */}
-            <a
-                href="#cta"
+            <button
+                onClick={openCal}
                 style={{ position: 'fixed', top: '24px', right: '24px', zIndex: 9999 }}
                 className={`
                     md:hidden flex items-center justify-center overflow-hidden
@@ -88,7 +105,7 @@ const Navbar = () => {
                 ) : (
                     <ArrowRight size={18} />
                 )}
-            </a>
+            </button>
 
             {/* Mobile Menu Overlay */}
             <AnimatePresence>
@@ -113,13 +130,12 @@ const Navbar = () => {
                                     {link.name}
                                 </motion.a>
                             ))}
-                            <a
-                                href="#cta"
-                                onClick={() => setMobileMenuOpen(false)}
+                            <button
+                                onClick={() => { setMobileMenuOpen(false); openCal(); }}
                                 className="w-full text-center px-6 py-4 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 text-white font-bold text-lg mt-8 shadow-lg shadow-brand-500/30"
                             >
                                 Book a Demo
-                            </a>
+                            </button>
                         </div>
                     </motion.div>
                 )}

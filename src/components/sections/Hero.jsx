@@ -1,8 +1,25 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { Sparkles, ShieldCheck, ArrowRight } from 'lucide-react';
+import { getCalApi } from '@calcom/embed-react';
 
 const Hero = () => {
+    useEffect(() => {
+        (async function () {
+            const cal = await getCalApi();
+            cal("ui", {
+                styles: { branding: { brandColor: "#111827" } },
+                hideEventTypeDetails: false,
+                layout: "month_view",
+            });
+        })();
+    }, []);
+
+    const openCal = async () => {
+        const cal = await getCalApi();
+        cal("modal", { calLink: "swiftorderai/30min", config: { layout: "month_view" } });
+    };
+
     return (
         <section className="relative pt-4 pb-16 lg:pt-28 lg:pb-32 overflow-hidden bg-white selection:bg-brand-100 selection:text-brand-900">
 
@@ -50,8 +67,7 @@ const Hero = () => {
                             {/* CTA & Trust */}
                             <div className="flex flex-col sm:flex-row items-center gap-4 lg:gap-6 justify-center lg:justify-start mb-8 lg:mb-12">
                                 <button
-                                    data-cal-link="swiftorderai/30min"
-                                    data-cal-config='{"layout":"month_view"}'
+                                    onClick={openCal}
                                     className="group relative px-6 py-3 lg:px-8 lg:py-4 rounded-2xl bg-gray-900 text-white font-bold text-base lg:text-lg overflow-hidden shadow-xl shadow-gray-900/20 transition-all hover:scale-[1.02] hover:shadow-gray-900/30 active:scale-[0.98]"
                                 >
                                     <span className="relative z-10 flex items-center gap-2">

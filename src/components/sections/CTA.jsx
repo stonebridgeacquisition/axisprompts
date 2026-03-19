@@ -1,8 +1,25 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
+import { getCalApi } from '@calcom/embed-react';
 
 const CTA = () => {
+    useEffect(() => {
+        (async function () {
+            const cal = await getCalApi();
+            cal("ui", {
+                styles: { branding: { brandColor: "#111827" } },
+                hideEventTypeDetails: false,
+                layout: "month_view",
+            });
+        })();
+    }, []);
+
+    const openCal = async () => {
+        const cal = await getCalApi();
+        cal("modal", { calLink: "swiftorderai/30min", config: { layout: "month_view" } });
+    };
+
     return (
         <section className="py-24 md:py-32 bg-white relative overflow-hidden flex items-center justify-center">
 
@@ -31,8 +48,7 @@ const CTA = () => {
                         </p>
 
                         <motion.button
-                            data-cal-link="swiftorderai/30min"
-                            data-cal-config='{"layout":"month_view"}'
+                            onClick={openCal}
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             className="inline-block relative px-6 py-3 md:px-10 md:py-5 rounded-full bg-gray-900 text-white font-medium text-sm md:text-lg shadow-2xl shadow-gray-900/20 hover:shadow-gray-900/40 transition-shadow overflow-hidden group whitespace-nowrap"
