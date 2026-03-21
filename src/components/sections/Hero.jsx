@@ -1,8 +1,25 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { Sparkles, ShieldCheck, ArrowRight } from 'lucide-react';
+import { getCalApi } from '@calcom/embed-react';
 
 const Hero = () => {
+    useEffect(() => {
+        (async function () {
+            const cal = await getCalApi();
+            cal("ui", {
+                styles: { branding: { brandColor: "#111827" } },
+                hideEventTypeDetails: false,
+                layout: "month_view",
+            });
+        })();
+    }, []);
+
+    const openCal = async () => {
+        const cal = await getCalApi();
+        cal("modal", { calLink: "swiftorderai/30min", config: { layout: "month_view" } });
+    };
+
     return (
         <section className="relative pt-4 pb-16 lg:pt-28 lg:pb-32 overflow-hidden bg-white selection:bg-brand-100 selection:text-brand-900">
 
@@ -39,23 +56,26 @@ const Hero = () => {
 
                             {/* Massive Headline */}
                             <h1 className="font-display text-4xl md:text-5xl lg:text-7xl font-bold text-gray-900 leading-[1.1] mb-6 lg:mb-8 -tracking-[0.03em] drop-shadow-sm">
-                                Never miss another order or customer message <br className="hidden lg:block" />
-                                even when <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 via-purple-600 to-brand-600 animate-shimmer bg-[length:200%_auto]">your staff is busy.</span>
+                                Every WhatsApp DM answered in 30 seconds. <br className="hidden lg:block" />
+                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 via-purple-600 to-brand-600 animate-shimmer bg-[length:200%_auto]">Or you don't pay.</span>
                             </h1>
 
                             <p className="text-lg md:text-2xl text-gray-500 mb-8 lg:mb-10 leading-relaxed font-light max-w-2xl mx-auto lg:mx-0 px-2 lg:px-0">
-                                For food businesses selling fast food, cakes, seafood, and everyday meals through WhatsApp or Instagram.
+                                Our AI employee handles every customer message on WhatsApp so you never lose a sale, even at 3am.
                             </p>
 
                             {/* CTA & Trust */}
                             <div className="flex flex-col sm:flex-row items-center gap-4 lg:gap-6 justify-center lg:justify-start mb-8 lg:mb-12">
-                                <a href="#cta" className="group relative px-6 py-3 lg:px-8 lg:py-4 rounded-2xl bg-gray-900 text-white font-bold text-base lg:text-lg overflow-hidden shadow-xl shadow-gray-900/20 transition-all hover:scale-[1.02] hover:shadow-gray-900/30 active:scale-[0.98]">
+                                <button
+                                    onClick={openCal}
+                                    className="group relative px-6 py-3 lg:px-8 lg:py-4 rounded-2xl bg-gray-900 text-white font-bold text-base lg:text-lg overflow-hidden shadow-xl shadow-gray-900/20 transition-all hover:scale-[1.02] hover:shadow-gray-900/30 active:scale-[0.98]"
+                                >
                                     <span className="relative z-10 flex items-center gap-2">
                                         Start Free <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                                     </span>
                                     {/* Glassy sheen effect on button */}
                                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-[150%] skew-x-12 group-hover:animate-beam"></div>
-                                </a>
+                                </button>
 
                                 <div className="flex items-center gap-3 lg:gap-4 text-xs lg:text-sm font-medium text-gray-500">
                                     <div className="flex -space-x-2">

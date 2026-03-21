@@ -139,7 +139,7 @@ const MenuSimulation = ({ active }) => {
                         <div className="w-7 h-7 rounded-full bg-brand-500 flex items-center justify-center shrink-0 shadow-lg mt-0.5">
                             <Sparkles size={12} className="text-white" />
                         </div>
-                        <div className="bg-white/10 text-white/90 p-3.5 rounded-2xl rounded-tl-none text-sm border border-white/10 backdrop-blur-md shadow-xl max-w-[85%] leading-relaxed">
+                        <div className="bg-white/10 text-white/90 p-3.5 rounded-2xl rounded-tl-none text-sm border border-white/10 shadow-xl max-w-[85%] leading-relaxed">
                             Welcome! 🥗🔥 Here's what's fresh:
                             <br /><br />
                             • <span className="text-brand-400 font-bold">Seafood Platter</span> — ₦12,500
@@ -166,7 +166,7 @@ const MenuSimulation = ({ active }) => {
                         <div className="w-7 h-7 rounded-full bg-brand-500 flex items-center justify-center shrink-0 shadow-lg mt-0.5">
                             <Sparkles size={12} className="text-white" />
                         </div>
-                        <div className="bg-white/10 text-white/90 p-3.5 rounded-2xl rounded-tl-none text-sm border border-white/10 backdrop-blur-md max-w-[85%] leading-relaxed">
+                        <div className="bg-white/10 text-white/90 p-3.5 rounded-2xl rounded-tl-none text-sm border border-white/10 max-w-[85%] leading-relaxed">
                             It's medium-spicy by default, but we can make it mild if you prefer! Comes with garlic butter too. 🥣✨
                         </div>
                     </motion.div>
@@ -187,7 +187,7 @@ const MenuSimulation = ({ active }) => {
                         <div className="w-7 h-7 rounded-full bg-brand-500 flex items-center justify-center shrink-0 shadow-lg mt-0.5">
                             <Sparkles size={12} className="text-white" />
                         </div>
-                        <div className="bg-white/10 text-white/90 p-3.5 rounded-2xl rounded-tl-none text-sm border border-white/10 backdrop-blur-md max-w-[85%] leading-relaxed">
+                        <div className="bg-white/10 text-white/90 p-3.5 rounded-2xl rounded-tl-none text-sm border border-white/10 max-w-[85%] leading-relaxed">
                             Noted! 📝 Total including delivery is <span className="text-brand-400 font-bold">₦13,500</span>.
                             <br /><br />
                             Please pay here:
@@ -220,7 +220,7 @@ const MenuSimulation = ({ active }) => {
                         <div className="w-7 h-7 rounded-full bg-brand-500 flex items-center justify-center shrink-0 shadow-lg mt-0.5">
                             <Sparkles size={12} className="text-white" />
                         </div>
-                        <div className="bg-white/10 text-white/90 p-3.5 rounded-2xl rounded-tl-none text-sm border border-white/10 backdrop-blur-md max-w-[85%] leading-relaxed">
+                        <div className="bg-white/10 text-white/90 p-3.5 rounded-2xl rounded-tl-none text-sm border border-white/10 max-w-[85%] leading-relaxed">
                             Got it! 🎉 Payment confirmed for Order <span className="font-bold text-white">#4291</span>.
                             <br /><br />
                             Our rider is picking it up. See you in ~30 mins! 🛵🔥

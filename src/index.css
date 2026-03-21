@@ -13,6 +13,26 @@
   body {
     @apply antialiased font-sans selection:bg-brand-500 selection:text-white relative dark:bg-gray-900;
   }
+
+  /* Prevent iOS Safari from zooming in on inputs */
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+
+  /* Prevent animation flicker on mobile (safe properties that don't break position: fixed) */
+  .animated,
+  [data-framer-component] {
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+
+  /* Ensure framer-motion and other animations retain their state */
+  .animated,
+  [data-framer-component] {
+    animation-fill-mode: both !important;
+  }
 }
 
 @layer utilities {
@@ -70,6 +90,148 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+}
+
+/* ─── Client Dashboard Dark Mode Overrides ─── */
+/* Automatically converts light-mode dashboard components in dark mode */
+.dark .flex-1.overflow-auto {
+
+  /* Page-level headings and subtext */
+  h2,
+  h3 {
+    color: #f3f4f6;
+  }
+
+  >div>p,
+  >div>div>p.text-gray-500 {
+    color: #9ca3af;
+  }
+}
+
+/* Cards: white bg → very dark obsidian surface */
+.dark .bg-white {
+  background-color: #0a0a0f !important;
+  border-color: #1c1c2e !important;
+}
+
+/* Page background / outer areas */
+.dark .bg-gray-50 {
+  background-color: #030304 !important;
+}
+
+/* Text colors: high contrast pure white to muted zinc */
+.dark .text-gray-900 {
+  color: #ffffff !important;
+}
+
+.dark .text-gray-800 {
+  color: #f4f4f5 !important;
+}
+
+.dark .text-gray-700 {
+  color: #d4d4d8 !important;
+}
+
+.dark .text-gray-600 {
+  color: #a1a1aa !important;
+}
+
+.dark .text-gray-500 {
+  color: #71717a !important;
+}
+
+.dark .text-gray-400 {
+  color: #52525b !important;
+}
+
+/* Borders: subtle separation */
+.dark .border-gray-200 {
+  border-color: #1c1c2e !important;
+}
+
+.dark .border-gray-100 {
+  border-color: #1c1c2e !important;
+}
+
+.dark .border-gray-300 {
+  border-color: #2d2d3b !important;
+}
+
+/* Form inputs and selects */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #030304 !important;
+  border-color: #2d2d3b !important;
+  color: #ffffff !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #52525b !important;
+}
+
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: #e53214 !important;
+  box-shadow: 0 0 0 1px #e53214 !important;
+}
+
+/* Dividers */
+.dark .divide-gray-100> :not([hidden])~ :not([hidden]),
+.dark .divide-gray-200> :not([hidden])~ :not([hidden]) {
+  border-color: #1c1c2e !important;
+}
+
+/* Subtle backgrounds inside cards */
+.dark .bg-gray-100 {
+  background-color: #13131f !important;
+}
+
+.dark .bg-gray-50\/50,
+.dark .bg-gray-50\/30,
+.dark .bg-brand-50\/50,
+.dark .bg-blue-50\/30,
+.dark .bg-orange-50\/30,
+.dark .bg-red-50\/30,
+.dark .bg-green-50\/30 {
+  background-color: transparent !important;
+}
+
+/* Tab buttons */
+.dark button.text-gray-500 {
+  color: #6b7280 !important;
+}
+
+.dark button.text-gray-500:hover {
+  color: #d1d5db !important;
+}
+
+/* Hover effects */
+.dark .hover\:bg-gray-50:hover {
+  background-color: #1c1c2e !important;
+}
+
+.dark .hover\:bg-gray-100:hover {
+  background-color: #1c1c2e !important;
+}
+
+/* Status badges - keep their colors but adjust ring */
+.dark .ring-inset {
+  --tw-ring-opacity: 0.3 !important;
+}
+
+/* Brand colored cards: keep branding readable */
+.dark .bg-brand-600 {
+  background-color: #e53214 !important;
+}
+
+/* Shadows: invisible in dark mode */
+.dark .shadow-sm,
+.dark .shadow-lg,
+.dark .shadow-xl {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
 }
 
 /* Global Noise & Starlight */

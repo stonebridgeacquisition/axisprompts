@@ -1,14 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import nodemailer from 'npm:nodemailer'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-
-// SMTP Configuration (Hardcoded for now as per user setup)
-const SMTP_HOSTNAME = "mail.spacemail.com";
-const SMTP_PORT = 465;
-const SMTP_USERNAME = "team@studiocraftai.com";
-const SMTP_PASSWORD = "Saudiarabia123?";
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')!
 
 const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
@@ -16,23 +10,25 @@ const CORS_HEADERS = {
 }
 
 const sendEmail = async (to: string, subject: string, body: string) => {
-    const transporter = nodemailer.createTransport({
-        host: SMTP_HOSTNAME,
-        port: SMTP_PORT,
-        secure: true, // true for 465
-        auth: {
-            user: SMTP_USERNAME,
-            pass: SMTP_PASSWORD,
-        },
-    });
-
     try {
-        await transporter.sendMail({
-            from: SMTP_USERNAME,
-            to: to,
-            subject: subject,
-            html: body,
+        const res = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${RESEND_API_KEY}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                from: "Swift Order AI <info@swiftorderai.com>",
+                to,
+                subject,
+                html: body,
+            }),
         });
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error(`Resend error for ${to}: ${errorText}`);
+            return false;
+        }
         console.log(`Email sent successfully to ${to}`);
         return true;
     } catch (error) {
@@ -44,41 +40,64 @@ const sendEmail = async (to: string, subject: string, body: string) => {
 const getEmailTemplate = (businessName: string, titleCode: string, bodyContent: string, ctaLink: string, ctaText: string) => {
     return `
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
         <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <!--[if mso]>
+        <style type="text/css">
+            table {border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt;}
+            body, table, td, p, a, h1, h2, h3, h4, h5, h6 {font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;}
+        </style>
+        <![endif]-->
         <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #374151; margin: 0; padding: 0; background-color: #f9fafb; }
-            .container { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-            .header { background: #ea580c; padding: 40px 20px; text-align: center; }
-            .header h1 { color: #ffffff; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.025em; }
-            .content { padding: 40px 30px; }
-            .content p { margin-bottom: 24px; font-size: 16px; }
-            .footer { padding: 20px; text-align: center; font-size: 12px; color: #9ca3af; border-top: 1px solid #f3f4f6; }
-            .button { display: inline-block; padding: 14px 32px; background-color: #ea580c; color: #ffffff !important; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; transition: all 0.2s; }
-            .cta-area { text-align: center; margin-top: 32px; }
+            body { margin: 0; padding: 0; min-width: 100%; background-color: #FAFAFB; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #111827; -webkit-font-smoothing: antialiased; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; }
+            table { border-spacing: 0; border-collapse: collapse; }
+            td { padding: 0; }
+            img { border: 0; line-height: 100%; outline: none; text-decoration: none; display: block; }
+            a { color: inherit; text-decoration: none; }
+            .wrapper { background-color: #FAFAFB; width: 100%; table-layout: fixed; padding: 40px 0; }
+            .main { background-color: #FFFFFF; margin: 0 auto; width: 100%; max-width: 520px; border-radius: 24px; box-shadow: 0px 4px 24px rgba(0, 0, 0, 0.04), 0px 1px 2px rgba(0,0,0,0.02); overflow: hidden; border: 1px solid #F3F4F6; }
+            .brand-bar { text-align: center; padding: 24px 0 0 0; background-color: #FFFFFF; }
+            .logo { width: 140px; height: auto; margin: 0 auto; }
+            .content { padding: 32px 40px 40px 40px; background-color: #FFFFFF; }
+            h1 { margin: 0 0 16px 0; font-size: 28px; font-weight: 800; color: #111827; letter-spacing: -0.04em; line-height: 1.1; }
+            p { margin: 0 0 24px 0; font-size: 16px; line-height: 1.6; color: #4B5563; font-weight: 400; }
+            strong { color: #111827; font-weight: 600; }
+            .cta-container { margin: 32px 0 16px 0; text-align: center; }
+            .button { display: inline-block; padding: 16px 32px; background-color: #111827; color: #FFFFFF !important; font-weight: 700; font-size: 16px; text-decoration: none; border-radius: 16px; text-align: center; letter-spacing: -0.01em; width: 100%; box-sizing: border-box; box-shadow: 0 4px 12px rgba(17, 24, 39, 0.15); }
+            .footer { padding: 0 40px 40px 40px; background-color: #FFFFFF; text-align: center; }
+            .divider { height: 1px; background-color: #F3F4F6; margin: 0 0 24px 0; width: 100%; }
+            .footer p { font-size: 13px; color: #9CA3AF; margin-bottom: 8px; }
+            .footer-link { color: #ea580c; font-weight: 500; text-decoration: none; }
             .badge { display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; margin-bottom: 16px; text-transform: uppercase; }
             .badge-warning { background: #fef3c7; color: #92400e; }
             .badge-error { background: #fee2e2; color: #991b1b; }
         </style>
     </head>
     <body>
-        <div class="container">
-            <div class="header">
-                <h1>Swift Order AI</h1>
-            </div>
-            <div class="content">
-                ${titleCode}
-                <p>Hi ${businessName},</p>
-                ${bodyContent}
-                <div class="cta-area">
-                    <a href="${ctaLink}" class="button">${ctaText}</a>
-                </div>
-            </div>
-            <div class="footer">
-                &copy; ${new Date().getFullYear()} Swift Order AI by Axis Prompts Ltd. All rights reserved.
-            </div>
-        </div>
+        <center class="wrapper">
+            <table class="main" width="100%">
+                <tr><td class="brand-bar"><img src="https://swiftorderai.com/logo.png" alt="Swift Order AI" class="logo" /></td></tr>
+                <tr>
+                    <td class="content">
+                        ${titleCode}
+                        <p>Hi <strong>${businessName}</strong>,</p>
+                        ${bodyContent}
+                        <div class="cta-container">
+                            <a href="${ctaLink}" class="button">${ctaText}</a>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="footer">
+                        <div class="divider"></div>
+                        <p>&copy; ${new Date().getFullYear()} Swift Order AI.</p>
+                        <p>Questions? Reply to this email or contact <a href="mailto:support@swiftorderai.com" class="footer-link">support@swiftorderai.com</a>.</p>
+                    </td>
+                </tr>
+            </table>
+        </center>
     </body>
     </html>
     `;
@@ -120,7 +139,7 @@ Deno.serve(async (req: Request) => {
                 const end = new Date(client.trial_end_date);
                 const diffTime = end.getTime() - now.getTime();
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                const subLink = `${BASE_URL}/client/${client.slug}/subscription`;
+                const subLink = `${BASE_URL}/client/${client.slug}`;
 
                 console.log(`Checking Client: ${client.business_name} | Days Left: ${diffDays}`);
 
@@ -210,7 +229,7 @@ Deno.serve(async (req: Request) => {
                     client.business_name,
                     '<div class="badge badge-error">Payment Failed</div>',
                     '<p>We were unable to process your subscription renewal today. Your account has been placed on a <b>10-day grace period</b> to keep your AI agent live while you resolve this.</p><p>Please update your payment method immediately to avoid account suspension.</p>',
-                    `${BASE_URL}/client/${client.slug}/subscription`,
+                    `${BASE_URL}/client/${client.slug}`,
                     'Update Payment Method'
                 );
                 await sendEmail(client.email, "Urgent: Payment Failed - Grace Period Active", html);
@@ -228,7 +247,7 @@ Deno.serve(async (req: Request) => {
 
         if (graceClients) {
             for (const client of graceClients) {
-                const subLink = `${BASE_URL}/client/${client.slug}/subscription`;
+                const subLink = `${BASE_URL}/client/${client.slug}`;
                 const endDate = new Date(client.subscription_end_date);
                 const now = new Date();
 

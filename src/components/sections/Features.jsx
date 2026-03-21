@@ -12,7 +12,7 @@ const Features = () => {
         },
         {
             title: "Omnichannel",
-            description: "Unified inbox for WhatsApp & Instagram.",
+            description: "Unified inbox for your WhatsApp business.",
             icon: <Globe2 className="w-6 h-6 text-white" strokeWidth={1.5} />,
             className: "col-span-1 md:col-span-2 lg:col-span-2 bg-dark-900 text-white"
         },

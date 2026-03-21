@@ -6,7 +6,7 @@ const HowWeDoIt = () => {
         {
             num: "01",
             title: "Connect",
-            desc: "Link your Instagram or WhatsApp account in one click."
+            desc: "We guide you on connecting your WhatsApp account on one simple 1-on-1 call."
         },
         {
             num: "02",
@@ -25,7 +25,7 @@ const HowWeDoIt = () => {
             <div className="container mx-auto px-6 relative z-10">
                 <div className="text-center mb-16 max-w-2xl mx-auto">
                     <h2 className="text-3xl md:text-5xl font-display font-bold text-gray-900 mb-6">
-                        Get started in minutes.
+                        Get set up on a guided call.
                     </h2>
                     <p className="text-gray-500 font-light text-lg">
                         We made the setup process incredibly simple.

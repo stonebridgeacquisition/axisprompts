@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swift Order AI - Playground (Live DB)</title>
+    <!-- Tailwind CSS for quick styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Marked for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            background-color: #FAFAFB;
+        }
+
+        .chat-container {
+            height: calc(100vh - 180px);
+        }
+
+        .message-content p {
+            margin-bottom: 0.5rem;
+        }
+
+        .message-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        .message-content ul {
+            list-style-type: disc;
+            padding-left: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .message-content strong {
+            font-weight: 600;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 font-sans text-gray-900 h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 px-6 py-6 sticky top-0 z-10 shadow-sm space-y-4">
+        <div class="flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-10 h-10 bg-orange-600 rounded-xl flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-orange-200 shrink-0">
+                    ⚡️
+                </div>
+                <div>
+                    <h1 class="text-xl font-extrabold text-gray-900 tracking-tight">Swift Order AI</h1>
+                    <p class="text-[11px] font-bold text-orange-600 uppercase tracking-widest">Jade Playground</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button id="resetBtn"
+                    class="px-5 py-2.5 text-sm font-bold text-white bg-orange-600 rounded-xl hover:bg-orange-700 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md shadow-orange-100 whitespace-nowrap">
+                    Refresh Agent
+                </button>
+                <button id="clearHistoryBtn"
+                    class="px-5 py-2.5 text-sm font-bold text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition-all whitespace-nowrap">
+                    Clear History
+                </button>
+            </div>
+        </div>
+
+        <!-- Configuration Grid -->
+        <div
+            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+            <div class="space-y-1">
+                <label class="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">Gemini API Key</label>
+                <input id="apiKeyInput" type="password" value="AIzaSyC5E4kT-9Ly5C9ScqBl5skDiqr84tTLIxM"
+                    class="bg-white border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 block w-full p-2.5 outline-none font-mono transition-all"
+                    placeholder="Enter Key...">
+            </div>
+            <div class="space-y-1">
+                <label class="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">Paystack SK</label>
+                <input id="paystackKeyInput" type="password" value="sk_test_d7a0bb9e047a78a185e25dab9659e03e366f5e51"
+                    class="bg-white border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 block w-full p-2.5 outline-none font-mono transition-all"
+                    placeholder="sk_test_...">
+            </div>
+            <div class="space-y-1">
+                <label class="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">Supabase URL</label>
+                <input id="supabaseUrlInput" type="text" value="https://chwxcfzqjxyorewehcwa.supabase.co"
+                    class="bg-white border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 block w-full p-2.5 outline-none font-mono text-xs transition-all"
+                    placeholder="https://...">
+            </div>
+            <div class="space-y-1">
+                <label class="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">Anon Key</label>
+                <input id="supabaseKeyInput" type="password"
+                    value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNod3hjZnpxanh5b3Jld2VoY3dhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2MzcwNDYsImV4cCI6MjA4NjIxMzA0Nn0.K9bIUr-13_F7FvR6qDnwK2pvo_Tlae43opvMq2OyNbg"
+                    class="bg-white border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 block w-full p-2.5 outline-none font-mono text-xs transition-all"
+                    placeholder="eyJhbGci...">
+            </div>
+            <div class="space-y-1">
+                <label class="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">Client ID</label>
+                <input id="clientIdInput" type="text" value="55d37a4e-9684-4daa-9f3c-26526e9837ae"
+                    class="bg-white border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 block w-full p-2.5 outline-none font-mono transition-all"
+                    placeholder="UUID...">
+            </div>
+            <div class="space-y-1">
+                <label class="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">AI Model</label>
+                <select id="modelSelect"
+                    class="bg-white border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 block w-full p-2.5 outline-none font-sans cursor-pointer transition-all">
+                    <option value="gemini-3-flash-preview">Gemini 3.0 Flash Preview</option>
+                    <option value="gemini-1.5-flash">Gemini 1.5 Flash (More Stable)</option>
+                </select>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-4xl w-full mx-auto p-4 flex flex-col">
+
+        <!-- Chat Area -->
+        <div class="bg-white border border-gray-200 rounded-2xl shadow-sm flex-1 flex flex-col overflow-hidden">
+
+            <!-- Messages Container -->
+            <div id="chatBox" class="flex-1 overflow-y-auto p-6 space-y-6">
+                <!-- Initial System Message -->
+                <div class="flex flex-col items-center justify-center h-full text-center text-gray-400" id="emptyState">
+                    <p class="mb-2">Say hi to start the conversation with the KFC agent.</p>
+                    <p class="text-sm">If you see a "429 Too Many Requests" error, please wait 60 seconds or use your
+                        own Gemini API Key in the field above.</p>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="border-t border-gray-100 p-4 bg-gray-50">
+                <form id="chatForm" class="flex gap-3">
+                    <input type="text" id="messageInput"
+                        class="flex-1 px-4 py-3 rounded-xl border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all"
+                        placeholder="Type a message as the customer..." autocomplete="off" required>
+                    <button type="submit" id="sendBtn"
+                        class="px-6 py-3 bg-gray-900 hover:bg-black text-white font-medium rounded-xl transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shrink-0">
+                        Send
+                    </button>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
+        let supabase = null;
+        let genAI = null;
+        let isProcessing = false;
+        let chatSession = null;
+        const STORAGE_KEY = 'swift_order_chat_history';
+
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        const paystackKeyInput = document.getElementById('paystackKeyInput');
+        const supabaseUrlInput = document.getElementById('supabaseUrlInput');
+        const supabaseKeyInput = document.getElementById('supabaseKeyInput');
+        const clientIdInput = document.getElementById('clientIdInput');
+        const modelSelect = document.getElementById('modelSelect');
+
+        const configFields = ['apiKeyInput', 'paystackKeyInput', 'supabaseUrlInput', 'supabaseKeyInput', 'clientIdInput'];
+
+        function saveConfig() {
+            configFields.forEach(id => {
+                localStorage.setItem(`playground_${id}`, document.getElementById(id).value);
+            });
+        }
+
+        function loadConfig() {
+            configFields.forEach(id => {
+                const val = localStorage.getItem(`playground_${id}`);
+                if (val) document.getElementById(id).value = val;
+            });
+        }
+
+        function initSupabase() {
+            const url = supabaseUrlInput.value.trim();
+            const key = supabaseKeyInput.value.trim();
+            if (url && key) {
+                supabase = window.supabase.createClient(url, key);
+                saveConfig();
+                return true;
+            }
+            return false;
+        }
+        // Paystack key is read from the input field at runtime
+        function getPaystackSecret() {
+            return paystackKeyInput.value.trim();
+        }
+
+        // Tool execution function: FETCH FROM SUPABASE
+        async function fetchBusinessData(clientId) {
+            console.log("TOOL EXECUTED: fetchBusinessData for", clientId);
+
+            try {
+                // 1. Fetch Client info
+                const { data: client, error: clientErr } = await supabase
+                    .from('clients')
+                    .select('*')
+                    .eq('id', clientId)
+                    .single();
+
+                if (clientErr) throw clientErr;
+
+                // 2. Fetch Menu Items
+                const { data: menu, error: menuErr } = await supabase
+                    .from('menu_items')
+                    .select('name, price, description, category, is_available, track_inventory, stock_level')
+                    .eq('client_id', clientId)
+                    .eq('is_available', true);
+
+                if (menuErr) throw menuErr;
+
+                // 3. Fetch Delivery Fees
+                const { data: zones, error: zonesErr } = await supabase
+                    .from('delivery_fees')
+                    .select('location, fee')
+                    .eq('client_id', clientId);
+
+                if (zonesErr) throw zonesErr;
+
+                return {
+                    businessInfo: client,
+                    menu: menu.map(m => ({
+                        item: m.name,
+                        price: m.price,
+                        description: m.description,
+                        category: m.category,
+                        inventory: m.track_inventory ? { stock: m.stock_level } : "unlimited"
+                    })),
+                    deliveryZones: zones.map(z => ({ zone: z.location, fee: z.fee })),
+                    paymentInfo: "Payment Link will be generated upon confirmation.",
+                    currentTime: new Date().toLocaleTimeString('en-NG', { hour12: false, hour: '2-digit', minute: '2-digit' })
+                };
+            } catch (err) {
+                console.error("Supabase Fetch Error:", err);
+                return { error: `Database fetch failed: ${err.message}` };
+            }
+        }
+
+        async function generatePaymentLink(clientId, amount, email, orderId, itemsSummary, deliveryDetails, customerName, customerPhone) {
+            console.log("TOOL EXECUTED: generatePaymentLink", { clientId, amount, email, orderId, itemsSummary, deliveryDetails, customerName, customerPhone });
+            try {
+                // 1. Get client's subaccount
+                const { data: client, error: clientErr } = await supabase
+                    .from('clients')
+                    .select('paystack_subaccount_code, business_name')
+                    .eq('id', clientId)
+                    .single();
+
+                if (clientErr) throw clientErr;
+
+                const response = await fetch('https://api.paystack.co/transaction/initialize', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${getPaystackSecret()}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: email || "customer@example.com",
+                        amount: Math.round(amount * 100),
+                        subaccount: client.paystack_subaccount_code,
+                        metadata: {
+                            client_id: clientId,
+                            business_name: client.business_name,
+                            order_id: orderId,
+                            items_summary: itemsSummary,
+                            delivery_details: deliveryDetails,
+                            customer_name: customerName,
+                            customer_phone: customerPhone,
+                            custom_fields: [
+                                { display_name: "Order ID", variable_name: "order_id", value: orderId },
+                                { display_name: "Customer Name", variable_name: "customer_name", value: customerName },
+                                { display_name: "Phone Number", variable_name: "phone", value: customerPhone },
+                                { display_name: "Items", variable_name: "items", value: itemsSummary },
+                                { display_name: "Delivery Address", variable_name: "address", value: deliveryDetails }
+                            ]
+                        }
+                    })
+                });
+
+                const data = await response.json();
+                if (!data.status) throw new Error(data.message);
+
+                return {
+                    paymentUrl: data.data.authorization_url,
+                    reference: data.data.reference,
+                    instruction: "Send this URL to the customer. Once they pay, the webhook will create the order row with the unique Order ID. Then you can use update_order_items."
+                };
+            } catch (err) {
+                console.error("Paystack Error:", err);
+                return { error: err.message };
+            }
+        }
+
+        // Tool execution function: UPDATE ORDER ITEMS
+        async function updateOrderItems(clientId, orderId, itemsSummary) {
+            console.log("TOOL EXECUTED: updateOrderItems", { clientId, orderId, itemsSummary });
+            try {
+                // Find the order for this unique order_id that is paid
+                const { data: orders, error: fetchErr } = await supabase
+                    .from('orders')
+                    .select('id, order_id')
+                    .eq('client_id', clientId)
+                    .eq('order_id', orderId)
+                    .eq('payment_status', 'Paid')
+                    .limit(1);
+
+                if (fetchErr) throw fetchErr;
+                if (!orders || orders.length === 0) {
+                    return { error: `No paid order found for Order ID: ${orderId}. Please confirm they have completed the payment.` };
+                }
+
+                const order = orders[0];
+
+                const { error: updateErr } = await supabase
+                    .from('orders')
+                    .update({
+                        items_summary: itemsSummary
+                    })
+                    .eq('id', order.id);
+
+                if (updateErr) throw updateErr;
+
+                return {
+                    status: "Success",
+                    orderId: orderId,
+                    message: "Order items updated successfully. You can now confirm the final order details to the customer."
+                };
+            } catch (err) {
+                console.error("Update Order Error:", err);
+                return { error: err.message };
+            }
+        }
+
+        // TOOL: Get order status
+        async function getOrderStatus(clientId, orderId) {
+            console.log("TOOL EXECUTED: getOrderStatus", { clientId, orderId });
+            try {
+                const { data, error } = await supabase
+                    .from('orders')
+                    .select('status, items_summary, created_at, total_amount')
+                    .eq('client_id', clientId)
+                    .eq('order_id', orderId)
+                    .maybeSingle();
+
+                if (error) throw error;
+                if (!data) return { error: `No order found with ID: ${orderId}` };
+
+                return {
+                    orderId: orderId,
+                    status: data.status,
+                    items: data.items_summary,
+                    pouredAt: data.created_at,
+                    total: data.total_amount
+                };
+            } catch (err) {
+                console.error("Get Order Status Error:", err);
+                return { error: err.message };
+            }
+        }
+
+        // Define the tool schema for Gemini
+        const getBusinessInfoTool = {
+            name: "get_business_info",
+            description: "Fetches live business information including the menu and delivery fees from the database for a given client_id.",
+            parameters: {
+                type: "OBJECT",
+                properties: {
+                    client_id: {
+                        type: "STRING",
+                        description: "The unique UUID of the client.",
+                    }
+                },
+                required: ["client_id"],
+            },
+        };
+
+        const generatePaymentLinkTool = {
+            name: "generate_payment_link",
+            description: "Generates a Paystack payment link for the customer. Call this after the user confirms their order details.",
+            parameters: {
+                type: "OBJECT",
+                properties: {
+                    client_id: { type: "STRING", description: "The UUID of the client." },
+                    amount: { type: "NUMBER", description: "The total amount in NGN to charge." },
+                    customer_email: { type: "STRING", description: "The customer's email address collected earlier." },
+                    customer_name: { type: "STRING", description: "The customer's full name collected earlier." },
+                    customer_phone: { type: "STRING", description: "The customer's phone number collected earlier." },
+                    order_id: { type: "STRING", description: "The unique Order ID generated by the agent." },
+                    items_summary: { type: "STRING", description: "A summary of items (e.g., '2x Rice, 1x Chicken')." },
+                    delivery_details: { type: "STRING", description: "The customer's full delivery address." }
+                },
+                required: ["client_id", "amount", "customer_email", "customer_name", "customer_phone", "order_id", "items_summary", "delivery_details"],
+            },
+        };
+
+        const updateOrderItemsTool = {
+            name: "update_order_items",
+            description: "Updates the finalized order in the database with the actual items ordered. Call this AFTER the user confirms they have paid.",
+            parameters: {
+                type: "OBJECT",
+                properties: {
+                    client_id: { type: "STRING", description: "The UUID of the client." },
+                    order_id: { type: "STRING", description: "The unique Order ID generated earlier and presented to the customer." },
+                    items_summary: { type: "STRING", description: "A detailed summary of the items ordered (e.g. '2x KFC Bucket, 1x Coke'). Include Name, Phone, and Address." }
+                },
+                required: ["client_id", "order_id", "items_summary"],
+            },
+        };
+
+        const getOrderStatusTool = {
+            name: "get_order_status",
+            description: "Queries the current status of an order using its unique Order ID (e.g., ORD-12345).",
+            parameters: {
+                type: "OBJECT",
+                properties: {
+                    client_id: { type: "STRING", description: "The UUID of the client." },
+                    order_id: { type: "STRING", description: "The unique Order ID given to the customer when they ordered." }
+                },
+                required: ["client_id", "order_id"],
+            },
+        };
+
+        const tools = [{
+            functionDeclarations: [getBusinessInfoTool, generatePaymentLinkTool, updateOrderItemsTool, getOrderStatusTool],
+        }];
+
+        // DOM Elements
+        const chatForm = document.getElementById('chatForm');
+        const messageInput = document.getElementById('messageInput');
+        const chatBox = document.getElementById('chatBox');
+        const emptyState = document.getElementById('emptyState');
+        const sendBtn = document.getElementById('sendBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+
+        // History Persistence
+        function saveHistory(history) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+        }
+
+        function getStoredHistory() {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            return stored ? JSON.parse(stored) : null;
+        }
+
+        // Initialize Chat
+        async function initChat() {
+            chatBox.innerHTML = '';
+            emptyState.style.display = 'flex';
+            chatBox.appendChild(emptyState);
+
+            const activeClientId = clientIdInput.value.trim();
+
+            const apiKey = apiKeyInput.value.trim();
+            if (!apiKey) {
+                appendSystemMessage("Please enter a Gemini API Key in the header to start.");
+                return;
+            }
+
+            if (!initSupabase()) {
+                appendSystemMessage("Please enter Supabase URL and Anon Key in the header to start.");
+                return;
+            }
+
+            const selectedModel = modelSelect.value;
+            console.log(`Initializing chat for ${activeClientId} using ${selectedModel}...`);
+
+            try {
+                // Fetch the real prompt from the markdown file
+                const promptResponse = await fetch('agent-prompt.md');
+                if (!promptResponse.ok) throw new Error("Could not load agent-prompt.md");
+                const promptTemplate = await promptResponse.text();
+
+                genAI = new GoogleGenerativeAI(apiKey);
+
+                const systemInstruction = `
+${promptTemplate}
+
+**IMPORTANT CONTEXT:**
+- You are currently assigned to work for the client with ID: "${activeClientId}".
+- You MUST use the get_business_info tool on EVERY turn to ensure real-time accuracy for this specific client.
+                `;
+
+                const model = genAI.getGenerativeModel({
+                    model: selectedModel,
+                    systemInstruction: systemInstruction,
+                    tools: tools,
+                    generationConfig: {
+                        temperature: selectedModel.includes("gemini-3") ? 1.0 : 0.1,
+                        topP: 0.95,
+                        topK: 40,
+                    }
+                });
+
+                const storedHistory = getStoredHistory();
+                if (storedHistory && storedHistory.length > 0) {
+                    // Populate UI from history
+                    storedHistory.forEach(turn => {
+                        const isUserTurn = turn.role === 'user';
+                        const text = turn.parts[0].text;
+                        if (text) appendMessage(text, isUserTurn);
+                    });
+                    chatSession = model.startChat({ history: storedHistory });
+                    appendSystemMessage(`Resumed conversation using ${selectedModel}.`);
+                } else {
+                    chatSession = model.startChat({ history: [] });
+                    appendSystemMessage(`Agent ready. Using ${selectedModel}.`);
+                }
+            } catch (err) {
+                console.error("Init error:", err);
+                appendSystemMessage("Error initializing Gemini. Check your API key.");
+            }
+        }
+
+        // UI Helpers
+        function appendMessage(text, isUser = false) {
+            if (emptyState && emptyState.parentNode === chatBox) {
+                chatBox.removeChild(emptyState);
+            }
+            const div = document.createElement('div');
+            div.className = `flex w-full ${isUser ? 'justify-end' : 'justify-start'}`;
+            const bubbleClasses = isUser ? 'bg-gray-900 text-white rounded-2xl rounded-tr-sm' : 'bg-white border border-gray-200 text-gray-800 rounded-2xl rounded-tl-sm shadow-sm';
+
+            // Render markdown for agent, plain text for user
+            const content = isUser ? text : marked.parse(text);
+            div.innerHTML = `<div class="max-w-[80%] px-5 py-3 ${bubbleClasses} message-content text-[15px] leading-relaxed">${isUser ? `<p>${text}</p>` : content}</div>`;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function appendSystemMessage(text) {
+            const div = document.createElement('div');
+            div.className = `flex w-full justify-center my-2`;
+            div.innerHTML = `<div class="px-4 py-1.5 bg-gray-100 text-gray-500 rounded-full text-xs font-medium font-mono">🤖 ${text}</div>`;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function appendToolLog(name, args, result) {
+            const div = document.createElement('div');
+            div.className = `flex w-full justify-start my-2`;
+            const logContent = `**Tool:** \`${name}\`\n**Args:** \`${JSON.stringify(args)}\`\n**Result:** \`${JSON.stringify(result).substring(0, 100)}...\``;
+            div.innerHTML = `<div class="px-4 py-3 bg-orange-50 border border-orange-100 text-orange-800 rounded-xl text-[13px] font-mono w-full max-w-[90%] overflow-hidden">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></span>
+                    <span class="font-bold">TOOL_CALL: ${name}</span>
+                </div>
+                <div class="opacity-80">${logContent}</div>
+            </div>`;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function appendTypingIndicator() {
+            const div = document.createElement('div');
+            div.id = 'typingIndicator';
+            div.className = `flex w-full justify-start`;
+            div.innerHTML = `<div class="px-5 py-4 bg-white border border-gray-200 rounded-2xl rounded-tl-sm shadow-sm flex gap-1 items-center"><div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0ms"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 150ms"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 300ms"></div></div>`;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            if (indicator) indicator.remove();
+        }
+
+        // Form Submit
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (isProcessing || !chatSession) return;
+            const msg = messageInput.value.trim();
+            if (!msg) return;
+
+            messageInput.value = '';
+            appendMessage(msg, true);
+            isProcessing = true;
+            sendBtn.disabled = true;
+            appendTypingIndicator();
+
+            try {
+                let response = await chatSession.sendMessage(msg);
+
+                // Infinite loop protection: Limit tool turns to 5
+                let turns = 0;
+                while (response.response.functionCalls()?.length > 0 && turns < 5) {
+                    turns++;
+                    const functionCalls = response.response.functionCalls();
+                    const functionResponses = [];
+
+                    for (const call of functionCalls) {
+                        let result;
+                        if (call.name === "get_business_info") {
+                            console.log("Executing tool:", call.name, call.args);
+                            result = await fetchBusinessData(call.args.client_id);
+                        } else if (call.name === "generate_payment_link") {
+                            console.log("Executing tool:", call.name, call.args);
+                            result = await generatePaymentLink(
+                                call.args.client_id,
+                                call.args.amount,
+                                call.args.customer_email,
+                                call.args.order_id,
+                                call.args.items_summary,
+                                call.args.delivery_details,
+                                call.args.customer_name,
+                                call.args.customer_phone
+                            );
+                        } else if (call.name === "update_order_items") {
+                            console.log("Executing tool:", call.name, call.args);
+                            result = await updateOrderItems(call.args.client_id, call.args.order_id, call.args.items_summary);
+                        } else if (call.name === "get_order_status") {
+                            console.log("Executing tool:", call.name, call.args);
+                            result = await getOrderStatus(call.args.client_id, call.args.order_id);
+                        }
+
+                        if (result) {
+                            appendToolLog(call.name, call.args, result);
+                            functionResponses.push({
+                                functionResponse: {
+                                    name: call.name,
+                                    response: result
+                                }
+                            });
+                        }
+                    }
+
+                    if (functionResponses.length > 0) {
+                        response = await chatSession.sendMessage(functionResponses);
+                    } else {
+                        break;
+                    }
+                }
+
+                removeTypingIndicator();
+
+                // Final Check: finishReason
+                const candidate = response.response.candidates?.[0];
+                if (candidate?.finishReason === 'SAFETY') {
+                    appendMessage("⚠️ *Note: The response was partially filtered due to safety policies.*", false);
+                }
+
+                appendMessage(response.response.text(), false);
+
+                // Persist History
+                saveHistory(await chatSession.getHistory());
+
+            } catch (error) {
+                console.error("Full Error Context:", error);
+                removeTypingIndicator();
+
+                if (error.message?.includes("429") || error.message?.includes("Resource exhausted")) {
+                    appendMessage("⚠️ **Rate Limit Reached (429)**. Gemini free tier is limited. Please wait 60 seconds or use a different API key in the header above.", false);
+                } else if (error.message?.includes("API_KEY_INVALID")) {
+                    appendMessage("❌ **Invalid API Key**. Please check the key in the header.", false);
+                } else {
+                    appendMessage("❌ **Error:** " + error.message, false);
+                }
+            } finally {
+                isProcessing = false;
+                sendBtn.disabled = false;
+            }
+        });
+
+        resetBtn.addEventListener('click', () => initChat());
+        clearHistoryBtn.addEventListener('click', () => {
+            if (confirm("Are you sure you want to clear the entire chat history?")) {
+                localStorage.removeItem(STORAGE_KEY);
+                initChat();
+            }
+        });
+        loadConfig();
+        initChat();
+    </script>
+</body>
+
+</html>

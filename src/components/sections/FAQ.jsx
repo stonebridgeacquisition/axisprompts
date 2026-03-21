@@ -49,8 +49,8 @@ const FAQ = () => {
             answer: "It only replies based on your approved menu and rules. Unlike humans who might get tired or forget details, the AI follows your instructions perfectly every time."
         },
         {
-            question: "Does it work with WhatsApp and Instagram?",
-            answer: "Yes, it integrates natively with both WhatsApp and Instagram DMs, managing all conversations from a single dashboard."
+            question: "Does it work with WhatsApp?",
+            answer: "Yes, it integrates natively with WhatsApp, managing all your customer conversations and orders from a single dashboard."
         },
         {
             question: "How long does setup take?",

@@ -30,6 +30,7 @@ const Onboarding = () => {
     const [newDeliveryFee, setNewDeliveryFee] = useState('');
     const [onboardingDeliveryMethod, setOnboardingDeliveryMethod] = useState('rider_collects');
     const [onboardingDeliveryInstructions, setOnboardingDeliveryInstructions] = useState('');
+    const [onboardingOffersPickup, setOnboardingOffersPickup] = useState(false);
 
     const [formData, setFormData] = useState({
         businessName: '',
@@ -45,6 +46,7 @@ const Onboarding = () => {
         bankCode: '',
         openTime: '09:00',
         closeTime: '22:00',
+        agentName: 'Jade',
         paymentModel: 'subscription' // 'subscription' or 'commission'
     });
 
@@ -124,8 +126,34 @@ const Onboarding = () => {
         }
     };
 
-    const handleNext = () => setStep(prev => prev + 1);
+    const handleNext = () => {
+        if (!validateStep()) return;
+        setStep(prev => prev + 1);
+    };
+
     const handlePrev = () => setStep(prev => prev - 1);
+
+    const validateStep = () => {
+        if (step === 1) {
+            if (!formData.businessName || !formData.email || !formData.phone) {
+                alert('Please fill in your Business Name, Email, and Phone Number to continue.');
+                return false;
+            }
+        }
+        if (step === 3) {
+            if (!formData.bankCode || !formData.accountNumber || !formData.accountName) {
+                alert('Please complete all your Bank Details to ensure you can receive payouts.');
+                return false;
+            }
+        }
+        if (step === 4) {
+            if (!formData.address || !formData.cuisine || !formData.contact) {
+                alert('Please provide your Address, Cuisine Type, and a Team Contact.');
+                return false;
+            }
+        }
+        return true;
+    };
 
     const handleVerifyCode = (e) => {
         e.preventDefault();
@@ -251,7 +279,9 @@ const Onboarding = () => {
                         payment_model: formData.paymentModel,
                         subscription_status: formData.paymentModel === 'commission' ? null : 'trial',
                         delivery_method: onboardingDeliveryMethod,
-                        delivery_instructions: onboardingDeliveryInstructions || null
+                        delivery_instructions: onboardingDeliveryInstructions || null,
+                        offers_pickup: onboardingOffersPickup,
+                        agent_name: formData.agentName || 'Jade'
                     }
                 ])
                 .select();
@@ -479,7 +509,7 @@ const Onboarding = () => {
                                     name="businessName"
                                     value={formData.businessName}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 shadow-sm transition-all text-sm"
                                     placeholder="e.g. Mama's Kitchen"
                                     required
                                 />
@@ -493,7 +523,7 @@ const Onboarding = () => {
                                         name="email"
                                         value={formData.email}
                                         onChange={handleChange}
-                                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                                        className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 shadow-sm transition-all text-sm"
                                         placeholder="owner@example.com"
                                         required
                                     />
@@ -505,15 +535,28 @@ const Onboarding = () => {
                                         name="phone"
                                         value={formData.phone}
                                         onChange={handleChange}
-                                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                                        className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 shadow-sm transition-all text-sm"
                                         placeholder="+234..."
                                         required
                                     />
                                 </div>
                             </div>
                             <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">AI Agent Name</label>
+                                <input
+                                    type="text"
+                                    name="agentName"
+                                    value={formData.agentName}
+                                    onChange={handleChange}
+                                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 shadow-sm transition-all text-sm font-medium"
+                                    placeholder="e.g. Jade, Sarah, Alex"
+                                    required
+                                />
+                                <p className="text-[10px] text-gray-400 mt-1">This is how your AI will introduce itself to your customers.</p>
+                            </div>
+                            <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Upload Logo</label>
-                                <label className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:bg-gray-50 transition-colors cursor-pointer block">
+                                <label className="border-2 border-dashed border-gray-200 bg-gray-50 rounded-2xl p-8 text-center hover:bg-brand-50 hover:border-brand-300 transition-colors cursor-pointer group block">
                                     <input
                                         type="file"
                                         accept="image/*"
@@ -526,9 +569,9 @@ const Onboarding = () => {
                                     </p>
                                 </label>
                             </div>
-                            <div className="bg-blue-50 p-4 rounded-lg flex gap-3 text-blue-700 text-sm">
-                                <Globe size={16} className="shrink-0 mt-0.5" />
-                                <p>Your dashboard will be created at: <br /><span className="font-mono font-bold">app.swiftorderai.com/client/{formData.slug || '...'}</span></p>
+                            <div className="bg-blue-50 p-4 rounded-xl flex gap-3 text-blue-700 text-sm border border-blue-100 shadow-sm">
+                                <Globe size={18} className="shrink-0 mt-0.5" />
+                                <p>Your dashboard will be created at: <br /><span className="font-mono font-bold break-all text-blue-600">app.swiftorderai.com/client/{formData.slug || '...'}</span></p>
                             </div>
                         </div>
                     )}
@@ -624,7 +667,7 @@ const Onboarding = () => {
                                             bankName: selectedBank ? selectedBank.name : ''
                                         }));
                                     }}
-                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-white"
+                                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 shadow-sm transition-all text-sm"
                                 >
                                     <option value="">Select a Bank</option>
                                     {banks.map((bank) => (
@@ -653,7 +696,7 @@ const Onboarding = () => {
                                     name="accountName"
                                     value={formData.accountName}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 shadow-sm transition-all text-sm"
                                     placeholder="Account Holder Name"
                                 />
                             </div>
@@ -674,7 +717,7 @@ const Onboarding = () => {
                                     name="address"
                                     value={formData.address}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 shadow-sm transition-all text-sm"
                                     placeholder="Full delivery address"
                                 />
                             </div>
@@ -685,7 +728,7 @@ const Onboarding = () => {
                                     name="cuisine"
                                     value={formData.cuisine}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 shadow-sm transition-all text-sm"
                                     placeholder="e.g. Nigerian, Fast Food"
                                 />
                             </div>
@@ -696,7 +739,7 @@ const Onboarding = () => {
                                     name="contact"
                                     value={formData.contact}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 shadow-sm transition-all text-sm"
                                     placeholder="For issues requiring human intervention"
                                 />
                             </div>
@@ -708,7 +751,7 @@ const Onboarding = () => {
                                         name="openTime"
                                         value={formData.openTime}
                                         onChange={handleChange}
-                                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                                        className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 shadow-sm transition-all text-sm"
                                     />
                                 </div>
                                 <div>
@@ -718,7 +761,7 @@ const Onboarding = () => {
                                         name="closeTime"
                                         value={formData.closeTime}
                                         onChange={handleChange}
-                                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                                        className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 shadow-sm transition-all text-sm"
                                     />
                                 </div>
                             </div>
@@ -897,9 +940,29 @@ const Onboarding = () => {
                         <div className="space-y-6">
                             <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                                 <Truck className="text-brand-600" size={24} />
-                                Delivery Setup
+                                Delivery &amp; Pickup
                             </h2>
-                            <p className="text-gray-500 text-sm">Tell us how your business handles delivery so the AI can assist your customers accurately.</p>
+                            <p className="text-gray-500 text-sm">Tell us how your business handles fulfillment so the AI can assist your customers accurately.</p>
+
+                            {/* Pickup Selection */}
+                            <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${onboardingOffersPickup ? 'bg-brand-600 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                                        <Store size={20} />
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-gray-900 text-sm">Offer Order Pickup</p>
+                                        <p className="text-xs text-gray-500">Enable this if customers can collect orders from your location.</p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setOnboardingOffersPickup(!onboardingOffersPickup)}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${onboardingOffersPickup ? 'bg-brand-600' : 'bg-gray-300'}`}
+                                >
+                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${onboardingOffersPickup ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
 
                             {/* Delivery Method Selector */}
                             <div className="space-y-2">
@@ -963,7 +1026,7 @@ const Onboarding = () => {
                                     value={onboardingDeliveryInstructions}
                                     onChange={(e) => setOnboardingDeliveryInstructions(e.target.value)}
                                     placeholder="e.g. We only deliver within Lagos Island. Free delivery for orders above ₦15,000..."
-                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-sm min-h-[80px] resize-y"
+                                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 shadow-sm transition-all text-sm min-h-[80px] resize-y"
                                 />
                             </div>
 

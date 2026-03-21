@@ -6,6 +6,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const PAYSTACK_SECRET = Deno.env.get('PAYSTACK_SECRET_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')!
 
 // Verify Paystack webhook signature
 async function verifySignature(body: string, signature: string): Promise<boolean> {
@@ -22,6 +23,36 @@ async function verifySignature(body: string, signature: string): Promise<boolean
     .map(b => b.toString(16).padStart(2, '0'))
     .join('')
   return hash === signature
+}
+
+// Resend Email Helper
+async function sendEmail(to: string, subject: string, html: string, fromName: string = "Swift Order AI") {
+  if (!RESEND_API_KEY) {
+    console.warn("Skipping Email: Missing RESEND_API_KEY");
+    return;
+  }
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: `${fromName} <team@swiftorderai.com>`,
+        to: [to],
+        subject: subject,
+        html: html,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) console.error("Resend Error:", data);
+    else console.log(`Email Sent Successfully to ${to}:`, data.id);
+  } catch (err) {
+    console.error("Email send failed:", err);
+  }
 }
 
 Deno.serve(async (req: Request) => {
@@ -148,6 +179,42 @@ Deno.serve(async (req: Request) => {
       })
 
       console.log(`Finance record logged for subscription: ₦${amount}`)
+
+      // EMAIL NOTIFICATION: Subscription Receipt
+      const subscriptionHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { margin: 0; padding: 0; background-color: #FAFAFB; font-family: -apple-system, sans-serif; color: #111827; }
+            .main { background-color: #FFFFFF; margin: 40px auto; width: 100%; max-width: 520px; border-radius: 24px; border: 1px solid #F3F4F6; overflow: hidden; }
+            .brand-bar { text-align: center; padding: 24px 0; }
+            .content { padding: 32px 40px; }
+            .receipt-card { background-color: #111827; color: white; border-radius: 20px; padding: 32px; text-align: center; margin: 24px 0; }
+            .amount { font-size: 36px; font-weight: 800; margin: 8px 0; }
+            .label { font-size: 14px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px; }
+          </style>
+        </head>
+        <body>
+          <center>
+            <div class="main">
+              <div class="brand-bar"><img src="https://swiftorderai.com/logo.png" width="160" /></div>
+              <div class="content">
+                <h1 style="text-align: center;">Payment Successful!</h1>
+                <div class="receipt-card">
+                  <div class="label">Amount Paid</div>
+                  <div class="amount">₦${amount.toLocaleString()}</div>
+                  <div class="label">Swift Order AI Plan</div>
+                </div>
+                <p>Hi ${client.business_name}, your payment has been processed successfully. Your subscription is active, and your agent is ready to take orders.</p>
+                <p style="font-size: 14px; text-align: center; color: #9CA3AF;">Transaction Ref: ${reference}</p>
+              </div>
+            </div>
+          </center>
+        </body>
+        </html>
+      `;
+      await sendEmail(customerEmail, "Payment Receipt - Swift Order AI", subscriptionHtml);
     }
 
     return new Response(JSON.stringify({ message: 'Subscription processed' }), { status: 200 })
@@ -162,7 +229,7 @@ Deno.serve(async (req: Request) => {
   // Verify Subaccount MATCHES the Client Record (Rigid Check)
   const { data: client, error: clientError } = await supabase
     .from('clients')
-    .select('id, business_name, payment_model')
+    .select('id, business_name, payment_model, email, logo_url, phone_number')
     .eq('paystack_subaccount_code', subaccountCode)
     .single()
 
@@ -171,7 +238,13 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: 'Client not found for subaccount' }), { status: 200 }) // Return 200 to stop Paystack retries for invalid data
   }
 
-  console.log(`Client Payment Model: ${client.payment_model}`);
+  // Extract metadata for complete order fulfillment
+  const metadata = paymentData.metadata || {};
+  const orderId = metadata.order_id || null;
+  const itemsSummary = metadata.items_summary || 'Awaiting agent confirmation';
+  const deliveryAddress = metadata.delivery_details || null;
+  const customerName = metadata.customer_name || paymentData.customer?.first_name || 'Unknown';
+  const customerPhone = metadata.customer_phone || paymentData.customer?.phone || null;
 
   // EXTRA SAFETY: If metadata includes business_id, verify it matches
   const metaBusinessId = paymentData.metadata?.business_id
@@ -187,15 +260,18 @@ Deno.serve(async (req: Request) => {
     .from('orders')
     .insert({
       client_id: client.id,
-      customer_name: paymentData.customer?.first_name || 'Unknown',
-      customer_phone: paymentData.customer?.phone || null,
+      customer_name: customerName,
+      customer_phone: customerPhone,
+      customer_email: paymentData.customer?.email || null,
+      order_id: orderId,
+      delivery_address: deliveryAddress,
       total_amount: amount,
       payment_status: 'Paid',
       paystack_reference: reference,
       paystack_transaction_id: paymentData.id,
       subaccount_code: subaccountCode,
       status: 'In Progress',
-      items_summary: 'Awaiting agent confirmation'
+      items_summary: itemsSummary
     })
     .select()
     .single()
@@ -290,6 +366,158 @@ Deno.serve(async (req: Request) => {
   } else {
     console.warn('No user_id in payment metadata, skipping ManyChat confirmation')
   }
+
+  // --- Send Telegram Order Alert to Client ---
+  try {
+    const { data: clientData } = await supabase
+      .from('clients')
+      .select('telegram_chat_id, slug')
+      .eq('id', client.id)
+      .single();
+
+    const telegramChatId = clientData?.telegram_chat_id;
+    const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
+
+    if (telegramChatId && botToken) {
+      console.log(`Sending Telegram Alert to chat_id: ${telegramChatId}`);
+
+      const isPickup = !deliveryAddress ||
+        deliveryAddress.toLowerCase().includes('pickup') ||
+        deliveryAddress.toLowerCase().includes('pick up');
+
+      const fulfillmentEmoji = isPickup ? '🏪' : '📍';
+      const fulfillmentLabel = isPickup ? 'Fulfillment' : 'Delivery Address';
+      const fulfillmentValue = isPickup ? 'Pick-up from store' : deliveryAddress;
+
+      const messageText = `🚨 *New Customer Order!* 🚨\n\n` +
+        `👤 *Customer:* ${customerName}\n` +
+        `💰 *Amount:* ₦${amount.toLocaleString()}\n` +
+        `📦 *Order ID:* ${orderId || 'N/A'}\n\n` +
+        `📝 *Items:* \n${itemsSummary}\n\n` +
+        `${fulfillmentEmoji} *${fulfillmentLabel}:* \n${fulfillmentValue}\n\n` +
+        `[Tap here to view order details](https://swiftorderai.com/client/${clientData.slug}/orders)`;
+
+      const telegramResponse = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          chat_id: telegramChatId,
+          text: messageText,
+          parse_mode: "Markdown",
+          disable_web_page_preview: true
+        })
+      });
+
+      const telegramResult = await telegramResponse.json();
+      if (!telegramResult.ok) {
+        console.error('Telegram Push Result Error:', telegramResult);
+      } else {
+        console.log('Telegram Push Result Success:', telegramResult.result.message_id);
+      }
+    } else {
+      console.warn("Skipping Telegram: Missing telegram_chat_id or bot token.");
+    }
+  } catch (err) {
+    console.error("Telegram Push Notification Failed (non-fatal):", err);
+  }
+
+  // --- Send Email Notifications (Customer & Restaurant) ---
+  const isPickup = !deliveryAddress ||
+    deliveryAddress.toLowerCase().includes('pickup') ||
+    deliveryAddress.toLowerCase().includes('pick up');
+  const fulfillmentLabel = isPickup ? 'Pick-up from store' : deliveryAddress;
+
+  // 1. Customer Receipt Email
+  const customerEmailHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { margin: 0; padding: 0; background-color: #FAFAFB; font-family: -apple-system, sans-serif; color: #111827; }
+        .main { background-color: #FFFFFF; margin: 40px auto; width: 100%; max-width: 520px; border-radius: 24px; border: 1px solid #F3F4F6; overflow: hidden; }
+        .brand-bar { text-align: center; padding: 24px 0; border-bottom: 1px solid #F3F4F6; }
+        .content { padding: 32px 40px; }
+        .order-box { background-color: #FAFAFB; border: 1px solid #F3F4F6; border-radius: 16px; padding: 20px; margin: 24px 0; }
+        .total-row { border-top: 1px solid #E5E7EB; padding-top: 10px; margin-top: 10px; font-weight: 700; font-size: 16px; }
+      </style>
+    </head>
+    <body>
+      <center>
+        <div class="main">
+          <div class="brand-bar"><img src="${client.logo_url || 'https://swiftorderai.com/logo.png'}" width="120" /></div>
+          <div class="content">
+            <h1>Order Confirmed! 🍔</h1>
+            <p>Hi ${customerName}, thanks for ordering from <strong>${client.business_name}</strong>. Your meal is being prepared.</p>
+            <div class="order-box">
+              <div style="font-weight: 700; margin-bottom: 15px;">Order #${orderId || 'N/A'}</div>
+              <div style="white-space: pre-wrap; font-size: 14px; color: #4B5563;">${itemsSummary}</div>
+              <div class="total-row">
+                <span>Total Paid</span>
+                <span style="float: right;">₦${amount.toLocaleString()}</span>
+              </div>
+            </div>
+            <p>📍 <strong>Fulfillment:</strong><br>${fulfillmentLabel}</p>
+            <p>If you have any questions, reach out to the team at ${client.phone_number || ''}.</p>
+          </div>
+          <div style="padding: 24px 40px; border-top: 1px solid #F3F4F6; text-align: center; font-size: 11px; color: #9CA3AF;">
+            &copy; 2026 ${client.business_name}. Powered by <a href="https://swiftorderai.com" style="color: #9CA3AF; text-decoration: underline;">Swift Order AI</a>
+          </div>
+        </div>
+      </center>
+    </body>
+    </html>
+  `;
+  await sendEmail(customerEmail, `Order Receipt - ${client.business_name}`, customerEmailHtml, client.business_name);
+
+  // 2. Restaurant Notification Email
+  if (client.email) {
+    const restaurantEmailHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { margin: 0; padding: 0; background-color: #FAFAFB; font-family: -apple-system, sans-serif; color: #111827; }
+          .main { background-color: #FFFFFF; margin: 40px auto; width: 100%; max-width: 520px; border-radius: 24px; border: 1px solid #F3F4F6; overflow: hidden; }
+          .brand-bar { text-align: center; padding: 24px 0; background-color: #111827; color: white; }
+          .content { padding: 32px 40px; }
+          .order-box { background-color: #FAFAFB; border: 1px solid #F3F4F6; border-radius: 16px; padding: 20px; margin: 24px 0; }
+          .total-row { border-top: 1px solid #E5E7EB; padding-top: 10px; margin-top: 10px; font-weight: 700; font-size: 16px; }
+        </style>
+      </head>
+      <body>
+        <center>
+          <div class="main">
+            <div class="brand-bar">🚨 New Order Received</div>
+            <div class="content">
+              <h1>You have a new customer!</h1>
+              <p><strong>${customerName}</strong> just placed an order through your AI assistant.</p>
+              <div class="order-box">
+                <div style="font-weight: 700; margin-bottom: 5px;">Order ID: ${orderId || 'N/A'}</div>
+                <div style="font-size: 14px; margin-bottom: 15px;">Phone: ${customerPhone || 'N/A'}</div>
+                <div style="white-space: pre-wrap; font-size: 14px; color: #4B5563;">${itemsSummary}</div>
+                <div class="total-row">
+                  <span>Amount Paid</span>
+                  <span style="float: right;">₦${amount.toLocaleString()}</span>
+                </div>
+              </div>
+              <p>📍 <strong>Fulfillment:</strong><br>${fulfillmentLabel}</p>
+              <div style="text-align: center; margin-top: 24px;">
+                <a href="https://swiftorderai.com/client/orders" style="display: inline-block; padding: 16px 32px; background-color: #111827; color: white; font-weight: 700; text-decoration: none; border-radius: 12px;">View in Dashboard</a>
+              </div>
+            </div>
+            <div style="padding: 24px 40px; text-align: center; font-size: 11px; color: #9CA3AF;">
+              Sent via Swift Order AI Agent Automations.
+            </div>
+          </div>
+        </center>
+      </body>
+      </html>
+    `;
+    await sendEmail(client.email, "New Customer Order Received! 🚨", restaurantEmailHtml);
+  }
+  // -----------------------------------------
 
   return new Response(JSON.stringify({ message: 'Order processed' }), { status: 200 })
 })

@@ -112,6 +112,7 @@ const ClientLayout = () => {
     // Fetch notifications when client is loaded
     useEffect(() => {
         if (!client?.id) return;
+
         const fetchNotifications = async () => {
             const { data } = await supabase
                 .from('notifications')
@@ -476,6 +477,7 @@ const ClientLayout = () => {
                 </header>
 
                 {/* Content Area */}
+
                 <div className="flex-1 overflow-auto bg-gray-50 dark:bg-dark-950 p-4 sm:p-8 relative transition-colors duration-200">
                     {isAccessBlocked ? (
                         <div className="absolute inset-0 z-30 flex items-center justify-center bg-gray-50/80 dark:bg-dark-950/80 backdrop-blur-sm p-4">

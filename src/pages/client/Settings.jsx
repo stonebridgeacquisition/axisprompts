@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Loader2, Store, CreditCard, MapPin, Phone, Mail, Globe, User, Check, Clock, Upload, MessageCircle, Copy, RefreshCw, ExternalLink, Eye, EyeOff } from 'lucide-react';
+import { Save, Loader2, Store, CreditCard, MapPin, Phone, Mail, Globe, User, Check, Clock, Upload, MessageCircle, Copy, RefreshCw, ExternalLink, Eye, EyeOff, Bell } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
@@ -45,6 +45,7 @@ const ClientSettings = () => {
     const [uploading, setUploading] = useState(false);
     const [banks, setBanks] = useState(FALLBACK_BANKS);
     const [logoPreview, setLogoPreview] = useState(null);
+    const [originalForm, setOriginalForm] = useState(null);
 
     const [form, setForm] = useState({
         business_name: '',
@@ -82,7 +83,7 @@ const ClientSettings = () => {
         if (client) {
             const data = {
                 business_name: client.business_name || '',
-                agent_name: client.agent_name || '',
+                agent_name: client.agent_name || 'Jade',
                 email: client.email || '',
                 phone_number: client.phone_number || '',
                 address: client.address || '',
@@ -98,6 +99,7 @@ const ClientSettings = () => {
             };
             setForm(data);
             setLogoPreview(client.logo_url || null);
+            setOriginalForm(data);
             setOriginalBank({ account_number: client.account_number || '', bank_code: client.bank_code || '' });
 
             // Load existing WhatsApp credentials
@@ -177,6 +179,8 @@ const ClientSettings = () => {
         }
     };
 
+    const isDirty = originalForm && JSON.stringify(form) !== JSON.stringify(originalForm);
+
     const handleLogoUpload = async (e) => {
         const file = e.target.files[0];
         if (!file || !client?.id) return;
@@ -252,6 +256,7 @@ const ClientSettings = () => {
                     bank_code: form.bank_code,
                     open_time: form.open_time ? form.open_time + ':00' : null,
                     close_time: form.close_time ? form.close_time + ':00' : null,
+                    agent_name: form.agent_name,
                     logo_url: form.logo_url
                 })
                 .eq('id', client.id);
@@ -291,6 +296,7 @@ const ClientSettings = () => {
             }
 
             setOriginalBank({ account_number: form.account_number, bank_code: form.bank_code });
+            setOriginalForm(form);
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
         } catch (err) {
@@ -354,7 +360,7 @@ const ClientSettings = () => {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <InputField label="Business Name" name="business_name" value={form.business_name} onChange={handleChange} icon={Store} placeholder="Your business name" />
-                        <InputField label="Agent Name" name="agent_name" value={form.agent_name} onChange={handleChange} icon={User} placeholder="e.g. Jade" />
+                        <InputField label="AI Agent Name" name="agent_name" value={form.agent_name} onChange={handleChange} icon={User} placeholder="e.g. Jade, Sarah, Alex" />
                         <InputField label="Email" name="email" value={form.email} onChange={handleChange} type="email" icon={Mail} placeholder="email@example.com" />
                         <InputField label="Phone Number" name="phone_number" value={form.phone_number} onChange={handleChange} icon={Phone} placeholder="+234..." />
                         <InputField label="Team Contact" name="team_contact" value={form.team_contact} onChange={handleChange} icon={User} placeholder="Manager's phone" />
@@ -363,13 +369,44 @@ const ClientSettings = () => {
                             <InputField label="Address" name="address" value={form.address} onChange={handleChange} icon={MapPin} placeholder="Business address" />
                         </div>
                         <div className="sm:col-span-2 grid grid-cols-2 gap-4">
-                            <InputField label="Open Time" name="open_time" type="time" value={form.open_time} onChange={handleChange} icon={Clock} />
-                            <InputField label="Close Time" name="close_time" type="time" value={form.close_time} onChange={handleChange} icon={Clock} />
+                            <InputField label="Open Time" name="open_time" type="time" value={form.open_time} onChange={handleChange} />
+                            <InputField label="Close Time" name="close_time" type="time" value={form.close_time} onChange={handleChange} />
                         </div>
                     </div>
                 </div>
 
-                {/* Onboarding SOP */}
+                {/* Notifications (Partner's Telegram feature) */}
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <div className="flex items-center gap-2 mb-2 text-brand-600">
+                        <Bell size={20} />
+                        <h3 className="text-lg font-bold text-gray-900">Notification Settings</h3>
+                    </div>
+                    <p className="text-xs text-gray-400 mb-5">Receive instant alerts for new orders directly to your Telegram app.</p>
+
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl border border-gray-100 bg-gray-50">
+                        <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-full bg-[#0088cc]/10 flex items-center justify-center shrink-0">
+                                <svg viewBox="0 0 24 24" className="w-5 h-5 text-[#0088cc]" fill="currentColor">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-bold text-gray-900">Telegram Order Alerts</h4>
+                                <p className="text-xs text-gray-500 mt-1">Connect your account to get instantly notified on your phone when customers place orders.</p>
+                            </div>
+                        </div>
+                        <a
+                            href={`https://t.me/swiftorderaibot?start=${client?.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full sm:w-auto px-4 py-2 bg-[#0088cc] hover:bg-[#007ab8] text-white text-sm font-bold rounded-lg transition-colors flex items-center justify-center gap-2 whitespace-nowrap shadow-sm"
+                        >
+                            Connect Telegram
+                        </a>
+                    </div>
+                </div>
+
+                {/* Onboarding SOP (Your WhatsApp setup checklist) */}
                 <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 shadow-sm p-6 space-y-4">
                     <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-orange-400 to-amber-500 flex items-center justify-center shadow-lg shadow-orange-500/20 text-white text-xl font-bold">
@@ -608,8 +645,13 @@ const ClientSettings = () => {
                 <div className="flex justify-end">
                     <button
                         type="submit"
-                        disabled={saving}
-                        className="px-6 py-2.5 bg-brand-600 text-white rounded-lg font-bold hover:bg-brand-700 transition-colors flex items-center gap-2 disabled:opacity-50 shadow-lg shadow-brand-500/20"
+                        disabled={saving || !isDirty}
+                        className={`
+                            px-6 py-2.5 rounded-lg font-bold transition-all flex items-center gap-2 shadow-lg
+                            ${isDirty
+                                ? 'bg-red-600 text-white hover:bg-red-700 shadow-red-500/20'
+                                : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'}
+                        `}
                     >
                         {saving ? (
                             <Loader2 size={16} className="animate-spin" />
@@ -618,10 +660,26 @@ const ClientSettings = () => {
                         ) : (
                             <Save size={16} />
                         )}
-                        {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Changes'}
+                        {saving ? 'Saving...' : saved ? 'Saved!' : isDirty ? 'Save Changes' : 'Saved'}
                     </button>
                 </div>
             </form>
+
+            {/* Unsaved Changes Reminder Popup */}
+            {isDirty && !saving && (
+                <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300 w-max max-w-[90vw]">
+                    <div className="bg-red-600 text-white px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3 border border-red-500/20 whitespace-nowrap">
+                        <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse shrink-0" />
+                        <span className="text-xs sm:text-sm font-bold">Unsaved changes</span>
+                        <button
+                            onClick={handleSave}
+                            className="px-3 py-1 bg-white text-red-600 rounded-lg text-xs font-bold hover:bg-gray-100 transition-colors shadow-sm active:scale-95"
+                        >
+                            Save Now
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
