@@ -16,7 +16,7 @@ const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" 
 export const agentWorkflow = inngest.createFunction(
     {
         id: "ai-agent-flow",
-        concurrency: 50, // Parallel executions allowed
+        concurrency: 5, // Match Inngest plan limit
     },
     { event: "chat/message.received" },
 

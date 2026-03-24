@@ -8,7 +8,7 @@ const supabase = createClient(
 );
 
 export const paymentLifecycle = inngest.createFunction(
-    { id: "payment-lifecycle", concurrency: 50 },
+    { id: "payment-lifecycle", concurrency: 5 },
     { event: "payment/invoice.generated" },
     async ({ event, step }) => {
         const { user_id, reference, amount, business_id } = event.data;
