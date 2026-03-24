@@ -11,7 +11,7 @@ export const paymentLifecycle = inngest.createFunction(
     { id: "payment-lifecycle", concurrency: 5 },
     { event: "payment/invoice.generated" },
     async ({ event, step }) => {
-        const { user_id, reference, amount, business_id } = event.data;
+        const { user_id, reference, amount, business_id, orderData } = event.data;
 
         // 1. Wait for payment success (30 mins)
         const payment = await step.waitForEvent("wait-for-payment", {
@@ -26,13 +26,29 @@ export const paymentLifecycle = inngest.createFunction(
             await step.run("handle-success", async () => {
                 console.log(`Payment Successful for Ref: ${reference}`);
 
-                // 1. Update DB status to 'success'
+                // 1. Update DB transactions status to 'success'
                 await supabase
                     .from('transactions')
                     .update({ status: 'success' })
                     .eq('reference', reference);
 
-                // 2. Notify User via WhatsApp
+                // 2. Create Order in Dashboard
+                if (orderData) {
+                    await supabase.from('orders').insert({
+                        client_id: business_id,
+                        order_id: reference.replace('REF-', ''), // Clean custom ID for UI
+                        customer_name: orderData.customer_name || 'Customer',
+                        customer_phone: orderData.customer_phone || user_id,
+                        delivery_address: orderData.delivery_address || 'Pickup / Not specified',
+                        items_summary: JSON.stringify(orderData.items || []),
+                        total_amount: amount,
+                        status: 'In Progress',
+                        payment_status: 'Paid',
+                        payment_method: 'Paystack'
+                    });
+                }
+
+                // 3. Notify User via WhatsApp
                 const { data: clientSettings } = await supabase
                     .from('clients')
                     .select('whatsapp_phone_number_id, whatsapp_access_token')
@@ -92,7 +108,27 @@ export const paymentLifecycle = inngest.createFunction(
                     .update({ status: 'expired' })
                     .eq('reference', reference);
 
-                // B. Notify User via WhatsApp that payment expired
+                // B. Release Stock if previously held
+                if (orderData && orderData.items && Array.isArray(orderData.items)) {
+                    for (const item of orderData.items) {
+                        if (!item.id) continue;
+                        const { data: currentItem } = await supabase
+                            .from('menu_items')
+                            .select('stock_level, track_inventory')
+                            .eq('id', item.id)
+                            .single();
+                        
+                        if (currentItem && currentItem.track_inventory && currentItem.stock_level !== null) {
+                            const newStock = currentItem.stock_level + (item.quantity || 1);
+                            await supabase
+                                .from('menu_items')
+                                .update({ stock_level: newStock })
+                                .eq('id', item.id);
+                        }
+                    }
+                }
+
+                // C. Notify User via WhatsApp that payment expired
                 const { data: clientSettings } = await supabase
                     .from('clients')
                     .select('whatsapp_phone_number_id, whatsapp_access_token')
