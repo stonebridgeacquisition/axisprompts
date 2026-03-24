@@ -203,7 +203,7 @@ export const agentWorkflow = inngest.createFunction(
                             email: `${user_id}@kfc-bot.com`,
                             amount: amount * 100,
                             reference: reference,
-                            callback_url: "https://41ec-143-105-174-159.ngrok-free.app/payment-success",
+                            callback_url: "https://www.swiftorderai.com/payment-success",
                             metadata: {
                                 user_id: user_id,
                                 business_id: business_id
