@@ -35,29 +35,7 @@ export default async function handler(req, res) {
                 data: { reference, user_id, amount, business_id },
             });
 
-            // 2. Send payment confirmation via WhatsApp
-            const { data: clientData } = await supabase
-                .from("clients")
-                .select("whatsapp_phone_number_id, whatsapp_access_token")
-                .eq("id", business_id)
-                .single();
-
-            const phoneNumberId = clientData?.whatsapp_phone_number_id;
-            const accessToken = clientData?.whatsapp_access_token;
-
-            if (phoneNumberId && accessToken) {
-                await axios.post(
-                    `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`,
-                    {
-                        messaging_product: "whatsapp",
-                        to: user_id,
-                        type: "text",
-                        text: { body: `Payment of ₦${amount} received! ✅\nYour order is now being processed. Thank you!` },
-                    },
-                    { headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" } }
-                );
-                console.log("[PAYSTACK] Payment confirmation sent via WhatsApp.");
-            }
+            // WhatsApp notification is now handled by the Inngest paymentLifecycle function
         }
 
         return res.status(200).send("OK");

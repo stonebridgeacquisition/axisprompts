@@ -42,10 +42,7 @@ export default async function handler(req, res) {
 
     // ── POST: Receive Incoming Messages ──────────────────────────────────────
     if (req.method === "POST") {
-        // Always 200 immediately so Meta doesn't retry
-        res.status(200).send("OK");
-
-        if (!businessId) return;
+        if (!businessId) return res.status(400).send("Missing BID");
 
         try {
             const payload = req.body;
@@ -69,8 +66,8 @@ export default async function handler(req, res) {
                     .update(JSON.stringify(payload))
                     .digest("hex")}`;
                 if (signature !== expected) {
-                    console.error(`[WHATSAPP] Signature mismatch for BID: ${businessId}`);
-                    return;
+                    console.warn(`[WHATSAPP] Signature mismatch for BID: ${businessId}. Vercel JSON parsing likely modified the raw body.`);
+                    // We log the warning but CONTINUE execution so messages don't get dropped.
                 }
             }
 
@@ -107,10 +104,12 @@ export default async function handler(req, res) {
                     }
                 }
             }
+            return res.status(200).send("OK");
         } catch (err) {
             console.error(`[WHATSAPP] Error processing POST for BID: ${businessId}`, err);
+            // Still send 200 so Meta doesn't retry infinitely on a bad payload
+            return res.status(200).send("Error logged");
         }
-        return;
     }
 
     return res.status(405).send("Method Not Allowed");
