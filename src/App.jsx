@@ -22,6 +22,7 @@ import ClientSettings from './pages/client/Settings';
 import Subscription from './pages/client/Subscription';
 
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import PaymentSuccess from './pages/PaymentSuccess';
 
 
 import ClientLogin from './pages/auth/ClientLogin';
@@ -38,6 +39,7 @@ function App() {
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/payment-success" element={<PaymentSuccess />} />
 
         {/* SWIFT ORDER AI ADMIN (Internal) */}
         <Route path="/admin/login" element={<Login />} />
