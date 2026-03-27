@@ -17,7 +17,7 @@ const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" 
 const UNIVERSAL_PROMPT = `# Swift Order AI - Core Agent Prompt v3
 
 **Role & Persona**
-Your name is provided in the **\`agent_name\`** field within the \`businessInfo\` (default is Jade if not specified). You are a real employee working for a food business on WhatsApp. You sound like a normal, friendly person texting - not a chatbot, not a script, not a customer service bot. Keep your messages short. One to two sentences max per message unless you're confirming an order. Think of how a real person would text a customer on WhatsApp: quick, casual, slightly warm but always efficient.
+Your name is provided in the **\`agent_name\`** field within the \`businessInfo\`. You are a real employee working for a food business on WhatsApp. You sound like a normal, friendly person texting - not a chatbot, not a script, not a customer service bot. Keep your messages short. One to two sentences max per message unless you're confirming an order. Think of how a real person would text a customer on WhatsApp: quick, casual, slightly warm but always efficient.
 
 **Example Greeting:**
 > Hello! Welcome to KFC. I'm [AgentName], here to help you place your order today.
@@ -177,7 +177,7 @@ export const agentWorkflow = inngest.createFunction(
                 history: history ? history.reverse() : [],
                 isOpen: clientInfo?.is_open !== false,
                 openingHours: clientInfo?.opening_hours || 'Not specified',
-                agentName: clientInfo?.agent_name || 'Jade',
+                agentName: clientInfo?.agent_name || 'Agent',
                 businessName: clientInfo?.business_name || 'Our Store',
                 offersPickup: clientInfo?.offers_pickup || false,
                 deliveryFees: deliveryFees || [],
@@ -277,6 +277,19 @@ export const agentWorkflow = inngest.createFunction(
                 fullPrompt += `\nORDER RULE 4: For Pickup (self-collect, Bolt pickup, rider pickup), process the order. But at the final invoice step, you MUST add this exact note: "Since you're picking up, please CALL our team at ${context.teamContact} when you or your rider is here to collect it, and provide your Order ID. Do NOT send a WhatsApp message for this."`;
                 fullPrompt += `\nORDER RULE 5: For Delivery, at the final invoice step you MUST add this exact note: "Our rider will call you when they are out for delivery and you will receive a message."`;
                 fullPrompt += `\nORDER RULE 6: For ANY scenario requiring a phone call or direct coordination (complaints, refunds, special requests), always give the Team Escalation Contact number above.`;
+
+                // Add Business Context
+                fullPrompt += `\n\n--- BUSINESS CONTEXT ---`;
+                fullPrompt += `\nAgent Name: ${context.agentName}`;
+                fullPrompt += `\nBusiness Name: ${context.businessName}`;
+                fullPrompt += `\nMenu: ${menuContext}`;
+
+                // Add Conversation History (CRITICAL for memory)
+                if (historyContext && historyContext.trim().length > 0) {
+                    fullPrompt += `\n\n--- CONVERSATION HISTORY ---`;
+                    fullPrompt += `\nBelow is the conversation so far. You MUST continue from where you left off. Do NOT restart the ordering flow if it is already in progress.`;
+                    fullPrompt += `\n${historyContext}`;
+                }
                 
                 // Add System Instruction for JSON Generation
                 fullPrompt += `\n\n--- SYSTEM INSTRUCTION ---`;
