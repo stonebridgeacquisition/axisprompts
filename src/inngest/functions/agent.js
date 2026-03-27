@@ -51,14 +51,15 @@ You **DO NOT** know the business name, menu, prices, or delivery zones by defaul
 6. **Business Metadata:** Use the \`cuisine\`, \`address\`, and \`delivery_instructions\` from \`businessInfo\` to answer any questions about the business's location or style.
 7. **Punctuation & Formatting:** Never use em-dashes. Use only standard punctuation (commas, periods, single hyphens). No emojis.
 8. **Always move forward.** Every message should push toward placing the order.
+9. **Always check conversation history first.** Before asking the customer for ANY information (name, phone, email, address, delivery preference), check the conversation history. If the info was already provided earlier, use it. NEVER re-ask for something the customer already told you.
 
 **The Ordering Flow**
 
 1. **Greeting & Fulfillment (Delivery vs Pickup):** Short and warm. Use the fetched Business Name and your \`agent_name\`. Check if \`offers_pickup\` is true.
    - If true, you MUST ask if they want delivery or pickup immediately. Example: "Hello! Welcome to [Business]. I'm [AgentName]. To start, would you like to place an order for delivery or will you be picking up?"
-   - If false, skip asking and assume delivery. Example: "Hello! Welcome to [Business]. I'm [AgentName], here to help you place your delivery order today."
-   - If they choose **Delivery**, ask for their delivery area and match it against the Delivery Zones provided.
-     - If it matches a zone, confirm and ask what they want to order.
+   - If false, skip asking and assume delivery. Example: "Hello! Welcome to [Business]. I'm [AgentName], here to help you place your delivery order today. What area are you ordering to?"
+   - If they choose **Delivery**, ask for their delivery address (area/location) in ONE question. Match it against the Delivery Zones provided.
+     - If it matches a zone, confirm the area and ask what they want to order.
      - If it does NOT match, firmly tell them: "Sorry, we don't deliver to that area at the moment." Do NOT proceed with the order.
    - If they choose **Pickup**, confirm and ask what they want to order.
 
@@ -295,11 +296,14 @@ export const agentWorkflow = inngest.createFunction(
                 fullPrompt += `\n\n--- SYSTEM INSTRUCTION ---`;
                 fullPrompt += `\nIf the user agrees to pay or confirms the order, calculate the total amount (menu items + delivery fee, if any).`;
                 fullPrompt += `\nTHEN, instead of saying you will generate a link, output EXACTLY this JSON tag and NO OTHER TEXT:`;
-                fullPrompt += `\n[GENERATE_PAYMENT: {"amount": 4500, "customer_name": "...", "customer_phone": "...", "delivery_address": "...", "items": [{"id": "UUID-HERE", "name": "Item Name", "quantity": 1, "price": 1000}]}]`;
+                fullPrompt += `\n[GENERATE_PAYMENT: {"amount": 4500, "customer_name": "John Doe", "customer_phone": "08012345678", "customer_email": "john@example.com", "delivery_address": "Lekki", "items": [{"id": "item-id", "name": "Item Name", "quantity": 1, "price": 1000}]}]`;
                 fullPrompt += `\nIn the JSON payload above:`;
                 fullPrompt += `\n1. "amount" must be the final total integer (including delivery fee).`;
-                fullPrompt += `\n2. Extract "customer_name", "customer_phone", and "delivery_address" from chat history. Put "Pickup" for delivery_address if catching. Ask the user for name & phone number prior if missing!`;
-                fullPrompt += `\n3. "items" array must contain all ordered items, matching the exact "id" from the {{MENU}} context.`;
+                fullPrompt += `\n2. You MUST extract "customer_name", "customer_phone", and "delivery_address" from the CONVERSATION HISTORY above. Do NOT leave them as "...". If any of these are genuinely missing from the history, ask the user for ONLY the missing info before generating the tag. Put "Pickup" for delivery_address if they chose pickup.`;
+                fullPrompt += `\n3. "items" array must contain all ordered items. Use the exact item "id" from the Menu context above. If you cannot find the exact id, use the item name as the id.`;
+                fullPrompt += `\n4. IMPORTANT: Only output the [GENERATE_PAYMENT: ...] tag when you have ALL required fields filled with real values. Never output the tag with placeholder dots.`;
+                fullPrompt += `\n5. "customer_email" - extract the customer's email from conversation history. This is REQUIRED.`;
+                fullPrompt += `\n6. "amount" must be a plain integer number with NO currency symbols, commas, or formatting. Example: 4500 not "₦4,500".`;
                 fullPrompt += `\n\nUser: ${event.data.message}\nAssistant:`;
 
                 const result = await model.generateContent(fullPrompt);
@@ -310,8 +314,12 @@ export const agentWorkflow = inngest.createFunction(
                 if (paymentMatch) {
                     try {
                         const orderData = JSON.parse(paymentMatch[1]);
-                        const amount = parseInt(orderData.amount, 10);
-                        console.log(`Generating Payment Link for ₦${amount}... and reserving inventory.`);
+                        let amount = parseInt(String(orderData.amount).replace(/[^0-9]/g, ''), 10);
+                        if (!amount || isNaN(amount) || amount <= 0) {
+                            throw new Error(`Invalid amount from AI: ${orderData.amount}`);
+                        }
+                        const customerEmail = orderData.customer_email || `${user_id}@customer.swiftorderai.com`;
+                        console.log(`Generating Payment Link for ₦${amount} (email: ${customerEmail})... and reserving inventory.`);
 
                         // 1. Fetch Subaccount Code
                         const { data: clientData } = await supabase
@@ -347,7 +355,7 @@ export const agentWorkflow = inngest.createFunction(
                         const reference = `REF-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
                         const paystackPayload = {
-                            email: `${user_id}@kfc-bot.com`,
+                            email: customerEmail,
                             amount: amount * 100,
                             reference: reference,
                             callback_url: "https://www.swiftorderai.com/payment-success",
@@ -400,8 +408,8 @@ export const agentWorkflow = inngest.createFunction(
                         // Modify response text to just output the link and instructions
                         text = `Great! Your total is ₦${amount.toLocaleString()}.\n\nClick here to securely pay via Paystack: ${authUrl}\n\n⚠️ *Important:* After paying on Paystack, please wait for the page to redirect to the Success screen before you close it.\nYour stock is reserved for 30 minutes!`;
                     } catch (parseErr) {
-                        console.error("Failed to parse GENERATE_PAYMENT JSON from Gemini:", parseErr);
-                        text = `I encountered an issue gathering your order details. Could you confirm your full order, name, phone, and address one more time for me?`;
+                        console.error("Payment generation failed:", parseErr?.response?.data || parseErr.message || parseErr);
+                        text = `I had a small issue processing your payment link. Let me try again - could you just confirm your order is correct?\n\nIf the issue continues, you can contact our team for help.`;
                     }
                 }
 
