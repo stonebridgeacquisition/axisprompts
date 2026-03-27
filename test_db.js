@@ -1,20 +1,15 @@
 import { createClient } from "@supabase/supabase-js";
 import 'dotenv/config';
-
-const supabase = createClient(
-    process.env.VITE_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
+const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 async function check() {
-    const businessId = "31299f88-fba2-4644-b1bc-5660e1f1145a";
-    const { data, error } = await supabase
-        .from("clients")
-        .select("id, whatsapp_verify_token, business_name")
-        .eq("id", businessId)
-        .single();
-    
-    console.log("Error:", error);
-    console.log("Data:", data);
+    console.log("--- orders ---");
+    let res = await supabase.from("orders").select("*").limit(1);
+    console.log(Object.keys(res.data?.[0] || {}));
+    console.log("--- menu_items ---");
+    res = await supabase.from("menu_items").select("*").limit(1);
+    console.log(Object.keys(res.data?.[0] || {}));
+    console.log("--- delivery_fees ---");
+    res = await supabase.from("delivery_fees").select("*").limit(1);
+    console.log(Object.keys(res.data?.[0] || {}));
 }
 check();
