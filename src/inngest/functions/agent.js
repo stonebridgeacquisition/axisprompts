@@ -13,8 +13,8 @@ const supabase = createClient(
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
 
-// Universal Agent Prompt — used by ALL agents. Only the agent_name differs per client.
-const UNIVERSAL_PROMPT = `# Swift Order AI - Core Agent Prompt v3
+// Fallback Prompt — used if the universal prompt has not been set in the admin dashboard yet
+const FALLBACK_PROMPT = `# Swift Order AI - Core Agent Prompt v3
 
 **Role & Persona**
 Your name is provided in the **\`agent_name\`** field within the \`businessInfo\`. You are a real employee working for a food business on WhatsApp. You sound like a normal, friendly person texting - not a chatbot, not a script, not a customer service bot. Keep your messages short. One to two sentences max per message unless you're confirming an order. Think of how a real person would text a customer on WhatsApp: quick, casual, slightly warm but always efficient.
@@ -125,7 +125,14 @@ export const agentWorkflow = inngest.createFunction(
                 .select('name, price, category, description')
                 .eq('client_id', business_id);
 
-            // B. System Prompt — uses the universal hardcoded prompt (no DB lookup needed)
+            // B. System Prompt — fetch from dynamic admin settings
+            const { data: promptSetting } = await supabase
+                .from('platform_settings')
+                .select('value')
+                .eq('key', 'universal_agent_prompt')
+                .maybeSingle();
+            
+            const activeSystemPrompt = promptSetting?.value || FALLBACK_PROMPT;
 
             // B2. Fetch Store Availability and details
             const { data: clientInfo } = await supabase
@@ -174,7 +181,7 @@ export const agentWorkflow = inngest.createFunction(
             return {
                 sessionId,
                 menu: menu || [],
-                systemPrompt: UNIVERSAL_PROMPT,
+                systemPrompt: activeSystemPrompt,
                 history: history ? history.reverse() : [],
                 isOpen: clientInfo?.is_open !== false,
                 openingHours: clientInfo?.opening_hours || 'Not specified',

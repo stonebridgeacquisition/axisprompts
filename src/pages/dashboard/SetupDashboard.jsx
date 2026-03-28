@@ -11,6 +11,10 @@ const SetupDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [accessCode, setAccessCode] = useState('');
     const [savingCode, setSavingCode] = useState(false);
+    
+    // AI Prompt State
+    const [agentPrompt, setAgentPrompt] = useState('');
+    const [savingPrompt, setSavingPrompt] = useState(false);
 
     // Mock Team Data (Replace with DB fetch later)
     const [teamMembers, setTeamMembers] = useState([
@@ -44,15 +48,17 @@ const SetupDashboard = () => {
                 setTeamMembers(mappedAdmins);
             }
 
-            // 3. Get platform settings (access code)
+            // 3. Get platform settings (access code & prompt)
             const { data: settings, error: settingsError } = await supabase
                 .from('platform_settings')
-                .select('value')
-                .eq('key', 'onboarding_access_code')
-                .single();
+                .select('key, value');
 
             if (!settingsError && settings) {
-                setAccessCode(settings.value);
+                const codeSetting = settings.find(s => s.key === 'onboarding_access_code');
+                const promptSetting = settings.find(s => s.key === 'universal_agent_prompt');
+                
+                if (codeSetting) setAccessCode(codeSetting.value);
+                if (promptSetting) setAgentPrompt(promptSetting.value);
             }
 
             setLoading(false);
@@ -111,6 +117,36 @@ const SetupDashboard = () => {
         }
     };
 
+    const handleUpdatePrompt = async () => {
+        if (!agentPrompt) return;
+        setSavingPrompt(true);
+        try {
+            // First try to select it, if it doesn't exist we insert
+            const { data: existing } = await supabase
+                .from('platform_settings')
+                .select('key')
+                .eq('key', 'universal_agent_prompt')
+                .maybeSingle();
+
+            let error;
+            if (existing) {
+                const res = await supabase.from('platform_settings').update({ value: agentPrompt }).eq('key', 'universal_agent_prompt');
+                error = res.error;
+            } else {
+                const res = await supabase.from('platform_settings').insert({ key: 'universal_agent_prompt', value: agentPrompt });
+                error = res.error;
+            }
+
+            if (error) throw error;
+            alert('Agent Prompt updated successfully! Changes will reflect immediately on the next message.');
+        } catch (err) {
+            console.error('Error updating prompt:', err);
+            alert('Failed to update agent prompt');
+        } finally {
+            setSavingPrompt(false);
+        }
+    };
+
     return (
         <div className="max-w-4xl mx-auto space-y-8">
             {/* Header */}
@@ -152,6 +188,13 @@ const SetupDashboard = () => {
                             >
                                 <LinkIcon size={18} />
                                 Client Onboarding
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('prompt')}
+                                className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${activeTab === 'prompt' ? 'bg-white text-brand-600 shadow-sm' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                                AI System Prompt
                             </button>
                         </nav>
                     </div>
@@ -357,6 +400,43 @@ const SetupDashboard = () => {
                                                         </button>
                                                     </div>
                                                 </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* AI Prompt Tab */}
+                                {activeTab === 'prompt' && (
+                                    <div className="space-y-6">
+                                        <div>
+                                            <h2 className="text-xl font-bold text-gray-900 mb-2">Universal Agent Prompt</h2>
+                                            <p className="text-sm text-gray-500 leading-relaxed md:w-3/4">
+                                                This is the core instructions given to the AI across ALL businesses. 
+                                                Do not remove <code>{`{{AGENT_NAME}}`}</code> or <code>{`{{BUSINESS_NAME}}`}</code> placeholders, as they are used to inject client-specific fields. Changes here take effect instantly.
+                                            </p>
+                                        </div>
+                                        
+                                        <div className="flex flex-col gap-4">
+                                            <div className="border border-gray-200 rounded-xl overflow-hidden shadow-inner flex flex-col h-[500px]">
+                                                <div className="bg-gray-50 px-4 py-2 flex items-center justify-between border-b border-gray-200">
+                                                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">System Prompt (Markdown)</span>
+                                                </div>
+                                                <textarea
+                                                    className="w-full flex-1 p-4 bg-gray-900 text-gray-100 font-mono text-sm leading-relaxed focus:outline-none resize-none"
+                                                    value={agentPrompt}
+                                                    onChange={e => setAgentPrompt(e.target.value)}
+                                                    placeholder="Enter the master AI prompt here..."
+                                                ></textarea>
+                                            </div>
+                                            
+                                            <div className="flex justify-end">
+                                                <button
+                                                    onClick={handleUpdatePrompt}
+                                                    disabled={savingPrompt || !agentPrompt}
+                                                    className="px-6 py-2.5 bg-brand-600 text-white rounded-lg font-bold text-sm hover:bg-brand-700 transition-all disabled:opacity-50"
+                                                >
+                                                    {savingPrompt ? 'Saving Prompt...' : 'Save Universal Prompt'}
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
