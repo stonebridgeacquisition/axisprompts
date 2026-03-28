@@ -8,6 +8,7 @@ import DashboardHome from './pages/dashboard/Home';
 import CRM from './pages/dashboard/CRM';
 import Finance from './pages/dashboard/Finance';
 import AdminNotifications from './pages/dashboard/Notifications';
+import Evaluations from './pages/admin/Evaluations';
 
 import Login from './pages/dashboard/Login';
 import SetupDashboard from './pages/dashboard/SetupDashboard';
@@ -48,6 +49,7 @@ function App() {
             <Route index element={<DashboardHome />} />
             <Route path="crm" element={<CRM />} />
             <Route path="finance" element={<Finance />} />
+            <Route path="evaluations" element={<Evaluations />} />
             <Route path="notifications" element={<AdminNotifications />} />
             <Route path="settings" element={<SetupDashboard />} />
             <Route path="client/:id" element={<ClientDetails />} />

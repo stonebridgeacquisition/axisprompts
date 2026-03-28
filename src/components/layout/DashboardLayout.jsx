@@ -14,7 +14,8 @@ import {
     Loader2,
     Calendar,
     Briefcase,
-    CreditCard
+    CreditCard,
+    MessageSquare
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '../ui/ThemeToggle';
@@ -181,6 +182,7 @@ const DashboardLayout = () => {
                     <SidebarLink to="/admin" icon={LayoutDashboard}>Dashboard</SidebarLink>
                     <SidebarLink to="/admin/crm" icon={Users}>CRM</SidebarLink>
                     <SidebarLink to="/admin/finance" icon={Wallet}>Finance</SidebarLink>
+                    <SidebarLink to="/admin/evaluations" icon={MessageSquare}>Evaluations</SidebarLink>
                     <SidebarLink to="/admin/notifications" icon={Bell}>Notifications</SidebarLink>
                     <div className="pt-4 mt-4 border-t border-gray-100 dark:border-dark-800">
                         <SidebarLink to="/admin/settings" icon={Settings}>Settings</SidebarLink>
@@ -268,6 +270,7 @@ const DashboardLayout = () => {
                                 <SidebarLink to="/admin" icon={LayoutDashboard}>Dashboard</SidebarLink>
                                 <SidebarLink to="/admin/crm" icon={Users}>CRM</SidebarLink>
                                 <SidebarLink to="/admin/finance" icon={Wallet}>Finance</SidebarLink>
+                                <SidebarLink to="/admin/evaluations" icon={MessageSquare}>Evaluations</SidebarLink>
                                 <SidebarLink to="/admin/notifications" icon={Bell}>Notifications</SidebarLink>
                                 <div className="pt-4 mt-4 border-t border-gray-100 dark:border-dark-800">
                                     <SidebarLink to="/admin/settings" icon={Settings}>Settings</SidebarLink>

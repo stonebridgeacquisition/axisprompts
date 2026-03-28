@@ -207,21 +207,25 @@ export const agentWorkflow = inngest.createFunction(
                 const accessToken = clientSettings?.whatsapp_access_token;
 
                 if (phoneNumberId && accessToken) {
-                    try {
-                        await axios.post(`https://graph.facebook.com/v19.0/${phoneNumberId}/messages`, {
-                            messaging_product: "whatsapp",
-                            to: user_id, // User's phone number
-                            type: "text",
-                            text: { body: closedMsg }
-                        }, {
-                            headers: {
-                                'Authorization': `Bearer ${accessToken}`,
-                                'Content-Type': 'application/json'
-                            }
-                        });
-                        console.log("Sent closed message via WhatsApp successfully!");
-                    } catch (err) {
-                        console.error("WhatsApp Send Failed:", err?.response?.data || err.message);
+                    if (event.data.platform === 'simulation') {
+                        console.log("[SIMULATION] Store closed message saved, bypassing WhatsApp.");
+                    } else {
+                        try {
+                            await axios.post(`https://graph.facebook.com/v19.0/${phoneNumberId}/messages`, {
+                                messaging_product: "whatsapp",
+                                to: user_id, // User's phone number
+                                type: "text",
+                                text: { body: closedMsg }
+                            }, {
+                                headers: {
+                                    'Authorization': `Bearer ${accessToken}`,
+                                    'Content-Type': 'application/json'
+                                }
+                            });
+                            console.log("Sent closed message via WhatsApp successfully!");
+                        } catch (err) {
+                            console.error("WhatsApp Send Failed:", err?.response?.data || err.message);
+                        }
                     }
                 } else {
                     console.log("No WhatsApp credentials found for client:", business_id);
@@ -439,24 +443,28 @@ export const agentWorkflow = inngest.createFunction(
             const accessToken = clientSettings?.whatsapp_access_token;
 
             if (phoneNumberId && accessToken) {
-                try {
-                    console.log(`Sending WhatsApp response to user: ${user_id} via Phone ID: ${phoneNumberId}`);
-                    await axios.post(`https://graph.facebook.com/v19.0/${phoneNumberId}/messages`, {
-                        messaging_product: "whatsapp",
-                        to: user_id, // User's phone number
-                        type: "text",
-                        text: { body: aiResponse }
-                    }, {
-                        headers: {
-                            'Authorization': `Bearer ${accessToken}`,
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    console.log("Sent successfully via WhatsApp!");
-                } catch (err) {
-                    const errorDetails = err?.response?.data || err.message;
-                    console.error("WhatsApp Send Failed:", errorDetails);
-                    throw new Error(`WhatsApp API Error: ${JSON.stringify(errorDetails)}`);
+                if (event.data.platform === 'simulation') {
+                    console.log(`[SIMULATION] Response saved for user: ${user_id}, bypassing WhatsApp.`);
+                } else {
+                    try {
+                        console.log(`Sending WhatsApp response to user: ${user_id} via Phone ID: ${phoneNumberId}`);
+                        await axios.post(`https://graph.facebook.com/v19.0/${phoneNumberId}/messages`, {
+                            messaging_product: "whatsapp",
+                            to: user_id, // User's phone number
+                            type: "text",
+                            text: { body: aiResponse }
+                        }, {
+                            headers: {
+                                'Authorization': `Bearer ${accessToken}`,
+                                'Content-Type': 'application/json'
+                            }
+                        });
+                        console.log("Sent successfully via WhatsApp!");
+                    } catch (err) {
+                        const errorDetails = err?.response?.data || err.message;
+                        console.error("WhatsApp Send Failed:", errorDetails);
+                        throw new Error(`WhatsApp API Error: ${JSON.stringify(errorDetails)}`);
+                    }
                 }
             } else {
                 console.log("Simulating WhatsApp send (No Credentials found for client):", aiResponse);
