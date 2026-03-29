@@ -1,6 +1,5 @@
 import { inngest } from "../client.js";
 import { createClient } from "@supabase/supabase-js";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import axios from "axios";
 
 // Initialize Supabase (Use Service Key for backend operations)
@@ -9,9 +8,40 @@ const supabase = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Initialize Gemini
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
+// OpenRouter model chain — primary paid, then free fallbacks
+const LLM_MODELS = [
+    'google/gemini-2.0-flash-001',
+    'meta-llama/llama-3.3-70b-instruct:free',
+    'google/gemma-3-27b-it:free',
+    'nousresearch/hermes-3-llama-3.1-405b:free',
+];
+
+async function callLLM(prompt) {
+    for (const llmModel of LLM_MODELS) {
+        try {
+            const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    model: llmModel,
+                    messages: [{ role: 'user', content: prompt }],
+                })
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+            const data = await res.json();
+            const text = data.choices?.[0]?.message?.content;
+            if (!text) throw new Error('Empty response');
+            console.log(`[LLM] Model used: ${llmModel}`);
+            return text;
+        } catch (err) {
+            console.error(`[LLM] ${llmModel} failed: ${err.message} — trying next...`);
+        }
+    }
+    throw new Error('All LLM models failed');
+}
 
 // Fallback Prompt — used if the universal prompt has not been set in the admin dashboard yet
 const FALLBACK_PROMPT = `# Swift Order AI - Core Agent Prompt v3
@@ -317,9 +347,7 @@ export const agentWorkflow = inngest.createFunction(
                 fullPrompt += `\n6. "amount" must be a plain integer number with NO currency symbols, commas, or formatting. Example: 4500 not "₦4,500".`;
                 fullPrompt += `\n\nUser: ${event.data.message}\nAssistant:`;
 
-                const result = await model.generateContent(fullPrompt);
-                const response = result.response;
-                let text = response.text();
+                let text = await callLLM(fullPrompt);
                 // CHECK FOR PAYMENT TAG
                 const paymentMatch = text.match(/\[GENERATE_PAYMENT:\s*(\{.*\})\]/is);
                 if (paymentMatch) {
@@ -426,7 +454,7 @@ export const agentWorkflow = inngest.createFunction(
 
                 return text;
             } catch (error) {
-                console.error("Gemini Error:", error);
+                console.error("LLM Error:", error);
                 return "I apologize, I am having trouble thinking right now. Please try again.";
             }
         });
