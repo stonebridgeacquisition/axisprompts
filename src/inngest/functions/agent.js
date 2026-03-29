@@ -10,7 +10,7 @@ const supabase = createClient(
 
 // OpenRouter model chain — primary paid, then free fallbacks
 const LLM_MODELS = [
-    'google/gemini-2.0-flash-001',
+    'google/gemini-2.5-flash-lite',
     'meta-llama/llama-3.3-70b-instruct:free',
     'google/gemma-3-27b-it:free',
     'nousresearch/hermes-3-llama-3.1-405b:free',
