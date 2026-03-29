@@ -11,7 +11,7 @@ const supabase = createClient(
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
 
 // Fallback Prompt — used if the universal prompt has not been set in the admin dashboard yet
 const FALLBACK_PROMPT = `# Swift Order AI - Core Agent Prompt v3
