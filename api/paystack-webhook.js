@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { inngest } from "../src/inngest/client.js";
 
 const supabase = createClient(
-    process.env.VITE_SUPABASE_URL,
+    process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
@@ -12,7 +12,7 @@ export default async function handler(req, res) {
     if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
 
     try {
-        const secret = process.env.VITE_PAYSTACK_SECRET_KEY;
+        const secret = process.env.PAYSTACK_SECRET_KEY;
         const hash = crypto.createHmac("sha512", secret).update(JSON.stringify(req.body)).digest("hex");
 
         if (hash !== req.headers["x-paystack-signature"]) {
