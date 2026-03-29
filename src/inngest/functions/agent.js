@@ -5,7 +5,7 @@ import axios from "axios";
 
 // Initialize Supabase (Use Service Key for backend operations)
 const supabase = createClient(
-    process.env.VITE_SUPABASE_URL,
+    process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
@@ -386,7 +386,7 @@ export const agentWorkflow = inngest.createFunction(
                             paystackPayload,
                             {
                                 headers: {
-                                    Authorization: `Bearer ${process.env.VITE_PAYSTACK_SECRET_KEY}`,
+                                    Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
                                     'Content-Type': 'application/json'
                                 }
                             }

@@ -39,9 +39,8 @@ export default function Evaluations() {
             const { data: session } = await supabase
                 .from('chat_sessions')
                 .select('id')
-                .eq('business_id', selectedBusiness)
-                .eq('user_id', simUserId)
-                .eq('status', 'active')
+                .eq('client_id', selectedBusiness)
+                .eq('whatsapp_user_id', simUserId)
                 .order('created_at', { ascending: false })
                 .limit(1)
                 .maybeSingle();
