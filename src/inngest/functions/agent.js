@@ -64,6 +64,7 @@ async function callLLMWithTools(messages, tools, toolExecutor) {
             const body = {
                 model: modelId,
                 messages: messages,
+                temperature: 0.5,
             };
             if (tools && tools.length > 0) {
                 body.tools = tools;
@@ -129,6 +130,7 @@ async function callLLMWithTools(messages, tools, toolExecutor) {
                     body: JSON.stringify({
                         model: modelId,
                         messages: updatedMessages,
+                        temperature: 0.5,
                     })
                 });
 
@@ -380,7 +382,7 @@ export const agentWorkflow = inngest.createFunction(
                     .select('role, content')
                     .eq('session_id', sessionId)
                     .order('created_at', { ascending: false })
-                    .limit(10);
+                    .limit(15);
 
                 return {
                     sessionId,
