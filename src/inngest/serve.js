@@ -117,35 +117,18 @@ app.post("/api/whatsapp-webhook/:bid", async (req, res) => {
                 for (const change of entry.changes || []) {
                     const value = change.value;
                     
-                    // Skip status updates (delivered, read, sent) — these are NOT messages
-                    if (value.statuses) {
-                        console.log(`[WHATSAPP] Skipping status update: ${value.statuses[0]?.status}`);
-                        continue;
-                    }
-
-                    // Only process actual messages
+                    // Check if it's a message and has text
                     if (value.messages && value.messages[0]) {
                         const messagePart = value.messages[0];
-
-                        // FILTER: Only process text messages from real users
-                        // Skip: system, reaction, interactive, button, image (without caption), etc.
-                        if (messagePart.type !== 'text') {
-                            console.log(`[WHATSAPP] Skipping non-text message type: ${messagePart.type}`);
-                            continue;
-                        }
-
-                        const senderPhoneNumber = messagePart.from;
+                        const senderPhoneNumber = messagePart.from; // User's phone number
                         const messageText = messagePart.text?.body;
                         const userName = value.contacts?.[0]?.profile?.name || "Customer";
 
-                        if (!messageText || messageText.trim().length === 0) {
-                            console.log(`[WHATSAPP] Skipping empty message`);
-                            continue;
-                        }
+                        if (!messageText) continue; // Skip if no text body (e.g. image without caption, read receipts, etc)
 
                         console.log(`[WHATSAPP] Msg from ${senderPhoneNumber} to BID ${businessId}: "${messageText}"`);
 
-                        // Fire into Inngest (The AI Brain)
+                        // 4. Fire into Inngest (The AI Brain)
                         await inngest.send({
                             name: "chat/message.received",
                             data: {
