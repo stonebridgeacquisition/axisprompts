@@ -477,9 +477,6 @@ export const agentWorkflow = inngest.createFunction(
                         .replace('{{MENU}}', menuContext)
                         .replace('{{CHAT_HISTORY}}', '')
                         .replace('{{BRAND_INFO}}', '(Delivery available via Paystack)')
-                        .replace('{{CURRENT_TIME}}', watTime)
-                        .replace('{{OPENING_HOURS}}', context.openTime && context.closeTime ? `${context.openTime} - ${context.closeTime}` : 'Not specified');
-
                     // INJECT PERSISTENT STATE (The "Notebook") - MUST BE AT THE TOP
                     let stateBlock = `\n\n--- CURRENT ORDER STATE (FACTS) ---`;
                     stateBlock += `\nFulfillment: ${context.metadata?.fulfillment || 'Unknown'}`;
@@ -491,12 +488,6 @@ export const agentWorkflow = inngest.createFunction(
 
                     // Combine everything
                     systemPrompt = stateBlock + "\n\n" + systemPrompt;
-
-                    // Add dynamic availability/delivery fees
-                    systemPrompt += `\n\n--- STORE AVAILABILITY ---`;
-                    systemPrompt += `\nCurrent Time: ${watTime}`;
-                    systemPrompt += `\nOpening Hours: ${context.openTime || '?'} - ${context.closeTime || '?'}`;
-                    systemPrompt += `\nStatus: OPEN`;
 
                     systemPrompt += `\n\n--- DELIVERY CONFIGURATION ---`;
                     systemPrompt += `\nOffers Pickup: ${context.offersPickup ? 'YES' : 'NO'}`;
