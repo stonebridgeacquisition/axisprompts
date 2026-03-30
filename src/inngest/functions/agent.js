@@ -358,7 +358,7 @@ export const agentWorkflow = inngest.createFunction(
         // 3. GENERATE AI RESPONSE (REAL GEMINI)
         // SHORT-CIRCUIT: If store is closed via toggle, reply immediately without calling AI
         if (!context.isOpen) {
-            const closedMsg = `Sorry, we're currently closed and not accepting orders at the moment. 🚫\n\nOur opening hours are: ${context.openingHours}\n\nPlease check back during our opening hours! 😊`;
+            const closedMsg = `Sorry, we're not accepting orders right now. Our opening hours are: ${context.openingHours}. Please reach out when we're back open.`;
 
             await step.run("save-closed-reply", async () => {
                 await supabase.from('chat_messages').insert([
@@ -490,7 +490,7 @@ export const agentWorkflow = inngest.createFunction(
                 return text;
             } catch (error) {
                 console.error('[LLM] Error:', error?.message || error);
-                return 'I apologize, I am having trouble thinking right now. Please try again.';
+                return 'Something went wrong on my end. Please send your message again.';
             }
         });
 
