@@ -14,7 +14,8 @@ import {
     Clock,
     AlertCircle,
     Lock,
-    CreditCard
+    CreditCard,
+    Truck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '../ui/ThemeToggle'; // Adjust path if needed
@@ -268,6 +269,9 @@ const ClientLayout = () => {
                     </ClientSidebarLink>
                     <ClientSidebarLink to={`/client/${slug}/menu`} icon={Utensils} disabled={isAccessBlocked}>
                         Menu Management
+                    </ClientSidebarLink>
+                    <ClientSidebarLink to={`/client/${slug}/delivery`} icon={Truck} disabled={isAccessBlocked}>
+                        Delivery Management
                     </ClientSidebarLink>
 
                     {/* Always allow access to Finance & Settings so they can pay */}

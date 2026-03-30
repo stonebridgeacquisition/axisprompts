@@ -417,8 +417,8 @@ const Onboarding = () => {
 
             {/* Header */}
             <div className="text-center mb-10">
-                <div className="mx-auto w-12 h-12 bg-brand-600 rounded-xl flex items-center justify-center text-white font-bold text-xl mb-4 shadow-lg shadow-brand-500/20">
-                    A
+                <div className="mx-auto w-16 h-16 mb-4 flex items-center justify-center bg-white rounded-2xl shadow-xl border border-gray-100 p-2">
+                    <img src="/logo.png" alt="Swift Order AI" className="w-full h-full object-contain" />
                 </div>
                 <h1 className="text-3xl font-bold text-gray-900">Welcome to Swift Order AI</h1>
                 <p className="text-gray-500 mt-2">Let's get your AI Agent set up in minutes.</p>
@@ -571,7 +571,7 @@ const Onboarding = () => {
                             </div>
                             <div className="bg-blue-50 p-4 rounded-xl flex gap-3 text-blue-700 text-sm border border-blue-100 shadow-sm">
                                 <Globe size={18} className="shrink-0 mt-0.5" />
-                                <p>Your dashboard will be created at: <br /><span className="font-mono font-bold break-all text-blue-600">app.swiftorderai.com/client/{formData.slug || '...'}</span></p>
+                                <p>Your dashboard will be created at: <br /><span className="font-mono font-bold break-all text-blue-600">swiftorderai.com/client/{formData.slug || '...'}</span></p>
                             </div>
                         </div>
                     )}

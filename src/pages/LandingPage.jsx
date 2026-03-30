@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Navbar from '../components/layout/Navbar';
 import Hero from '../components/sections/Hero';
 import WhatYouGet from '../components/sections/WhatYouGet';
@@ -11,13 +11,16 @@ import CostOfMissedMessages from '../components/sections/CostOfMissedMessages';
 import CTA from '../components/sections/CTA';
 import FAQ from '../components/sections/FAQ';
 import Footer from '../components/layout/Footer';
+import PreBookingModal from '../components/ui/PreBookingModal';
 
 const LandingPage = () => {
+    const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+
     return (
         <div className="min-h-screen bg-white font-sans text-gray-900 selection:bg-brand-500 selection:text-white">
             <Navbar />
             <main>
-                <Hero />
+                <Hero onOpenBooking={() => setIsBookingModalOpen(true)} />
                 <WhatYouGet />
                 <WhoThisIsFor />
                 <HowWeDoIt />
@@ -26,9 +29,14 @@ const LandingPage = () => {
                 <WhyTrust />
                 <CostOfMissedMessages />
                 <FAQ />
-                <CTA />
+                <CTA onOpenBooking={() => setIsBookingModalOpen(true)} />
             </main>
             <Footer />
+
+            <PreBookingModal
+                isOpen={isBookingModalOpen}
+                onClose={() => setIsBookingModalOpen(false)}
+            />
         </div>
     );
 };

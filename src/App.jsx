@@ -6,6 +6,7 @@ import Terms from './pages/Terms';
 import DashboardLayout from './components/layout/DashboardLayout';
 import DashboardHome from './pages/dashboard/Home';
 import CRM from './pages/dashboard/CRM';
+import Leads from './pages/dashboard/Leads';
 import Finance from './pages/dashboard/Finance';
 import AdminNotifications from './pages/dashboard/Notifications';
 import Evaluations from './pages/admin/Evaluations';
@@ -18,6 +19,7 @@ import Onboarding from './pages/onboarding/Onboarding';
 import ClientLayout from './components/layout/ClientLayout';
 import ClientOrders from './pages/client/Orders';
 import ClientMenu from './pages/client/Menu';
+import ClientDelivery from './pages/client/Delivery';
 import ClientFinance from './pages/client/Finance';
 import ClientSettings from './pages/client/Settings';
 import Subscription from './pages/client/Subscription';
@@ -48,6 +50,7 @@ function App() {
           <Route path="/admin" element={<DashboardLayout />}>
             <Route index element={<DashboardHome />} />
             <Route path="crm" element={<CRM />} />
+            <Route path="leads" element={<Leads />} />
             <Route path="finance" element={<Finance />} />
             <Route path="evaluations" element={<Evaluations />} />
             <Route path="notifications" element={<AdminNotifications />} />
@@ -67,6 +70,7 @@ function App() {
           <Route path="/client/:slug" element={<ClientLayout />}>
             <Route index element={<ClientOrders />} />
             <Route path="menu" element={<ClientMenu />} />
+            <Route path="delivery" element={<ClientDelivery />} />
             <Route path="finance" element={<ClientFinance />} />
             <Route path="settings" element={<ClientSettings />} />
             <Route path="subscription" element={<Subscription />} />

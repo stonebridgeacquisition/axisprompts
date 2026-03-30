@@ -14,8 +14,8 @@ import {
     Loader2,
     Calendar,
     Briefcase,
-    CreditCard,
-    MessageSquare
+    MessageSquare,
+    UserPlus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '../ui/ThemeToggle';
@@ -181,6 +181,7 @@ const DashboardLayout = () => {
                 <div className="flex-1 p-3 space-y-1 overflow-y-auto">
                     <SidebarLink to="/admin" icon={LayoutDashboard}>Dashboard</SidebarLink>
                     <SidebarLink to="/admin/crm" icon={Users}>CRM</SidebarLink>
+                    <SidebarLink to="/admin/leads" icon={UserPlus}>Leads</SidebarLink>
                     <SidebarLink to="/admin/finance" icon={Wallet}>Finance</SidebarLink>
                     <SidebarLink to="/admin/evaluations" icon={MessageSquare}>Evaluations</SidebarLink>
                     <SidebarLink to="/admin/notifications" icon={Bell}>Notifications</SidebarLink>
@@ -269,6 +270,7 @@ const DashboardLayout = () => {
                             <div className="flex-1 p-3 space-y-1 overflow-y-auto">
                                 <SidebarLink to="/admin" icon={LayoutDashboard}>Dashboard</SidebarLink>
                                 <SidebarLink to="/admin/crm" icon={Users}>CRM</SidebarLink>
+                                <SidebarLink to="/admin/leads" icon={UserPlus}>Leads</SidebarLink>
                                 <SidebarLink to="/admin/finance" icon={Wallet}>Finance</SidebarLink>
                                 <SidebarLink to="/admin/evaluations" icon={MessageSquare}>Evaluations</SidebarLink>
                                 <SidebarLink to="/admin/notifications" icon={Bell}>Notifications</SidebarLink>
@@ -409,8 +411,8 @@ const DashboardLayout = () => {
                                                 notifications.map(n => (
                                                     <div key={n.id} className={`p-4 hover:bg-gray-50 dark:hover:bg-dark-800 transition-colors flex gap-3 ${!n.is_read ? 'bg-brand-50/30' : ''}`}>
                                                         <div className={`mt-1 p-2 rounded-xl shrink-0 ${n.type === 'payment' ? 'bg-green-100 text-green-600' :
-                                                                n.type === 'user' ? 'bg-blue-100 text-blue-600' :
-                                                                    'bg-brand-100 text-brand-600'
+                                                            n.type === 'user' ? 'bg-blue-100 text-blue-600' :
+                                                                'bg-brand-100 text-brand-600'
                                                             }`}>
                                                             {n.type === 'payment' ? <Wallet size={14} /> : n.type === 'user' ? <Users size={14} /> : <Bell size={14} />}
                                                         </div>

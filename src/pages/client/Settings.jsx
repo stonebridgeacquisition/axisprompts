@@ -375,13 +375,13 @@ const ClientSettings = () => {
                     </div>
                 </div>
 
-                {/* Notifications (Partner's Telegram feature) */}
+                {/* Telegram AI Assistant */}
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                     <div className="flex items-center gap-2 mb-2 text-brand-600">
-                        <Bell size={20} />
-                        <h3 className="text-lg font-bold text-gray-900">Notification Settings</h3>
+                        <MessageCircle size={20} />
+                        <h3 className="text-lg font-bold text-gray-900">Telegram AI Assistant</h3>
                     </div>
-                    <p className="text-xs text-gray-400 mb-5">Receive instant alerts for new orders directly to your Telegram app.</p>
+                    <p className="text-xs text-gray-400 mb-5">Manage your business on the go with your dedicated AI Assistant.</p>
 
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl border border-gray-100 bg-gray-50">
                         <div className="flex items-start gap-3">
@@ -391,8 +391,8 @@ const ClientSettings = () => {
                                 </svg>
                             </div>
                             <div>
-                                <h4 className="text-sm font-bold text-gray-900">Telegram Order Alerts</h4>
-                                <p className="text-xs text-gray-500 mt-1">Connect your account to get instantly notified on your phone when customers place orders.</p>
+                                <h4 className="text-sm font-bold text-gray-900">Swift Order AI Bot</h4>
+                                <p className="text-xs text-gray-500 mt-1">Full account management: get order alerts, update your menu, track stock, and manage payments through natural conversation.</p>
                             </div>
                         </div>
                         <a
@@ -401,7 +401,7 @@ const ClientSettings = () => {
                             rel="noopener noreferrer"
                             className="w-full sm:w-auto px-4 py-2 bg-[#0088cc] hover:bg-[#007ab8] text-white text-sm font-bold rounded-lg transition-colors flex items-center justify-center gap-2 whitespace-nowrap shadow-sm"
                         >
-                            Connect Telegram
+                            Connect Assistant
                         </a>
                     </div>
                 </div>
@@ -439,8 +439,8 @@ const ClientSettings = () => {
                             <div className="flex items-start gap-3">
                                 <span className="w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
                                 <div className="flex-1 space-y-2">
-                                    <p className="text-sm font-semibold text-gray-800">Set App Profile Picture & Privacy Policy</p>
-                                    <p className="text-xs text-gray-500">Download the SwiftOrder logo below and upload it as the app icon. Paste the privacy policy URL into the app settings.</p>
+                                    <p className="text-sm font-semibold text-gray-800">Set App Profile Picture, Privacy Policy & Save</p>
+                                    <p className="text-xs text-gray-500">Download the SwiftOrder logo below and upload it as the app icon. Paste the privacy policy URL into the app settings, then scroll to the bottom and click Save Changes.</p>
                                     <div className="flex flex-wrap gap-2">
                                         <a href="/IMG_6995.png" download="swiftorder-logo.png" className="inline-flex items-center gap-1.5 text-xs text-amber-700 font-semibold bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors">
                                             ⬇ Download App Logo
@@ -504,8 +504,22 @@ const ClientSettings = () => {
                             <div className="flex items-start gap-3">
                                 <span className="w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">6</span>
                                 <div className="flex-1 space-y-2">
+                                    <p className="text-sm font-semibold text-gray-800">Enable Messaging API</p>
+                                    <p className="text-xs text-gray-500">Go to WhatsApp → Configuration and turn on the messaging API before proceeding.</p>
+                                    <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-amber-700 font-semibold bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors">
+                                        <ExternalLink size={12} /> Open WhatsApp → Configuration
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Step 7 */}
+                        <div className="bg-white rounded-xl border border-amber-100 p-4">
+                            <div className="flex items-start gap-3">
+                                <span className="w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">7</span>
+                                <div className="flex-1 space-y-2">
                                     <p className="text-sm font-semibold text-gray-800">Configure Webhook & Go Live</p>
-                                    <p className="text-xs text-gray-500">Go to WhatsApp → Configuration. Paste the Webhook URL and Verify Token from the section below. Click Verify & Save, then subscribe to <strong>messages</strong>. Finally, submit the app for review to go live.</p>
+                                    <p className="text-xs text-gray-500">Still in WhatsApp → Configuration, paste the Webhook URL and Verify Token from the section below. Click Verify & Save, then subscribe to <strong>messages</strong>. Finally, submit the app for review to go live.</p>
                                     <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-amber-700 font-semibold bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors">
                                         <ExternalLink size={12} /> Open WhatsApp → Configuration
                                     </a>
@@ -534,9 +548,9 @@ const ClientSettings = () => {
                         <p className="text-xs text-gray-500">Copy this URL and paste it into the Webhook section of your Meta App.</p>
                         <div className="flex items-center gap-2">
                             <code className="flex-1 text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-gray-700 font-mono truncate">
-                                https://axisprompt-food.vercel.app/api/whatsapp-webhook/{client?.id}
+                                https://swiftorderai.com/api/whatsapp-webhook/{client?.id}
                             </code>
-                            <button type="button" onClick={() => copyToClipboard(`https://axisprompt-food.vercel.app/api/whatsapp-webhook/${client?.id}`, 'webhook')} className="p-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-500">
+                            <button type="button" onClick={() => copyToClipboard(`https://swiftorderai.com/api/whatsapp-webhook/${client?.id}`, 'webhook')} className="p-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-500">
                                 {copiedField === 'webhook' ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
                             </button>
                         </div>
