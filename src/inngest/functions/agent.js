@@ -159,9 +159,27 @@ async function callLLMWithTools(messages, tools, toolExecutor) {
     throw new Error(`All fallback models failed. Last error: ${lastError?.message}`);
 }
 
+// Tool definition for updating session state/memory
+const UPDATE_STATE_TOOL = {
+    type: "function",
+    function: {
+        name: "update_order_facts",
+        description: "Save key facts about the customer's order to your persistent memory so you don't forget them (e.g. fulfillment choice, address, items, name). Call this immediately when a fact is confirmed.",
+        parameters: {
+            type: "object",
+            properties: {
+                fulfillment: { type: "string", enum: ["Delivery", "Pickup", "Unknown"], description: "The chosen delivery method." },
+                delivery_address: { type: "string", description: "The full delivery address or 'Pickup'." },
+                customer_name: { type: "string", description: "The customer's full name." },
+                customer_email: { type: "string", description: "The customer's email address." },
+                order_summary: { type: "string", description: "Brief summary of items/quantities added so far." }
+            }
+        }
+    }
+};
+
 /**
  * Execute a payment link generation via Paystack.
- * Called by the tool executor when the AI calls generate_payment_link.
  */
 async function executePaymentLink(args, business_id, user_id) {
     try {
@@ -331,16 +349,18 @@ export const agentWorkflow = inngest.createFunction(
                     .select('location, fee')
                     .eq('client_id', business_id);
 
-                // C. Get or Create Session & Fetch History
+                // C. Get or Create Session & Fetch History & Metadata
                 let sessionId;
+                let metadata = {};
                 const { data: existingSession } = await supabase
                     .from('chat_sessions')
-                    .select('id')
+                    .select('id, metadata') // Fetching metadata
                     .match({ client_id: business_id, whatsapp_user_id: user_id })
                     .single();
 
                 if (existingSession) {
                     sessionId = existingSession.id;
+                    metadata = existingSession.metadata || {};
                 } else {
                     const { data: newSession } = await supabase
                         .from('chat_sessions')
@@ -364,6 +384,7 @@ export const agentWorkflow = inngest.createFunction(
 
                 return {
                     sessionId,
+                    metadata,
                     menu: menu || [],
                     systemPrompt: activeSystemPrompt,
                     history: history ? history.reverse() : [],
@@ -459,32 +480,32 @@ export const agentWorkflow = inngest.createFunction(
                         .replace('{{CURRENT_TIME}}', watTime)
                         .replace('{{OPENING_HOURS}}', context.openTime && context.closeTime ? `${context.openTime} - ${context.closeTime}` : 'Not specified');
 
+                    // INJECT PERSISTENT STATE (The "Notebook")
+                    systemPrompt += `\n\n--- CURRENT ORDER STATE (FACTS) ---`;
+                    systemPrompt += `\nFulfillment: ${context.metadata?.fulfillment || 'Unknown'}`;
+                    systemPrompt += `\nDelivery Address: ${context.metadata?.delivery_address || 'Not collected yet'}`;
+                    systemPrompt += `\nCustomer Name: ${context.metadata?.customer_name || 'Not collected'}`;
+                    systemPrompt += `\nCurrent Cart Summary: ${context.metadata?.order_summary || 'Empty'}`;
+                    systemPrompt += `\n\nRULE: Whenever the customer confirms a piece of info above (like their address or fulfillment choice), you MUST call the 'update_order_facts' tool immediately to save it. This ensures you don't ask for the same info twice.`;
+
                     // Add store/delivery/business context
                     systemPrompt += `\n\n--- STORE AVAILABILITY ---`;
                     systemPrompt += `\nCurrent Time: ${watTime}`;
                     systemPrompt += `\nOpening Hours: ${context.openTime || '?'} - ${context.closeTime || '?'}`;
                     systemPrompt += `\nStore Status: OPEN`;
-                    systemPrompt += `\n\nRULE: If the current time appears to be outside the Opening Hours, politely tell the customer you are not accepting orders right now and mention the opening hours. Do NOT process any orders or generate payment links outside opening hours.`;
 
                     systemPrompt += `\n\n--- DELIVERY CONFIGURATION ---`;
                     systemPrompt += `\nOffers Pickup: ${context.offersPickup ? 'YES' : 'NO'}`;
                     systemPrompt += `\nDelivery Zones & Fees: ${JSON.stringify(context.deliveryFees)}`;
                     systemPrompt += `\nTeam Escalation Contact: ${context.teamContact}`;
+                    
+                    systemPrompt += `\n\n--- ORDER RULES ---`;
                     systemPrompt += `\nORDER RULE 1: IN YOUR VERY FIRST MESSAGE, ask the user if they want Delivery or Pickup (only if Offers Pickup is YES). Do not ask what they want to order until fulfillment is settled.`;
-                    systemPrompt += `\nORDER RULE 2: If Delivery, ask for their exact delivery area. It MUST match one of the Delivery Zones above. If it does NOT match, do NOT proceed.`;
-                    systemPrompt += `\nORDER RULE 3: For Delivery, correctly add the matched Delivery Fee to the total invoice amount.`;
-                    systemPrompt += `\nORDER RULE 4: For Pickup, at the final invoice step add: "Since you're picking up, please CALL our team at ${context.teamContact} when you or your rider is here to collect it, and provide your Order ID. Do NOT send a WhatsApp message for this."`;
-                    systemPrompt += `\nORDER RULE 5: For Delivery, at the final invoice step add: "Our rider will call you when they are out for delivery and you will receive a message."`;
-                    systemPrompt += `\nORDER RULE 6: For complaints, refunds, or special requests, give the Team Escalation Contact.`;
-
-                    systemPrompt += `\n\n--- BUSINESS CONTEXT ---`;
-                    systemPrompt += `\nAgent Name: ${context.agentName}`;
-                    systemPrompt += `\nBusiness Name: ${context.businessName}`;
-                    systemPrompt += `\nMenu: ${menuContext}`;
-
-                    systemPrompt += `\n\n--- PAYMENT TOOL ---`;
-                    systemPrompt += `\nYou have a tool called generate_payment_link. When the customer confirms their order and you have their name, phone, email, and all items, call this tool to generate their payment link. The tool will return a payment URL that you should share with the customer.`;
-                    systemPrompt += `\nIMPORTANT: Before calling the tool, make sure you have collected ALL required info (name, phone, email, delivery address). If anything is missing, ask for it first.`;
+                    systemPrompt += `\nORDER RULE 2: If the user says 'Delivery', ask for their exact delivery area. It MUST match one of the Delivery Zones above. If it does NOT match, do NOT proceed.`;
+                    systemPrompt += `\nORDER RULE 3: For Delivery, correctly add the matched Delivery Fee to the total amount you give the customer.`;
+                    systemPrompt += `\nORDER RULE 4: For Pickup, at the final step add: "Since you're picking up, please CALL our team at ${context.teamContact} when you or your rider is here to collect it."`;
+                    systemPrompt += `\nORDER RULE 5: For Delivery, at the final step add: "Our rider will call you when they are out for delivery."`;
+                    systemPrompt += `\nRULE 6: For complaints or special requests, provide the Team Escalation Contact: ${context.teamContact}`;
 
                     // Build the messages array with conversation history
                     const messages = [
@@ -509,11 +530,20 @@ export const agentWorkflow = inngest.createFunction(
                         if (fnName === 'generate_payment_link') {
                             return await executePaymentLink(fnArgs, business_id, user_id);
                         }
+                        if (fnName === 'update_order_facts') {
+                            const { error } = await supabase
+                                .from('chat_sessions')
+                                .update({ metadata: fnArgs })
+                                .eq('id', context.sessionId);
+                            
+                            if (error) return { error: `Failed to update state: ${error.message}` };
+                            return { success: true, message: "Facts updated in persistent memory." };
+                        }
                         return { error: `Unknown tool: ${fnName}` };
                     };
 
                     // Call the LLM with tools
-                    const text = await callLLMWithTools(messages, [PAYMENT_TOOL], toolExecutor);
+                    const text = await callLLMWithTools(messages, [PAYMENT_TOOL, UPDATE_STATE_TOOL], toolExecutor);
                     return text;
                 } catch (error) {
                     console.error('[LLM] Error:', error?.message || error);
