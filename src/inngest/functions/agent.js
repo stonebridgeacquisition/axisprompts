@@ -299,7 +299,7 @@ export const agentWorkflow = inngest.createFunction(
             // B2. Fetch Store Availability and details
             const { data: clientInfo } = await supabase
                 .from('clients')
-                .select('is_open, opening_hours, agent_name, business_name, offers_pickup, team_contact')
+                .select('status, is_open, open_time, close_time, agent_name, business_name, offers_pickup, team_contact, whatsapp_phone_number_id, whatsapp_access_token')
                 .eq('id', business_id)
                 .single();
 
@@ -345,64 +345,70 @@ export const agentWorkflow = inngest.createFunction(
                 menu: menu || [],
                 systemPrompt: activeSystemPrompt,
                 history: history ? history.reverse() : [],
+                status: clientInfo?.status || 'active',
                 isOpen: clientInfo?.is_open !== false,
-                openingHours: clientInfo?.opening_hours || 'Not specified',
+                openTime: clientInfo?.open_time || null,
+                closeTime: clientInfo?.close_time || null,
                 agentName: clientInfo?.agent_name || 'Agent',
                 businessName: clientInfo?.business_name || 'Our Store',
                 offersPickup: clientInfo?.offers_pickup || false,
                 deliveryFees: deliveryFees || [],
-                teamContact: clientInfo?.team_contact || ''
+                teamContact: clientInfo?.team_contact || '',
+                phoneNumberId: clientInfo?.whatsapp_phone_number_id || null,
+                accessToken: clientInfo?.whatsapp_access_token || null
             };
         });
 
-        // 3. GENERATE AI RESPONSE (REAL GEMINI)
-        // SHORT-CIRCUIT: If store is closed via toggle, reply immediately without calling AI
-        if (!context.isOpen) {
-            const closedMsg = `Sorry, we're currently closed and not accepting orders at the moment. 🚫\n\nOur opening hours are: ${context.openingHours}\n\nPlease check back during our opening hours! 😊`;
+        // CHECK 1: If business is INACTIVE, silently stop — no response at all
+        if (context.status === 'inactive') {
+            console.log(`[AGENT] Business ${business_id} is INACTIVE. Skipping.`);
+            return { success: false, reason: 'business_inactive' };
+        }
 
-            await step.run("save-closed-reply", async () => {
+        // CHECK 2: If store is CLOSED (is_open = false), send automated message with open_time
+        if (!context.isOpen) {
+            const openTimeStr = context.openTime
+                ? context.openTime.substring(0, 5) // "09:00:00" -> "09:00"
+                : 'our usual opening time';
+            const closeTimeStr = context.closeTime
+                ? context.closeTime.substring(0, 5)
+                : '';
+            const hoursStr = closeTimeStr ? `${openTimeStr} - ${closeTimeStr}` : openTimeStr;
+
+            const closedMsg = `Hey there! We're currently closed and not accepting orders right now.\n\nWe'll be open by ${hoursStr}. Feel free to message us then and we'll be happy to help you place your order!`;
+
+            await step.run("send-closed-reply", async () => {
+                // Save to chat history
                 await supabase.from('chat_messages').insert([
                     { session_id: context.sessionId, role: 'user', content: event.data.message },
                     { session_id: context.sessionId, role: 'assistant', content: closedMsg }
                 ]);
 
-                const { data: clientSettings } = await supabase
-                    .from('clients')
-                    .select('whatsapp_phone_number_id, whatsapp_access_token')
-                    .eq('id', business_id)
-                    .single();
-
-                const phoneNumberId = clientSettings?.whatsapp_phone_number_id;
-                const accessToken = clientSettings?.whatsapp_access_token;
-
-                if (phoneNumberId && accessToken) {
+                // Send via WhatsApp
+                if (context.phoneNumberId && context.accessToken) {
                     if (event.data.platform === 'simulation') {
-                        console.log("[SIMULATION] Store closed message saved, bypassing WhatsApp.");
+                        console.log('[SIMULATION] Store closed message saved, bypassing WhatsApp.');
                     } else {
-                        try {
-                            await axios.post(`https://graph.facebook.com/v19.0/${phoneNumberId}/messages`, {
-                                messaging_product: "whatsapp",
-                                to: user_id, // User's phone number
-                                type: "text",
-                                text: { body: closedMsg }
-                            }, {
-                                headers: {
-                                    'Authorization': `Bearer ${accessToken}`,
-                                    'Content-Type': 'application/json'
-                                }
-                            });
-                            console.log("Sent closed message via WhatsApp successfully!");
-                        } catch (err) {
-                            console.error("WhatsApp Send Failed:", err?.response?.data || err.message);
-                        }
+                        await axios.post(`https://graph.facebook.com/v19.0/${context.phoneNumberId}/messages`, {
+                            messaging_product: "whatsapp",
+                            to: user_id,
+                            type: "text",
+                            text: { body: closedMsg }
+                        }, {
+                            headers: {
+                                'Authorization': `Bearer ${context.accessToken}`,
+                                'Content-Type': 'application/json'
+                            }
+                        });
+                        console.log('[AGENT] Sent closed message via WhatsApp.');
                     }
-                } else {
-                    console.log("No WhatsApp credentials found for client:", business_id);
                 }
             });
 
             return { success: true, reply: closedMsg };
         }
+
+        // 3. GENERATE AI RESPONSE
 
         const aiResponse = await step.run("generate-reply", async () => {
             try {
@@ -430,12 +436,12 @@ export const agentWorkflow = inngest.createFunction(
                     .replace('{{CHAT_HISTORY}}', '')
                     .replace('{{BRAND_INFO}}', '(Delivery available via Paystack)')
                     .replace('{{CURRENT_TIME}}', watTime)
-                    .replace('{{OPENING_HOURS}}', context.openingHours);
+                    .replace('{{OPENING_HOURS}}', context.openTime && context.closeTime ? `${context.openTime} - ${context.closeTime}` : 'Not specified');
 
                 // Add store/delivery/business context
                 systemPrompt += `\n\n--- STORE AVAILABILITY ---`;
                 systemPrompt += `\nCurrent Time: ${watTime}`;
-                systemPrompt += `\nOpening Hours: ${context.openingHours}`;
+                systemPrompt += `\nOpening Hours: ${context.openTime || '?'} - ${context.closeTime || '?'}`;
                 systemPrompt += `\nStore Status: OPEN`;
                 systemPrompt += `\n\nRULE: If the current time appears to be outside the Opening Hours, politely tell the customer you are not accepting orders right now and mention the opening hours. Do NOT process any orders or generate payment links outside opening hours.`;
 
