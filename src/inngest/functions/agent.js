@@ -8,39 +8,134 @@ const supabase = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// OpenRouter model chain — primary paid, then free fallbacks
-const LLM_MODELS = [
-    'google/gemini-2.5-flash-lite',
-    'meta-llama/llama-3.3-70b-instruct:free',
-    'google/gemma-3-27b-it:free',
-    'nousresearch/hermes-3-llama-3.1-405b:free',
-];
+// OpenRouter model — must support tool calling
+const LLM_MODEL = 'google/gemini-2.5-flash-lite';
 
-async function callLLM(prompt) {
-    for (const llmModel of LLM_MODELS) {
-        try {
-            const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    model: llmModel,
-                    messages: [{ role: 'user', content: prompt }],
-                })
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
-            const data = await res.json();
-            const text = data.choices?.[0]?.message?.content;
-            if (!text) throw new Error('Empty response');
-            console.log(`[LLM] Model used: ${llmModel}`);
-            return text;
-        } catch (err) {
-            console.error(`[LLM] ${llmModel} failed: ${err.message} — trying next...`);
+// Tool definition for payment link generation (OpenAI-compatible format)
+const PAYMENT_TOOL = {
+    type: "function",
+    function: {
+        name: "generate_payment_link",
+        description: "Generates a Paystack payment link for the customer. Call this ONLY when the customer has confirmed their order and you have collected their name, phone, email, delivery address, and all order items.",
+        parameters: {
+            type: "object",
+            properties: {
+                amount: { type: "number", description: "The grand total in Naira as a plain integer. Must include delivery fee if applicable. Example: 4500" },
+                customer_name: { type: "string", description: "The customer's full name." },
+                customer_phone: { type: "string", description: "The customer's phone number." },
+                customer_email: { type: "string", description: "The customer's email address." },
+                delivery_address: { type: "string", description: "The delivery area/address. Use 'Pickup' if they chose pickup." },
+                items: {
+                    type: "array",
+                    description: "Array of ordered items.",
+                    items: {
+                        type: "object",
+                        properties: {
+                            name: { type: "string", description: "Item name from the menu." },
+                            quantity: { type: "number", description: "Quantity ordered." },
+                            price: { type: "number", description: "Unit price in Naira." }
+                        },
+                        required: ["name", "quantity", "price"]
+                    }
+                }
+            },
+            required: ["amount", "customer_name", "customer_phone", "customer_email", "items"]
         }
     }
-    throw new Error('All LLM models failed');
+};
+
+/**
+ * Call OpenRouter with messages + optional tools.
+ * If the model returns tool_calls, execute them and send the result back.
+ * Returns the final text response.
+ */
+async function callLLMWithTools(messages, tools, toolExecutor) {
+    const body = {
+        model: LLM_MODEL,
+        messages: messages,
+    };
+    if (tools && tools.length > 0) {
+        body.tools = tools;
+    }
+
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`OpenRouter HTTP ${res.status}: ${errText}`);
+    }
+
+    const data = await res.json();
+    const choice = data.choices?.[0];
+
+    if (!choice) throw new Error('No response from OpenRouter');
+    console.log(`[LLM] Model used: ${LLM_MODEL} | finish_reason: ${choice.finish_reason}`);
+
+    // If the model wants to call a tool
+    if (choice.finish_reason === 'tool_calls' || choice.message?.tool_calls?.length > 0) {
+        const toolCalls = choice.message.tool_calls;
+        console.log(`[LLM] Tool calls requested: ${toolCalls.map(tc => tc.function.name).join(', ')}`);
+
+        // Add the assistant's tool_calls message to the conversation
+        const updatedMessages = [...messages, choice.message];
+
+        // Execute each tool and add results
+        for (const toolCall of toolCalls) {
+            const fnName = toolCall.function.name;
+            let fnArgs;
+            try {
+                fnArgs = JSON.parse(toolCall.function.arguments);
+            } catch (e) {
+                console.error(`[LLM] Failed to parse tool arguments: ${toolCall.function.arguments}`);
+                fnArgs = {};
+            }
+
+            console.log(`[TOOL] Executing ${fnName} with args:`, JSON.stringify(fnArgs).substring(0, 200));
+            const result = await toolExecutor(fnName, fnArgs);
+            console.log(`[TOOL] ${fnName} result:`, JSON.stringify(result).substring(0, 200));
+
+            updatedMessages.push({
+                role: "tool",
+                tool_call_id: toolCall.id,
+                content: JSON.stringify(result)
+            });
+        }
+
+        // Send results back to the model for the final response (no tools this time to avoid infinite loop)
+        const followUpRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model: LLM_MODEL,
+                messages: updatedMessages,
+            })
+        });
+
+        if (!followUpRes.ok) {
+            const errText = await followUpRes.text();
+            throw new Error(`OpenRouter follow-up HTTP ${followUpRes.status}: ${errText}`);
+        }
+
+        const followUpData = await followUpRes.json();
+        const finalText = followUpData.choices?.[0]?.message?.content;
+        if (!finalText) throw new Error('Empty follow-up response from OpenRouter');
+        return finalText;
+    }
+
+    // No tool calls — just return the text
+    const text = choice.message?.content;
+    if (!text) throw new Error('Empty response from OpenRouter');
+    return text;
 }
 
 // Fallback Prompt — used if the universal prompt has not been set in the admin dashboard yet
@@ -134,6 +229,129 @@ If a customer asks about the status of their order:
 - **Off-topic chat:** Gently steer back. "Haha, good one. So - anything else you'd like to add to your order?"
 `;
 
+
+/**
+ * Execute a payment link generation via Paystack.
+ * Called by the tool executor when the AI calls generate_payment_link.
+ */
+async function executePaymentLink(args, business_id, user_id) {
+    try {
+        const amount = Math.round(Number(args.amount));
+        if (!amount || amount <= 0) {
+            return { error: `Invalid amount: ${args.amount}. Please confirm the total.` };
+        }
+
+        const customerEmail = args.customer_email || `${user_id}@customer.swiftorderai.com`;
+        console.log(`[PAYMENT] Executing payment link | ₦${amount} | ${args.customer_name} | ${customerEmail}`);
+
+        // 1. Fetch Subaccount Code
+        const { data: clientData } = await supabase
+            .from('clients')
+            .select('paystack_subaccount_code')
+            .eq('id', business_id)
+            .single();
+
+        const subaccount = clientData?.paystack_subaccount_code;
+
+        // 2. Deduct Stock
+        if (args.items && Array.isArray(args.items)) {
+            for (const item of args.items) {
+                const { data: menuItems } = await supabase
+                    .from('menu_items')
+                    .select('id, stock_level, track_inventory')
+                    .eq('client_id', business_id)
+                    .ilike('name', item.name)
+                    .limit(1);
+
+                const menuItem = menuItems?.[0];
+                if (menuItem && menuItem.track_inventory && menuItem.stock_level !== null) {
+                    const newStock = Math.max(0, menuItem.stock_level - (item.quantity || 1));
+                    await supabase
+                        .from('menu_items')
+                        .update({ stock_level: newStock })
+                        .eq('id', menuItem.id);
+                    console.log(`[PAYMENT] Stock deducted: ${item.name} (${menuItem.stock_level} -> ${newStock})`);
+                }
+            }
+        }
+
+        // 3. Generate Reference & Call Paystack
+        const reference = `REF-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+        const paystackPayload = {
+            email: customerEmail,
+            amount: amount * 100,
+            reference: reference,
+            callback_url: "https://www.swiftorderai.com/payment-success",
+            metadata: {
+                user_id: user_id,
+                business_id: business_id,
+                customer_name: args.customer_name,
+                customer_phone: args.customer_phone,
+                delivery_address: args.delivery_address || 'Pickup',
+                items: args.items
+            }
+        };
+
+        if (subaccount) {
+            paystackPayload.subaccount = subaccount;
+            console.log(`[PAYMENT] Using Subaccount: ${subaccount}`);
+        }
+
+        const paystackResponse = await axios.post(
+            'https://api.paystack.co/transaction/initialize',
+            paystackPayload,
+            {
+                headers: {
+                    Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+
+        const authUrl = paystackResponse.data.data.authorization_url;
+        console.log(`[PAYMENT] Paystack link generated: ${authUrl}`);
+
+        // 4. Log Transaction to DB
+        await supabase.from('transactions').insert({
+            reference: reference,
+            client_id: business_id,
+            user_id: user_id,
+            amount: amount,
+            status: 'pending',
+            subaccount_code: subaccount
+        });
+
+        // 5. Trigger Inngest 30-Min Timer
+        await inngest.send({
+            name: "payment/invoice.generated",
+            data: {
+                reference: reference,
+                user_id: user_id,
+                amount: amount,
+                business_id: business_id,
+                orderData: {
+                    customer_name: args.customer_name,
+                    customer_phone: args.customer_phone,
+                    customer_email: customerEmail,
+                    delivery_address: args.delivery_address || 'Pickup',
+                    items: args.items
+                }
+            }
+        });
+
+        return {
+            success: true,
+            payment_url: authUrl,
+            reference: reference,
+            amount: amount,
+            message: `Payment link generated successfully. Share this URL with the customer: ${authUrl}. Their stock is reserved for 30 minutes.`
+        };
+    } catch (err) {
+        console.error("[PAYMENT] executePaymentLink failed:", err?.response?.data || err.message || err);
+        return { error: `Payment link generation failed: ${err?.response?.data?.message || err.message}. Please try again or contact support.` };
+    }
+}
 export const agentWorkflow = inngest.createFunction(
     {
         id: "ai-agent-flow",
@@ -274,9 +492,8 @@ export const agentWorkflow = inngest.createFunction(
 
         const aiResponse = await step.run("generate-reply", async () => {
             try {
-                // Construct the full prompt context
+                // Construct the prompt context
                 const menuContext = JSON.stringify(context.menu);
-                const historyContext = context.history.map(m => `${m.role}: ${m.content}`).join("\n");
 
                 // Current time in WAT (West Africa Time, UTC+1)
                 const now = new Date();
@@ -291,218 +508,75 @@ export const agentWorkflow = inngest.createFunction(
                     hour12: true
                 });
 
-                // Replace placeholders in the system prompt
-                let fullPrompt = context.systemPrompt
+                // Build system prompt
+                let systemPrompt = context.systemPrompt
                     .replace(/{{AGENT_NAME}}/g, context.agentName)
                     .replace(/{{BUSINESS_NAME}}/g, context.businessName)
                     .replace('{{MENU}}', menuContext)
-                    .replace('{{CHAT_HISTORY}}', historyContext)
-                    .replace('{{BRAND_INFO}}', "(Delivery available via Paystack)")
+                    .replace('{{CHAT_HISTORY}}', '')
+                    .replace('{{BRAND_INFO}}', '(Delivery available via Paystack)')
                     .replace('{{CURRENT_TIME}}', watTime)
                     .replace('{{OPENING_HOURS}}', context.openingHours);
 
-                // Add time awareness and store hours rules
-                fullPrompt += `\n\n--- STORE AVAILABILITY ---`;
-                fullPrompt += `\nCurrent Time: ${watTime}`;
-                fullPrompt += `\nOpening Hours: ${context.openingHours}`;
-                fullPrompt += `\nStore Status: OPEN`;
-                fullPrompt += `\n\nRULE: If the current time appears to be outside the Opening Hours, politely tell the customer you are not accepting orders right now and mention the opening hours. Do NOT process any orders or generate payment links outside opening hours.`;
+                // Add store/delivery/business context
+                systemPrompt += `\n\n--- STORE AVAILABILITY ---`;
+                systemPrompt += `\nCurrent Time: ${watTime}`;
+                systemPrompt += `\nOpening Hours: ${context.openingHours}`;
+                systemPrompt += `\nStore Status: OPEN`;
+                systemPrompt += `\n\nRULE: If the current time appears to be outside the Opening Hours, politely tell the customer you are not accepting orders right now and mention the opening hours. Do NOT process any orders or generate payment links outside opening hours.`;
 
-                // Add Delivery Rules
-                fullPrompt += `\n\n--- DELIVERY CONFIGURATION ---`;
-                fullPrompt += `\nOffers Pickup: ${context.offersPickup ? "YES" : "NO"}`;
-                fullPrompt += `\nDelivery Zones & Fees: ${JSON.stringify(context.deliveryFees)}`;
-                fullPrompt += `\nTeam Escalation Contact: ${context.teamContact}`;
-                fullPrompt += `\nORDER RULE 1: IN YOUR VERY FIRST MESSAGE, ask the user if they want Delivery or Pickup (only if Offers Pickup is YES). Do not ask what they want to order until fulfillment is settled.`;
-                fullPrompt += `\nORDER RULE 2: If Delivery, ask for their exact delivery area. It MUST match one of the Delivery Zones above. If it does NOT match, do NOT proceed.`;
-                fullPrompt += `\nORDER RULE 3: For Delivery, correctly add the matched Delivery Fee to the total invoice amount.`;
-                fullPrompt += `\nORDER RULE 4: For Pickup (self-collect, Bolt pickup, rider pickup), process the order. But at the final invoice step, you MUST add this exact note: "Since you're picking up, please CALL our team at ${context.teamContact} when you or your rider is here to collect it, and provide your Order ID. Do NOT send a WhatsApp message for this."`;
-                fullPrompt += `\nORDER RULE 5: For Delivery, at the final invoice step you MUST add this exact note: "Our rider will call you when they are out for delivery and you will receive a message."`;
-                fullPrompt += `\nORDER RULE 6: For ANY scenario requiring a phone call or direct coordination (complaints, refunds, special requests), always give the Team Escalation Contact number above.`;
+                systemPrompt += `\n\n--- DELIVERY CONFIGURATION ---`;
+                systemPrompt += `\nOffers Pickup: ${context.offersPickup ? 'YES' : 'NO'}`;
+                systemPrompt += `\nDelivery Zones & Fees: ${JSON.stringify(context.deliveryFees)}`;
+                systemPrompt += `\nTeam Escalation Contact: ${context.teamContact}`;
+                systemPrompt += `\nORDER RULE 1: IN YOUR VERY FIRST MESSAGE, ask the user if they want Delivery or Pickup (only if Offers Pickup is YES). Do not ask what they want to order until fulfillment is settled.`;
+                systemPrompt += `\nORDER RULE 2: If Delivery, ask for their exact delivery area. It MUST match one of the Delivery Zones above. If it does NOT match, do NOT proceed.`;
+                systemPrompt += `\nORDER RULE 3: For Delivery, correctly add the matched Delivery Fee to the total invoice amount.`;
+                systemPrompt += `\nORDER RULE 4: For Pickup, at the final invoice step add: "Since you're picking up, please CALL our team at ${context.teamContact} when you or your rider is here to collect it, and provide your Order ID. Do NOT send a WhatsApp message for this."`;
+                systemPrompt += `\nORDER RULE 5: For Delivery, at the final invoice step add: "Our rider will call you when they are out for delivery and you will receive a message."`;
+                systemPrompt += `\nORDER RULE 6: For complaints, refunds, or special requests, give the Team Escalation Contact.`;
 
-                // Add Business Context
-                fullPrompt += `\n\n--- BUSINESS CONTEXT ---`;
-                fullPrompt += `\nAgent Name: ${context.agentName}`;
-                fullPrompt += `\nBusiness Name: ${context.businessName}`;
-                fullPrompt += `\nMenu: ${menuContext}`;
+                systemPrompt += `\n\n--- BUSINESS CONTEXT ---`;
+                systemPrompt += `\nAgent Name: ${context.agentName}`;
+                systemPrompt += `\nBusiness Name: ${context.businessName}`;
+                systemPrompt += `\nMenu: ${menuContext}`;
 
-                // Add Conversation History (CRITICAL for memory)
-                if (historyContext && historyContext.trim().length > 0) {
-                    fullPrompt += `\n\n--- CONVERSATION HISTORY ---`;
-                    fullPrompt += `\nBelow is the conversation so far. You MUST continue from where you left off. Do NOT restart the ordering flow if it is already in progress.`;
-                    fullPrompt += `\n${historyContext}`;
-                }
-                
-                // Add System Instruction for JSON Generation
-                fullPrompt += `\n\n--- SYSTEM INSTRUCTION ---`;
-                fullPrompt += `\nIf the user agrees to pay or confirms the order, calculate the total amount (menu items + delivery fee, if any).`;
-                fullPrompt += `\nTHEN, instead of saying you will generate a link, output EXACTLY this JSON tag and NO OTHER TEXT:`;
-                fullPrompt += `\n[GENERATE_PAYMENT: {"amount": 4500, "customer_name": "John Doe", "customer_phone": "08012345678", "customer_email": "john@example.com", "delivery_address": "Lekki", "items": [{"id": "item-id", "name": "Item Name", "quantity": 1, "price": 1000}]}]`;
-                fullPrompt += `\nIn the JSON payload above:`;
-                fullPrompt += `\n1. "amount" must be the final total integer (including delivery fee).`;
-                fullPrompt += `\n2. You MUST extract "customer_name", "customer_phone", and "delivery_address" from the CONVERSATION HISTORY above. Do NOT leave them as "...". If any of these are genuinely missing from the history, ask the user for ONLY the missing info before generating the tag. Put "Pickup" for delivery_address if they chose pickup.`;
-                fullPrompt += `\n3. "items" array must contain all ordered items. Use the exact item "id" from the Menu context above. If you cannot find the exact id, use the item name as the id.`;
-                fullPrompt += `\n4. IMPORTANT: Only output the [GENERATE_PAYMENT: ...] tag when you have ALL required fields filled with real values. Never output the tag with placeholder dots.`;
-                fullPrompt += `\n5. "customer_email" - extract the customer's email from conversation history. This is REQUIRED.`;
-                fullPrompt += `\n6. "amount" must be a plain integer number with NO currency symbols, commas, or formatting. Example: 4500 not "₦4,500".`;
-                fullPrompt += `\n\nUser: ${event.data.message}\nAssistant:`;
+                systemPrompt += `\n\n--- PAYMENT TOOL ---`;
+                systemPrompt += `\nYou have a tool called generate_payment_link. When the customer confirms their order and you have their name, phone, email, and all items, call this tool to generate their payment link. The tool will return a payment URL that you should share with the customer.`;
+                systemPrompt += `\nIMPORTANT: Before calling the tool, make sure you have collected ALL required info (name, phone, email, delivery address). If anything is missing, ask for it first.`;
 
-                let text = await callLLM(fullPrompt);
+                // Build the messages array with conversation history
+                const messages = [
+                    { role: 'system', content: systemPrompt }
+                ];
 
-                // CHECK FOR PAYMENT TAG — robust extraction
-                // The AI may wrap the tag in markdown, add whitespace, or slightly vary the format
-                let paymentJson = null;
-
-                // Pattern 1: Standard tag format
-                const tagMatch = text.match(/\[GENERATE_PAYMENT:\s*(\{[\s\S]*?\})\s*\]/i);
-                if (tagMatch) {
-                    paymentJson = tagMatch[1];
-                }
-
-                // Pattern 2: AI sometimes wraps in markdown code blocks
-                if (!paymentJson) {
-                    const codeBlockMatch = text.match(/```(?:json)?\s*\[?GENERATE_PAYMENT:?\s*(\{[\s\S]*?\})\]?\s*```/i);
-                    if (codeBlockMatch) paymentJson = codeBlockMatch[1];
-                }
-
-                // Pattern 3: Just a raw JSON block after the tag name (no brackets)
-                if (!paymentJson) {
-                    const looseMatch = text.match(/GENERATE_PAYMENT\s*:?\s*(\{[\s\S]*?"amount"[\s\S]*?\})/i);
-                    if (looseMatch) paymentJson = looseMatch[1];
-                }
-
-                if (paymentJson) {
-                    try {
-                        // Clean up common AI formatting issues before parsing
-                        paymentJson = paymentJson
-                            .replace(/,\s*}/g, '}')           // trailing commas
-                            .replace(/,\s*]/g, ']')           // trailing commas in arrays
-                            .replace(/₦/g, '')                // naira symbols
-                            .replace(/\\n/g, ' ')              // escaped newlines in values
-                            .replace(/\n/g, ' ');              // actual newlines
-
-                        console.log(`[PAYMENT] Raw JSON from AI: ${paymentJson.substring(0, 300)}`);
-                        
-                        const orderData = JSON.parse(paymentJson);
-                        
-                        // Parse amount robustly — strip everything non-numeric
-                        let amount = parseInt(String(orderData.amount).replace(/[^0-9]/g, ''), 10);
-                        if (!amount || isNaN(amount) || amount <= 0) {
-                            throw new Error(`Invalid amount from AI: "${orderData.amount}"`);
-                        }
-                        
-                        const customerEmail = orderData.customer_email || `${user_id}@customer.swiftorderai.com`;
-                        console.log(`[PAYMENT] Generating link for ₦${amount} | Email: ${customerEmail} | Name: ${orderData.customer_name}`);
-
-                        // 1. Fetch Subaccount Code
-                        const { data: clientData } = await supabase
-                            .from('clients')
-                            .select('paystack_subaccount_code')
-                            .eq('id', business_id)
-                            .single();
-
-                        const subaccount = clientData?.paystack_subaccount_code;
-
-                        // 1B. Deduct Stock Immediately
-                        if (orderData.items && Array.isArray(orderData.items)) {
-                            for (const item of orderData.items) {
-                                if (!item.id) continue;
-                                const { data: currentItem } = await supabase
-                                    .from('menu_items')
-                                    .select('stock_level, track_inventory')
-                                    .eq('id', item.id)
-                                    .single();
-                                
-                                if (currentItem && currentItem.track_inventory && currentItem.stock_level !== null) {
-                                    const newStock = Math.max(0, currentItem.stock_level - (item.quantity || 1));
-                                    await supabase
-                                        .from('menu_items')
-                                        .update({ stock_level: newStock })
-                                        .eq('id', item.id);
-                                }
-                            }
-                        }
-
-                        // 2. Generate Reference & Call Paystack
-                        const reference = `REF-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-
-                        const paystackPayload = {
-                            email: customerEmail,
-                            amount: amount * 100,
-                            reference: reference,
-                            callback_url: "https://www.swiftorderai.com/payment-success",
-                            metadata: {
-                                user_id: user_id,
-                                business_id: business_id,
-                                customer_name: orderData.customer_name,
-                                customer_phone: orderData.customer_phone,
-                                delivery_address: orderData.delivery_address,
-                                items: orderData.items
-                            }
-                        };
-
-                        if (subaccount) {
-                            paystackPayload.subaccount = subaccount;
-                            console.log(`[PAYMENT] Using Subaccount: ${subaccount}`);
-                        }
-
-                        const paystackResponse = await axios.post(
-                            'https://api.paystack.co/transaction/initialize',
-                            paystackPayload,
-                            {
-                                headers: {
-                                    Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-                                    'Content-Type': 'application/json'
-                                }
-                            }
-                        );
-
-                        const authUrl = paystackResponse.data.data.authorization_url;
-                        console.log(`[PAYMENT] Paystack link generated: ${authUrl}`);
-
-                        // 3. Log Transaction to DB
-                        await supabase.from('transactions').insert({
-                            reference: reference,
-                            client_id: business_id,
-                            user_id: user_id,
-                            amount: amount,
-                            status: 'pending',
-                            subaccount_code: subaccount
+                // Add conversation history as proper role-based messages
+                if (context.history && context.history.length > 0) {
+                    for (const msg of context.history) {
+                        messages.push({
+                            role: msg.role === 'assistant' ? 'assistant' : 'user',
+                            content: msg.content
                         });
-
-                        // 4. Trigger Inngest 30-Min Timer
-                        await inngest.send({
-                            name: "payment/invoice.generated",
-                            data: {
-                                reference: reference,
-                                user_id: user_id,
-                                amount: amount,
-                                business_id: business_id,
-                                orderData: orderData
-                            }
-                        });
-
-                        // Modify response text to just output the link and instructions
-                        text = `Great! Your total is ₦${amount.toLocaleString()}.\n\nClick here to securely pay via Paystack: ${authUrl}\n\n⚠️ *Important:* After paying on Paystack, please wait for the page to redirect to the Success screen before you close it.\nYour stock is reserved for 30 minutes!`;
-                    } catch (parseErr) {
-                        console.error("[PAYMENT] Payment generation failed.");
-                        console.error("[PAYMENT] Raw AI text:", text.substring(0, 500));
-                        console.error("[PAYMENT] Extracted JSON string:", paymentJson?.substring(0, 300));
-                        console.error("[PAYMENT] Error:", parseErr?.response?.data || parseErr.message || parseErr);
-                        text = `I had a small issue processing your payment link. Let me try again - could you just confirm your order is correct?\n\nIf the issue continues, you can contact our team for help.`;
-                    }
-                } else {
-                    // Log when we expected a payment tag but didn't find one
-                    if (text.toLowerCase().includes('payment') && text.toLowerCase().includes('total') && text.includes('₦')) {
-                        console.log("[PAYMENT] AI response looks like it should have a payment tag but none was found.");
-                        console.log("[PAYMENT] AI text (first 500 chars):", text.substring(0, 500));
                     }
                 }
 
+                // Add the current user message
+                messages.push({ role: 'user', content: event.data.message });
+
+                // Tool executor — handles generate_payment_link calls from the model
+                const toolExecutor = async (fnName, fnArgs) => {
+                    if (fnName === 'generate_payment_link') {
+                        return await executePaymentLink(fnArgs, business_id, user_id);
+                    }
+                    return { error: `Unknown tool: ${fnName}` };
+                };
+
+                // Call the LLM with tools
+                const text = await callLLMWithTools(messages, [PAYMENT_TOOL], toolExecutor);
                 return text;
             } catch (error) {
-                console.error("LLM Error:", error);
-                return "I apologize, I am having trouble thinking right now. Please try again.";
+                console.error('[LLM] Error:', error?.message || error);
+                return 'I apologize, I am having trouble thinking right now. Please try again.';
             }
         });
 
