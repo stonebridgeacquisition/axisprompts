@@ -8,8 +8,6 @@ const supabase = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// OpenRouter model — must support tool calling
-const LLM_MODEL = 'google/gemini-2.5-flash-lite';
 
 // Tool definition for payment link generation (OpenAI-compatible format)
 const PAYMENT_TOOL = {
@@ -44,98 +42,121 @@ const PAYMENT_TOOL = {
     }
 };
 
+// OpenRouter prioritized models — will try in order if one fails
+const PRIORITIZED_MODELS = [
+    'google/gemini-3-flash-preview',
+    'openai/gpt-5-nano',
+    'google/lyria-3-pro-preview'
+];
+
 /**
  * Call OpenRouter with messages + optional tools.
- * If the model returns tool_calls, execute them and send the result back.
+ * Retries across multiple models if one fails.
  * Returns the final text response.
  */
 async function callLLMWithTools(messages, tools, toolExecutor) {
-    const body = {
-        model: LLM_MODEL,
-        messages: messages,
-    };
-    if (tools && tools.length > 0) {
-        body.tools = tools;
-    }
+    let lastError = null;
 
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body)
-    });
-
-    if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`OpenRouter HTTP ${res.status}: ${errText}`);
-    }
-
-    const data = await res.json();
-    const choice = data.choices?.[0];
-
-    if (!choice) throw new Error('No response from OpenRouter');
-    console.log(`[LLM] Model used: ${LLM_MODEL} | finish_reason: ${choice.finish_reason}`);
-
-    // If the model wants to call a tool
-    if (choice.finish_reason === 'tool_calls' || choice.message?.tool_calls?.length > 0) {
-        const toolCalls = choice.message.tool_calls;
-        console.log(`[LLM] Tool calls requested: ${toolCalls.map(tc => tc.function.name).join(', ')}`);
-
-        // Add the assistant's tool_calls message to the conversation
-        const updatedMessages = [...messages, choice.message];
-
-        // Execute each tool and add results
-        for (const toolCall of toolCalls) {
-            const fnName = toolCall.function.name;
-            let fnArgs;
-            try {
-                fnArgs = JSON.parse(toolCall.function.arguments);
-            } catch (e) {
-                console.error(`[LLM] Failed to parse tool arguments: ${toolCall.function.arguments}`);
-                fnArgs = {};
+    for (const modelId of PRIORITIZED_MODELS) {
+        try {
+            console.log(`[LLM] Attempting with model: ${modelId}`);
+            
+            const body = {
+                model: modelId,
+                messages: messages,
+            };
+            if (tools && tools.length > 0) {
+                body.tools = tools;
             }
 
-            console.log(`[TOOL] Executing ${fnName} with args:`, JSON.stringify(fnArgs).substring(0, 200));
-            const result = await toolExecutor(fnName, fnArgs);
-            console.log(`[TOOL] ${fnName} result:`, JSON.stringify(result).substring(0, 200));
-
-            updatedMessages.push({
-                role: "tool",
-                tool_call_id: toolCall.id,
-                content: JSON.stringify(result)
+            const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(body)
             });
+
+            if (!res.ok) {
+                const errText = await res.text();
+                throw new Error(`HTTP ${res.status}: ${errText}`);
+            }
+
+            const data = await res.json();
+            const choice = data.choices?.[0];
+
+            if (!choice) throw new Error('No response from OpenRouter');
+            console.log(`[LLM] ${modelId} replied | finish_reason: ${choice.finish_reason}`);
+
+            // If the model wants to call a tool
+            if (choice.finish_reason === 'tool_calls' || choice.message?.tool_calls?.length > 0) {
+                const toolCalls = choice.message.tool_calls;
+                console.log(`[LLM] Tool calls requested: ${toolCalls.map(tc => tc.function.name).join(', ')}`);
+
+                // Add the assistant's tool_calls message to the conversation
+                const updatedMessages = [...messages, choice.message];
+
+                // Execute each tool and add results
+                for (const toolCall of toolCalls) {
+                    const fnName = toolCall.function.name;
+                    let fnArgs;
+                    try {
+                        fnArgs = JSON.parse(toolCall.function.arguments);
+                    } catch (e) {
+                        console.error(`[LLM] Failed to parse tool arguments: ${toolCall.function.arguments}`);
+                        fnArgs = {};
+                    }
+
+                    console.log(`[TOOL] Executing ${fnName} with args:`, JSON.stringify(fnArgs).substring(0, 200));
+                    const result = await toolExecutor(fnName, fnArgs);
+                    console.log(`[TOOL] ${fnName} result:`, JSON.stringify(result).substring(0, 200));
+
+                    updatedMessages.push({
+                        role: "tool",
+                        tool_call_id: toolCall.id,
+                        content: JSON.stringify(result)
+                    });
+                }
+
+                // Send results back to the model for the final response
+                const followUpRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: modelId,
+                        messages: updatedMessages,
+                    })
+                });
+
+                if (!followUpRes.ok) {
+                    const errText = await followUpRes.text();
+                    throw new Error(`Follow-up HTTP ${followUpRes.status}: ${errText}`);
+                }
+
+                const followUpData = await followUpRes.json();
+                const finalText = followUpData.choices?.[0]?.message?.content;
+                if (!finalText) throw new Error('Empty follow-up response');
+                return finalText;
+            }
+
+            // No tool calls — just return the text
+            const text = choice.message?.content;
+            if (!text) throw new Error('Empty response');
+            return text;
+
+        } catch (error) {
+            console.error(`[LLM] Model ${modelId} failed:`, error.message);
+            lastError = error;
+            // Continue loop to try next model
         }
-
-        // Send results back to the model for the final response (no tools this time to avoid infinite loop)
-        const followUpRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                model: LLM_MODEL,
-                messages: updatedMessages,
-            })
-        });
-
-        if (!followUpRes.ok) {
-            const errText = await followUpRes.text();
-            throw new Error(`OpenRouter follow-up HTTP ${followUpRes.status}: ${errText}`);
-        }
-
-        const followUpData = await followUpRes.json();
-        const finalText = followUpData.choices?.[0]?.message?.content;
-        if (!finalText) throw new Error('Empty follow-up response from OpenRouter');
-        return finalText;
     }
 
-    // No tool calls — just return the text
-    const text = choice.message?.content;
-    if (!text) throw new Error('Empty response from OpenRouter');
-    return text;
+    // If we're here, all models failed
+    throw new Error(`All fallback models failed. Last error: ${lastError?.message}`);
 }
 
 /**
