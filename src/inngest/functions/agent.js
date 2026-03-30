@@ -480,32 +480,28 @@ export const agentWorkflow = inngest.createFunction(
                         .replace('{{CURRENT_TIME}}', watTime)
                         .replace('{{OPENING_HOURS}}', context.openTime && context.closeTime ? `${context.openTime} - ${context.closeTime}` : 'Not specified');
 
-                    // INJECT PERSISTENT STATE (The "Notebook")
-                    systemPrompt += `\n\n--- CURRENT ORDER STATE (FACTS) ---`;
-                    systemPrompt += `\nFulfillment: ${context.metadata?.fulfillment || 'Unknown'}`;
-                    systemPrompt += `\nDelivery Address: ${context.metadata?.delivery_address || 'Not collected yet'}`;
-                    systemPrompt += `\nCustomer Name: ${context.metadata?.customer_name || 'Not collected'}`;
-                    systemPrompt += `\nCurrent Cart Summary: ${context.metadata?.order_summary || 'Empty'}`;
-                    systemPrompt += `\n\nRULE: Whenever the customer confirms a piece of info above (like their address or fulfillment choice), you MUST call the 'update_order_facts' tool immediately to save it. This ensures you don't ask for the same info twice.`;
+                    // INJECT PERSISTENT STATE (The "Notebook") - MUST BE AT THE TOP
+                    let stateBlock = `\n\n--- CURRENT ORDER STATE (FACTS) ---`;
+                    stateBlock += `\nFulfillment: ${context.metadata?.fulfillment || 'Unknown'}`;
+                    stateBlock += `\nDelivery Address: ${context.metadata?.delivery_address || 'Not collected yet'}`;
+                    stateBlock += `\nCustomer Name: ${context.metadata?.customer_name || 'Not collected'}`;
+                    stateBlock += `\nCustomer Email: ${context.metadata?.customer_email || 'Not collected'}`;
+                    stateBlock += `\nOrder Summary: ${context.metadata?.order_summary || 'Empty'}`;
+                    stateBlock += `\n\nCRITICAL: If any of the facts above are 'Unknown' but you see them in the history below, you MUST call 'update_order_facts' immediately and wait for the success message before continuing the conversation.`;
 
-                    // Add store/delivery/business context
+                    // Combine everything
+                    systemPrompt = stateBlock + "\n\n" + systemPrompt;
+
+                    // Add dynamic availability/delivery fees
                     systemPrompt += `\n\n--- STORE AVAILABILITY ---`;
                     systemPrompt += `\nCurrent Time: ${watTime}`;
                     systemPrompt += `\nOpening Hours: ${context.openTime || '?'} - ${context.closeTime || '?'}`;
-                    systemPrompt += `\nStore Status: OPEN`;
+                    systemPrompt += `\nStatus: OPEN`;
 
                     systemPrompt += `\n\n--- DELIVERY CONFIGURATION ---`;
                     systemPrompt += `\nOffers Pickup: ${context.offersPickup ? 'YES' : 'NO'}`;
                     systemPrompt += `\nDelivery Zones & Fees: ${JSON.stringify(context.deliveryFees)}`;
-                    systemPrompt += `\nTeam Escalation Contact: ${context.teamContact}`;
-                    
-                    systemPrompt += `\n\n--- ORDER RULES ---`;
-                    systemPrompt += `\nORDER RULE 1: IN YOUR VERY FIRST MESSAGE, ask the user if they want Delivery or Pickup (only if Offers Pickup is YES). Do not ask what they want to order until fulfillment is settled.`;
-                    systemPrompt += `\nORDER RULE 2: If the user says 'Delivery', ask for their exact delivery area. It MUST match one of the Delivery Zones above. If it does NOT match, do NOT proceed.`;
-                    systemPrompt += `\nORDER RULE 3: For Delivery, correctly add the matched Delivery Fee to the total amount you give the customer.`;
-                    systemPrompt += `\nORDER RULE 4: For Pickup, at the final step add: "Since you're picking up, please CALL our team at ${context.teamContact} when you or your rider is here to collect it."`;
-                    systemPrompt += `\nORDER RULE 5: For Delivery, at the final step add: "Our rider will call you when they are out for delivery."`;
-                    systemPrompt += `\nRULE 6: For complaints or special requests, provide the Team Escalation Contact: ${context.teamContact}`;
+                    systemPrompt += `\nTeam Contact: ${context.teamContact}`;
 
                     // Build the messages array with conversation history
                     const messages = [
