@@ -281,6 +281,7 @@ async function executePaymentLink(args, business_id, user_id) {
         return { error: `Payment link generation failed: ${err?.response?.data?.message || err.message}. Please try again or contact support.` };
     }
 }
+
 export const agentWorkflow = inngest.createFunction(
     {
         id: "ai-agent-flow",
@@ -366,7 +367,7 @@ export const agentWorkflow = inngest.createFunction(
                     menu: menu || [],
                     systemPrompt: activeSystemPrompt,
                     history: history ? history.reverse() : [],
-                    status: clientInfo?.status || 'active',
+                    status: clientInfo?.status || 'Active',
                     isOpen: clientInfo?.is_open !== false,
                     openTime: clientInfo?.open_time || null,
                     closeTime: clientInfo?.close_time || null,
@@ -430,7 +431,6 @@ export const agentWorkflow = inngest.createFunction(
             }
 
             // 3. GENERATE AI RESPONSE
-
             const aiResponse = await step.run("generate-reply", async () => {
                 try {
                     // Construct the prompt context
@@ -491,7 +491,7 @@ export const agentWorkflow = inngest.createFunction(
                         { role: 'system', content: systemPrompt }
                     ];
 
-                    // Add conversation history as proper role-based messages
+                    // Add conversation history
                     if (context.history && context.history.length > 0) {
                         for (const msg of context.history) {
                             messages.push({
@@ -504,7 +504,7 @@ export const agentWorkflow = inngest.createFunction(
                     // Add the current user message
                     messages.push({ role: 'user', content: event.data.message });
 
-                    // Tool executor — handles generate_payment_link calls from the model
+                    // Tool executor
                     const toolExecutor = async (fnName, fnArgs) => {
                         if (fnName === 'generate_payment_link') {
                             return await executePaymentLink(fnArgs, business_id, user_id);
@@ -530,29 +530,20 @@ export const agentWorkflow = inngest.createFunction(
                 ]);
 
                 // B. Send via WhatsApp Cloud API
-                const { data: clientSettings } = await supabase
-                    .from('clients')
-                    .select('whatsapp_phone_number_id, whatsapp_access_token')
-                    .eq('id', business_id)
-                    .single();
-
-                const phoneNumberId = clientSettings?.whatsapp_phone_number_id;
-                const accessToken = clientSettings?.whatsapp_access_token;
-
-                if (phoneNumberId && accessToken) {
+                if (context.phoneNumberId && context.accessToken) {
                     if (event.data.platform === 'simulation') {
                         console.log(`[SIMULATION] Response saved for user: ${user_id}, bypassing WhatsApp.`);
                     } else {
                         try {
-                            console.log(`Sending WhatsApp response to user: ${user_id} via Phone ID: ${phoneNumberId}`);
-                            await axios.post(`https://graph.facebook.com/v19.0/${phoneNumberId}/messages`, {
+                            console.log(`Sending WhatsApp response to user: ${user_id} via Phone ID: ${context.phoneNumberId}`);
+                            await axios.post(`https://graph.facebook.com/v19.0/${context.phoneNumberId}/messages`, {
                                 messaging_product: "whatsapp",
                                 to: user_id, // User's phone number
                                 type: "text",
                                 text: { body: aiResponse }
                             }, {
                                 headers: {
-                                    'Authorization': `Bearer ${accessToken}`,
+                                    'Authorization': `Bearer ${context.accessToken}`,
                                     'Content-Type': 'application/json'
                                 }
                             });
@@ -577,24 +568,15 @@ export const agentWorkflow = inngest.createFunction(
             const errorMsg = `[DEBUG] Agent Error:\n\n${workflowError?.message || String(workflowError)}\n\nStep: ${workflowError?.stack?.split('\n')?.[1]?.trim() || 'unknown'}`;
 
             try {
-                const { data: clientSettings } = await supabase
-                    .from('clients')
-                    .select('whatsapp_phone_number_id, whatsapp_access_token')
-                    .eq('id', business_id)
-                    .single();
-
-                const phoneNumberId = clientSettings?.whatsapp_phone_number_id;
-                const accessToken = clientSettings?.whatsapp_access_token;
-
-                if (phoneNumberId && accessToken && event.data.platform !== 'simulation') {
-                    await axios.post(`https://graph.facebook.com/v19.0/${phoneNumberId}/messages`, {
+                if (context?.phoneNumberId && context?.accessToken && event.data.platform !== 'simulation') {
+                    await axios.post(`https://graph.facebook.com/v19.0/${context.phoneNumberId}/messages`, {
                         messaging_product: "whatsapp",
                         to: user_id,
                         type: "text",
                         text: { body: errorMsg }
                     }, {
                         headers: {
-                            'Authorization': `Bearer ${accessToken}`,
+                            'Authorization': `Bearer ${context.accessToken}`,
                             'Content-Type': 'application/json'
                         }
                     });
