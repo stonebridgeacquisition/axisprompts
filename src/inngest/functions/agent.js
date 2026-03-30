@@ -348,66 +348,29 @@ export const agentWorkflow = inngest.createFunction(
                 fullPrompt += `\n\nUser: ${event.data.message}\nAssistant:`;
 
                 let text = await callLLM(fullPrompt);
-
-                // --- PAYMENT TAG EXTRACTION (hardened) ---
-                console.log("[AGENT] Raw AI output (last 500 chars):", text.slice(-500));
-
-                // Step 1: Strip markdown code fences the LLM may wrap around the tag
-                let cleanedText = text.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '');
-
-                // Step 2: Try multiple regex patterns (primary, then fallbacks)
-                let paymentMatch = cleanedText.match(/\[GENERATE_PAYMENT:\s*(\{[\s\S]*?\})\s*\]/i);
-                if (!paymentMatch) {
-                    // Fallback: sometimes the LLM outputs just the JSON object without the tag wrapper
-                    paymentMatch = cleanedText.match(/\[GENERATE_PAYMENT:\s*(\{[\s\S]*\})\]/i);
-                }
-                if (!paymentMatch) {
-                    // Fallback 2: look for a standalone JSON block with "amount" and "customer_name"
-                    const jsonBlock = cleanedText.match(/(\{[\s\S]*?"amount"\s*:\s*\d+[\s\S]*?"customer_name"\s*:[\s\S]*?\})/i);
-                    if (jsonBlock) {
-                        console.log("[AGENT] Found standalone JSON block (no wrapper tag). Attempting parse.");
-                        paymentMatch = [null, jsonBlock[1]];
-                    }
-                }
-
+                // CHECK FOR PAYMENT TAG
+                const paymentMatch = text.match(/\[GENERATE_PAYMENT:\s*(\{.*\})\]/is);
                 if (paymentMatch) {
                     try {
-                        // Clean the JSON string: remove trailing commas, fix common LLM JSON mistakes
-                        let jsonStr = paymentMatch[1]
-                            .replace(/,\s*([}\]])/g, '$1')  // trailing commas
-                            .replace(/'/g, '"');              // single quotes to double
-                        
-                        console.log("[AGENT] Extracted JSON string:", jsonStr.substring(0, 300));
-
-                        const orderData = JSON.parse(jsonStr);
+                        const orderData = JSON.parse(paymentMatch[1]);
                         let amount = parseInt(String(orderData.amount).replace(/[^0-9]/g, ''), 10);
                         if (!amount || isNaN(amount) || amount <= 0) {
                             throw new Error(`Invalid amount from AI: ${orderData.amount}`);
                         }
                         const customerEmail = orderData.customer_email || `${user_id}@customer.swiftorderai.com`;
-                        const customerName = orderData.customer_name || 'Customer';
-                        const customerPhone = orderData.customer_phone || user_id;
-                        const deliveryAddress = orderData.delivery_address || 'Not specified';
+                        console.log(`Generating Payment Link for ₦${amount} (email: ${customerEmail})... and reserving inventory.`);
 
-                        // Build items summary string
-                        let itemsSummary = '';
-                        if (orderData.items && Array.isArray(orderData.items)) {
-                            itemsSummary = orderData.items.map(i => `${i.quantity || 1}x ${i.name}`).join(', ');
-                        }
-
-                        console.log(`[AGENT] Generating Payment Link: ₦${amount} | ${customerName} | ${customerEmail} | Items: ${itemsSummary}`);
-
-                        // 1. Fetch Subaccount Code + Business Name
+                        // 1. Fetch Subaccount Code
                         const { data: clientData } = await supabase
                             .from('clients')
-                            .select('paystack_subaccount_code, business_name')
+                            .select('paystack_subaccount_code')
                             .eq('id', business_id)
                             .single();
 
                         const subaccount = clientData?.paystack_subaccount_code;
-                        const bizName = clientData?.business_name || context.businessName;
 
                         // 1B. Deduct Stock Immediately
+                        // We do a loop for each item in the cart to safely update stock where track_inventory is true
                         if (orderData.items && Array.isArray(orderData.items)) {
                             for (const item of orderData.items) {
                                 if (!item.id) continue;
@@ -427,8 +390,7 @@ export const agentWorkflow = inngest.createFunction(
                             }
                         }
 
-                        // 2. Generate Reference & Call Paystack (enriched metadata like playground)
-                        const orderId = `ORD-${Math.floor(10000 + Math.random() * 90000)}`;
+                        // 2. Generate Reference & Call Paystack
                         const reference = `REF-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
                         const paystackPayload = {
@@ -438,27 +400,13 @@ export const agentWorkflow = inngest.createFunction(
                             callback_url: "https://www.swiftorderai.com/payment-success",
                             metadata: {
                                 user_id: user_id,
-                                business_id: business_id,
-                                client_id: business_id,
-                                business_name: bizName,
-                                order_id: orderId,
-                                items_summary: itemsSummary,
-                                delivery_details: deliveryAddress,
-                                customer_name: customerName,
-                                customer_phone: customerPhone,
-                                custom_fields: [
-                                    { display_name: "Order ID", variable_name: "order_id", value: orderId },
-                                    { display_name: "Customer Name", variable_name: "customer_name", value: customerName },
-                                    { display_name: "Phone Number", variable_name: "phone", value: customerPhone },
-                                    { display_name: "Items", variable_name: "items", value: itemsSummary },
-                                    { display_name: "Delivery Address", variable_name: "address", value: deliveryAddress }
-                                ]
+                                business_id: business_id
                             }
                         };
 
                         if (subaccount) {
                             paystackPayload.subaccount = subaccount;
-                            console.log(`[AGENT] Using Subaccount: ${subaccount}`);
+                            console.log(`Using Subaccount: ${subaccount}`);
                         }
 
                         const paystackResponse = await axios.post(
@@ -473,7 +421,6 @@ export const agentWorkflow = inngest.createFunction(
                         );
 
                         const authUrl = paystackResponse.data.data.authorization_url;
-                        console.log(`[AGENT] Paystack link generated: ${authUrl}`);
 
                         // 3. Log Transaction to DB
                         await supabase.from('transactions').insert({
@@ -493,21 +440,15 @@ export const agentWorkflow = inngest.createFunction(
                                 user_id: user_id,
                                 amount: amount,
                                 business_id: business_id,
-                                orderData: orderData
+                                orderData: orderData // PASS ENTIRE JSON SO SUCCESS CAN CREATE THE "ORDER"
                             }
                         });
 
                         // Modify response text to just output the link and instructions
                         text = `Great! Your total is ₦${amount.toLocaleString()}.\n\nClick here to securely pay via Paystack: ${authUrl}\n\n⚠️ *Important:* After paying on Paystack, please wait for the page to redirect to the Success screen before you close it.\nYour stock is reserved for 30 minutes!`;
                     } catch (parseErr) {
-                        console.error("[AGENT] Payment generation failed. Error:", parseErr?.response?.data || parseErr.message || parseErr);
-                        console.error("[AGENT] Raw text that failed:", text.substring(0, 500));
+                        console.error("Payment generation failed:", parseErr?.response?.data || parseErr.message || parseErr);
                         text = `I had a small issue processing your payment link. Let me try again - could you just confirm your order is correct?\n\nIf the issue continues, you can contact our team for help.`;
-                    }
-                } else {
-                    // No payment tag found — log for debugging (only if the text looks like it was trying to generate one)
-                    if (text.toLowerCase().includes('generate_payment') || text.toLowerCase().includes('"amount"')) {
-                        console.warn("[AGENT] AI appeared to attempt payment generation but no valid tag was extracted. Raw output:", text.substring(0, 500));
                     }
                 }
 
