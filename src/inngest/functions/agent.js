@@ -270,320 +270,320 @@ export const agentWorkflow = inngest.createFunction(
     async ({ event, step }) => {
         const { business_id, user_id, user_name } = event.data;
 
-      try {
+        try {
 
-        // 1. BUFFERING: Wait 5s (reduced for testing)
-        await step.sleep("5s");
+            // 1. BUFFERING: Wait 5s (reduced for testing)
+            await step.sleep("5s");
 
-        // 2. LOAD CONTEXT (The "Brain")
-        const context = await step.run("load-context", async () => {
-            // A. Fetch Menu
-            const { data: menu } = await supabase
-                .from('menu_items')
-                .select('name, price, category, description')
-                .eq('client_id', business_id);
+            // 2. LOAD CONTEXT (The "Brain")
+            const context = await step.run("load-context", async () => {
+                // A. Fetch Menu
+                const { data: menu } = await supabase
+                    .from('menu_items')
+                    .select('name, price, category, description')
+                    .eq('client_id', business_id);
 
-            // B. System Prompt — fetch from dynamic admin settings
-            const { data: promptSetting } = await supabase
-                .from('platform_settings')
-                .select('value')
-                .eq('key', 'universal_agent_prompt')
-                .maybeSingle();
-            
-            const activeSystemPrompt = promptSetting?.value;
-            if (!activeSystemPrompt) {
-                console.error('[AGENT] No universal_agent_prompt found in platform_settings!');
-                throw new Error('Agent prompt not configured. Please set universal_agent_prompt in platform_settings.');
-            }
+                // B. System Prompt — fetch from dynamic admin settings
+                const { data: promptSetting } = await supabase
+                    .from('platform_settings')
+                    .select('value')
+                    .eq('key', 'universal_agent_prompt')
+                    .maybeSingle();
 
-            // B2. Fetch Store Availability and details
-            const { data: clientInfo } = await supabase
-                .from('clients')
-                .select('status, is_open, open_time, close_time, agent_name, business_name, offers_pickup, team_contact, whatsapp_phone_number_id, whatsapp_access_token')
-                .eq('id', business_id)
-                .single();
+                const activeSystemPrompt = promptSetting?.value;
+                if (!activeSystemPrompt) {
+                    console.error('[AGENT] No universal_agent_prompt found in platform_settings!');
+                    throw new Error('Agent prompt not configured. Please set universal_agent_prompt in platform_settings.');
+                }
 
-            // B3. Fetch Delivery Fees
-            const { data: deliveryFees } = await supabase
-                .from('delivery_fees')
-                .select('location, fee')
-                .eq('client_id', business_id);
-
-            // C. Get or Create Session & Fetch History
-            let sessionId;
-            const { data: existingSession } = await supabase
-                .from('chat_sessions')
-                .select('id')
-                .match({ client_id: business_id, whatsapp_user_id: user_id })
-                .single();
-
-            if (existingSession) {
-                sessionId = existingSession.id;
-            } else {
-                const { data: newSession } = await supabase
-                    .from('chat_sessions')
-                    .insert({
-                        client_id: business_id,
-                        whatsapp_user_id: user_id, // user_id is now the WhatsApp phone number
-                        user_name: user_name
-                    })
-                    .select('id')
+                // B2. Fetch Store Availability and details
+                const { data: clientInfo } = await supabase
+                    .from('clients')
+                    .select('status, is_open, open_time, close_time, agent_name, business_name, offers_pickup, team_contact, whatsapp_phone_number_id, whatsapp_access_token')
+                    .eq('id', business_id)
                     .single();
-                sessionId = newSession.id;
+
+                // B3. Fetch Delivery Fees
+                const { data: deliveryFees } = await supabase
+                    .from('delivery_fees')
+                    .select('location, fee')
+                    .eq('client_id', business_id);
+
+                // C. Get or Create Session & Fetch History
+                let sessionId;
+                const { data: existingSession } = await supabase
+                    .from('chat_sessions')
+                    .select('id')
+                    .match({ client_id: business_id, whatsapp_user_id: user_id })
+                    .single();
+
+                if (existingSession) {
+                    sessionId = existingSession.id;
+                } else {
+                    const { data: newSession } = await supabase
+                        .from('chat_sessions')
+                        .insert({
+                            client_id: business_id,
+                            whatsapp_user_id: user_id, // user_id is now the WhatsApp phone number
+                            user_name: user_name
+                        })
+                        .select('id')
+                        .single();
+                    sessionId = newSession.id;
+                }
+
+                // Fetch last 10 messages
+                const { data: history } = await supabase
+                    .from('chat_messages')
+                    .select('role, content')
+                    .eq('session_id', sessionId)
+                    .order('created_at', { ascending: false })
+                    .limit(10);
+
+                return {
+                    sessionId,
+                    menu: menu || [],
+                    systemPrompt: activeSystemPrompt,
+                    history: history ? history.reverse() : [],
+                    status: clientInfo?.status || 'active',
+                    isOpen: clientInfo?.is_open !== false,
+                    openTime: clientInfo?.open_time || null,
+                    closeTime: clientInfo?.close_time || null,
+                    agentName: clientInfo?.agent_name || 'Agent',
+                    businessName: clientInfo?.business_name || 'Our Store',
+                    offersPickup: clientInfo?.offers_pickup || false,
+                    deliveryFees: deliveryFees || [],
+                    teamContact: clientInfo?.team_contact || '',
+                    phoneNumberId: clientInfo?.whatsapp_phone_number_id || null,
+                    accessToken: clientInfo?.whatsapp_access_token || null
+                };
+            });
+
+            // CHECK 1: If business is INACTIVE, silently stop — no response at all
+            if (context.status?.toLowerCase() === 'inactive') {
+                console.log(`[AGENT] Business ${business_id} is INACTIVE. Skipping.`);
+                return { success: false, reason: 'business_inactive' };
             }
 
-            // Fetch last 10 messages
-            const { data: history } = await supabase
-                .from('chat_messages')
-                .select('role, content')
-                .eq('session_id', sessionId)
-                .order('created_at', { ascending: false })
-                .limit(10);
+            // CHECK 2: If store is CLOSED (is_open = false), send automated message with open_time
+            if (!context.isOpen) {
+                const openTimeStr = context.openTime
+                    ? context.openTime.substring(0, 5) // "09:00:00" -> "09:00"
+                    : 'our usual opening time';
+                const closeTimeStr = context.closeTime
+                    ? context.closeTime.substring(0, 5)
+                    : '';
+                const hoursStr = closeTimeStr ? `${openTimeStr} - ${closeTimeStr}` : openTimeStr;
 
-            return {
-                sessionId,
-                menu: menu || [],
-                systemPrompt: activeSystemPrompt,
-                history: history ? history.reverse() : [],
-                status: clientInfo?.status || 'active',
-                isOpen: clientInfo?.is_open !== false,
-                openTime: clientInfo?.open_time || null,
-                closeTime: clientInfo?.close_time || null,
-                agentName: clientInfo?.agent_name || 'Agent',
-                businessName: clientInfo?.business_name || 'Our Store',
-                offersPickup: clientInfo?.offers_pickup || false,
-                deliveryFees: deliveryFees || [],
-                teamContact: clientInfo?.team_contact || '',
-                phoneNumberId: clientInfo?.whatsapp_phone_number_id || null,
-                accessToken: clientInfo?.whatsapp_access_token || null
-            };
-        });
+                const closedMsg = `Hey there! We're currently closed and not accepting orders right now.\n\nWe'll be open by ${hoursStr}. Feel free to message us then and we'll be happy to help you place your order!`;
 
-        // CHECK 1: If business is INACTIVE, silently stop — no response at all
-        if (context.status === 'inactive') {
-            console.log(`[AGENT] Business ${business_id} is INACTIVE. Skipping.`);
-            return { success: false, reason: 'business_inactive' };
-        }
+                await step.run("send-closed-reply", async () => {
+                    // Save to chat history
+                    await supabase.from('chat_messages').insert([
+                        { session_id: context.sessionId, role: 'user', content: event.data.message },
+                        { session_id: context.sessionId, role: 'assistant', content: closedMsg }
+                    ]);
 
-        // CHECK 2: If store is CLOSED (is_open = false), send automated message with open_time
-        if (!context.isOpen) {
-            const openTimeStr = context.openTime
-                ? context.openTime.substring(0, 5) // "09:00:00" -> "09:00"
-                : 'our usual opening time';
-            const closeTimeStr = context.closeTime
-                ? context.closeTime.substring(0, 5)
-                : '';
-            const hoursStr = closeTimeStr ? `${openTimeStr} - ${closeTimeStr}` : openTimeStr;
-
-            const closedMsg = `Hey there! We're currently closed and not accepting orders right now.\n\nWe'll be open by ${hoursStr}. Feel free to message us then and we'll be happy to help you place your order!`;
-
-            await step.run("send-closed-reply", async () => {
-                // Save to chat history
-                await supabase.from('chat_messages').insert([
-                    { session_id: context.sessionId, role: 'user', content: event.data.message },
-                    { session_id: context.sessionId, role: 'assistant', content: closedMsg }
-                ]);
-
-                // Send via WhatsApp
-                if (context.phoneNumberId && context.accessToken) {
-                    if (event.data.platform === 'simulation') {
-                        console.log('[SIMULATION] Store closed message saved, bypassing WhatsApp.');
-                    } else {
-                        await axios.post(`https://graph.facebook.com/v19.0/${context.phoneNumberId}/messages`, {
-                            messaging_product: "whatsapp",
-                            to: user_id,
-                            type: "text",
-                            text: { body: closedMsg }
-                        }, {
-                            headers: {
-                                'Authorization': `Bearer ${context.accessToken}`,
-                                'Content-Type': 'application/json'
-                            }
-                        });
-                        console.log('[AGENT] Sent closed message via WhatsApp.');
+                    // Send via WhatsApp
+                    if (context.phoneNumberId && context.accessToken) {
+                        if (event.data.platform === 'simulation') {
+                            console.log('[SIMULATION] Store closed message saved, bypassing WhatsApp.');
+                        } else {
+                            await axios.post(`https://graph.facebook.com/v19.0/${context.phoneNumberId}/messages`, {
+                                messaging_product: "whatsapp",
+                                to: user_id,
+                                type: "text",
+                                text: { body: closedMsg }
+                            }, {
+                                headers: {
+                                    'Authorization': `Bearer ${context.accessToken}`,
+                                    'Content-Type': 'application/json'
+                                }
+                            });
+                            console.log('[AGENT] Sent closed message via WhatsApp.');
+                        }
                     }
+                });
+
+                return { success: true, reply: closedMsg };
+            }
+
+            // 3. GENERATE AI RESPONSE
+
+            const aiResponse = await step.run("generate-reply", async () => {
+                try {
+                    // Construct the prompt context
+                    const menuContext = JSON.stringify(context.menu);
+
+                    // Current time in WAT (West Africa Time, UTC+1)
+                    const now = new Date();
+                    const watTime = now.toLocaleString('en-NG', {
+                        timeZone: 'Africa/Lagos',
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                    });
+
+                    // Build system prompt
+                    let systemPrompt = context.systemPrompt
+                        .replace(/{{AGENT_NAME}}/g, context.agentName)
+                        .replace(/{{BUSINESS_NAME}}/g, context.businessName)
+                        .replace('{{MENU}}', menuContext)
+                        .replace('{{CHAT_HISTORY}}', '')
+                        .replace('{{BRAND_INFO}}', '(Delivery available via Paystack)')
+                        .replace('{{CURRENT_TIME}}', watTime)
+                        .replace('{{OPENING_HOURS}}', context.openTime && context.closeTime ? `${context.openTime} - ${context.closeTime}` : 'Not specified');
+
+                    // Add store/delivery/business context
+                    systemPrompt += `\n\n--- STORE AVAILABILITY ---`;
+                    systemPrompt += `\nCurrent Time: ${watTime}`;
+                    systemPrompt += `\nOpening Hours: ${context.openTime || '?'} - ${context.closeTime || '?'}`;
+                    systemPrompt += `\nStore Status: OPEN`;
+                    systemPrompt += `\n\nRULE: If the current time appears to be outside the Opening Hours, politely tell the customer you are not accepting orders right now and mention the opening hours. Do NOT process any orders or generate payment links outside opening hours.`;
+
+                    systemPrompt += `\n\n--- DELIVERY CONFIGURATION ---`;
+                    systemPrompt += `\nOffers Pickup: ${context.offersPickup ? 'YES' : 'NO'}`;
+                    systemPrompt += `\nDelivery Zones & Fees: ${JSON.stringify(context.deliveryFees)}`;
+                    systemPrompt += `\nTeam Escalation Contact: ${context.teamContact}`;
+                    systemPrompt += `\nORDER RULE 1: IN YOUR VERY FIRST MESSAGE, ask the user if they want Delivery or Pickup (only if Offers Pickup is YES). Do not ask what they want to order until fulfillment is settled.`;
+                    systemPrompt += `\nORDER RULE 2: If Delivery, ask for their exact delivery area. It MUST match one of the Delivery Zones above. If it does NOT match, do NOT proceed.`;
+                    systemPrompt += `\nORDER RULE 3: For Delivery, correctly add the matched Delivery Fee to the total invoice amount.`;
+                    systemPrompt += `\nORDER RULE 4: For Pickup, at the final invoice step add: "Since you're picking up, please CALL our team at ${context.teamContact} when you or your rider is here to collect it, and provide your Order ID. Do NOT send a WhatsApp message for this."`;
+                    systemPrompt += `\nORDER RULE 5: For Delivery, at the final invoice step add: "Our rider will call you when they are out for delivery and you will receive a message."`;
+                    systemPrompt += `\nORDER RULE 6: For complaints, refunds, or special requests, give the Team Escalation Contact.`;
+
+                    systemPrompt += `\n\n--- BUSINESS CONTEXT ---`;
+                    systemPrompt += `\nAgent Name: ${context.agentName}`;
+                    systemPrompt += `\nBusiness Name: ${context.businessName}`;
+                    systemPrompt += `\nMenu: ${menuContext}`;
+
+                    systemPrompt += `\n\n--- PAYMENT TOOL ---`;
+                    systemPrompt += `\nYou have a tool called generate_payment_link. When the customer confirms their order and you have their name, phone, email, and all items, call this tool to generate their payment link. The tool will return a payment URL that you should share with the customer.`;
+                    systemPrompt += `\nIMPORTANT: Before calling the tool, make sure you have collected ALL required info (name, phone, email, delivery address). If anything is missing, ask for it first.`;
+
+                    // Build the messages array with conversation history
+                    const messages = [
+                        { role: 'system', content: systemPrompt }
+                    ];
+
+                    // Add conversation history as proper role-based messages
+                    if (context.history && context.history.length > 0) {
+                        for (const msg of context.history) {
+                            messages.push({
+                                role: msg.role === 'assistant' ? 'assistant' : 'user',
+                                content: msg.content
+                            });
+                        }
+                    }
+
+                    // Add the current user message
+                    messages.push({ role: 'user', content: event.data.message });
+
+                    // Tool executor — handles generate_payment_link calls from the model
+                    const toolExecutor = async (fnName, fnArgs) => {
+                        if (fnName === 'generate_payment_link') {
+                            return await executePaymentLink(fnArgs, business_id, user_id);
+                        }
+                        return { error: `Unknown tool: ${fnName}` };
+                    };
+
+                    // Call the LLM with tools
+                    const text = await callLLMWithTools(messages, [PAYMENT_TOOL], toolExecutor);
+                    return text;
+                } catch (error) {
+                    console.error('[LLM] Error:', error?.message || error);
+                    return 'I apologize, I am having trouble thinking right now. Please try again.';
                 }
             });
 
-            return { success: true, reply: closedMsg };
-        }
+            // 4. SAVE & REPLY
+            await step.run("save-and-send", async () => {
+                // A. Insert Messages (User + AI)
+                await supabase.from('chat_messages').insert([
+                    { session_id: context.sessionId, role: 'user', content: event.data.message },
+                    { session_id: context.sessionId, role: 'assistant', content: aiResponse }
+                ]);
 
-        // 3. GENERATE AI RESPONSE
+                // B. Send via WhatsApp Cloud API
+                const { data: clientSettings } = await supabase
+                    .from('clients')
+                    .select('whatsapp_phone_number_id, whatsapp_access_token')
+                    .eq('id', business_id)
+                    .single();
 
-        const aiResponse = await step.run("generate-reply", async () => {
-            try {
-                // Construct the prompt context
-                const menuContext = JSON.stringify(context.menu);
+                const phoneNumberId = clientSettings?.whatsapp_phone_number_id;
+                const accessToken = clientSettings?.whatsapp_access_token;
 
-                // Current time in WAT (West Africa Time, UTC+1)
-                const now = new Date();
-                const watTime = now.toLocaleString('en-NG', {
-                    timeZone: 'Africa/Lagos',
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    hour12: true
-                });
-
-                // Build system prompt
-                let systemPrompt = context.systemPrompt
-                    .replace(/{{AGENT_NAME}}/g, context.agentName)
-                    .replace(/{{BUSINESS_NAME}}/g, context.businessName)
-                    .replace('{{MENU}}', menuContext)
-                    .replace('{{CHAT_HISTORY}}', '')
-                    .replace('{{BRAND_INFO}}', '(Delivery available via Paystack)')
-                    .replace('{{CURRENT_TIME}}', watTime)
-                    .replace('{{OPENING_HOURS}}', context.openTime && context.closeTime ? `${context.openTime} - ${context.closeTime}` : 'Not specified');
-
-                // Add store/delivery/business context
-                systemPrompt += `\n\n--- STORE AVAILABILITY ---`;
-                systemPrompt += `\nCurrent Time: ${watTime}`;
-                systemPrompt += `\nOpening Hours: ${context.openTime || '?'} - ${context.closeTime || '?'}`;
-                systemPrompt += `\nStore Status: OPEN`;
-                systemPrompt += `\n\nRULE: If the current time appears to be outside the Opening Hours, politely tell the customer you are not accepting orders right now and mention the opening hours. Do NOT process any orders or generate payment links outside opening hours.`;
-
-                systemPrompt += `\n\n--- DELIVERY CONFIGURATION ---`;
-                systemPrompt += `\nOffers Pickup: ${context.offersPickup ? 'YES' : 'NO'}`;
-                systemPrompt += `\nDelivery Zones & Fees: ${JSON.stringify(context.deliveryFees)}`;
-                systemPrompt += `\nTeam Escalation Contact: ${context.teamContact}`;
-                systemPrompt += `\nORDER RULE 1: IN YOUR VERY FIRST MESSAGE, ask the user if they want Delivery or Pickup (only if Offers Pickup is YES). Do not ask what they want to order until fulfillment is settled.`;
-                systemPrompt += `\nORDER RULE 2: If Delivery, ask for their exact delivery area. It MUST match one of the Delivery Zones above. If it does NOT match, do NOT proceed.`;
-                systemPrompt += `\nORDER RULE 3: For Delivery, correctly add the matched Delivery Fee to the total invoice amount.`;
-                systemPrompt += `\nORDER RULE 4: For Pickup, at the final invoice step add: "Since you're picking up, please CALL our team at ${context.teamContact} when you or your rider is here to collect it, and provide your Order ID. Do NOT send a WhatsApp message for this."`;
-                systemPrompt += `\nORDER RULE 5: For Delivery, at the final invoice step add: "Our rider will call you when they are out for delivery and you will receive a message."`;
-                systemPrompt += `\nORDER RULE 6: For complaints, refunds, or special requests, give the Team Escalation Contact.`;
-
-                systemPrompt += `\n\n--- BUSINESS CONTEXT ---`;
-                systemPrompt += `\nAgent Name: ${context.agentName}`;
-                systemPrompt += `\nBusiness Name: ${context.businessName}`;
-                systemPrompt += `\nMenu: ${menuContext}`;
-
-                systemPrompt += `\n\n--- PAYMENT TOOL ---`;
-                systemPrompt += `\nYou have a tool called generate_payment_link. When the customer confirms their order and you have their name, phone, email, and all items, call this tool to generate their payment link. The tool will return a payment URL that you should share with the customer.`;
-                systemPrompt += `\nIMPORTANT: Before calling the tool, make sure you have collected ALL required info (name, phone, email, delivery address). If anything is missing, ask for it first.`;
-
-                // Build the messages array with conversation history
-                const messages = [
-                    { role: 'system', content: systemPrompt }
-                ];
-
-                // Add conversation history as proper role-based messages
-                if (context.history && context.history.length > 0) {
-                    for (const msg of context.history) {
-                        messages.push({
-                            role: msg.role === 'assistant' ? 'assistant' : 'user',
-                            content: msg.content
-                        });
+                if (phoneNumberId && accessToken) {
+                    if (event.data.platform === 'simulation') {
+                        console.log(`[SIMULATION] Response saved for user: ${user_id}, bypassing WhatsApp.`);
+                    } else {
+                        try {
+                            console.log(`Sending WhatsApp response to user: ${user_id} via Phone ID: ${phoneNumberId}`);
+                            await axios.post(`https://graph.facebook.com/v19.0/${phoneNumberId}/messages`, {
+                                messaging_product: "whatsapp",
+                                to: user_id, // User's phone number
+                                type: "text",
+                                text: { body: aiResponse }
+                            }, {
+                                headers: {
+                                    'Authorization': `Bearer ${accessToken}`,
+                                    'Content-Type': 'application/json'
+                                }
+                            });
+                            console.log("Sent successfully via WhatsApp!");
+                        } catch (err) {
+                            const errorDetails = err?.response?.data || err.message;
+                            console.error("WhatsApp Send Failed:", errorDetails);
+                            throw new Error(`WhatsApp API Error: ${JSON.stringify(errorDetails)}`);
+                        }
                     }
-                }
-
-                // Add the current user message
-                messages.push({ role: 'user', content: event.data.message });
-
-                // Tool executor — handles generate_payment_link calls from the model
-                const toolExecutor = async (fnName, fnArgs) => {
-                    if (fnName === 'generate_payment_link') {
-                        return await executePaymentLink(fnArgs, business_id, user_id);
-                    }
-                    return { error: `Unknown tool: ${fnName}` };
-                };
-
-                // Call the LLM with tools
-                const text = await callLLMWithTools(messages, [PAYMENT_TOOL], toolExecutor);
-                return text;
-            } catch (error) {
-                console.error('[LLM] Error:', error?.message || error);
-                return 'I apologize, I am having trouble thinking right now. Please try again.';
-            }
-        });
-
-        // 4. SAVE & REPLY
-        await step.run("save-and-send", async () => {
-            // A. Insert Messages (User + AI)
-            await supabase.from('chat_messages').insert([
-                { session_id: context.sessionId, role: 'user', content: event.data.message },
-                { session_id: context.sessionId, role: 'assistant', content: aiResponse }
-            ]);
-
-            // B. Send via WhatsApp Cloud API
-            const { data: clientSettings } = await supabase
-                .from('clients')
-                .select('whatsapp_phone_number_id, whatsapp_access_token')
-                .eq('id', business_id)
-                .single();
-
-            const phoneNumberId = clientSettings?.whatsapp_phone_number_id;
-            const accessToken = clientSettings?.whatsapp_access_token;
-
-            if (phoneNumberId && accessToken) {
-                if (event.data.platform === 'simulation') {
-                    console.log(`[SIMULATION] Response saved for user: ${user_id}, bypassing WhatsApp.`);
                 } else {
-                    try {
-                        console.log(`Sending WhatsApp response to user: ${user_id} via Phone ID: ${phoneNumberId}`);
-                        await axios.post(`https://graph.facebook.com/v19.0/${phoneNumberId}/messages`, {
-                            messaging_product: "whatsapp",
-                            to: user_id, // User's phone number
-                            type: "text",
-                            text: { body: aiResponse }
-                        }, {
-                            headers: {
-                                'Authorization': `Bearer ${accessToken}`,
-                                'Content-Type': 'application/json'
-                            }
-                        });
-                        console.log("Sent successfully via WhatsApp!");
-                    } catch (err) {
-                        const errorDetails = err?.response?.data || err.message;
-                        console.error("WhatsApp Send Failed:", errorDetails);
-                        throw new Error(`WhatsApp API Error: ${JSON.stringify(errorDetails)}`);
-                    }
+                    console.log("Simulating WhatsApp send (No Credentials found for client):", aiResponse);
                 }
-            } else {
-                console.log("Simulating WhatsApp send (No Credentials found for client):", aiResponse);
+            });
+
+            return { success: true, reply: aiResponse };
+
+        } catch (workflowError) {
+            // DEBUG MODE: Send the error directly to WhatsApp so we can see it
+            console.error('[AGENT WORKFLOW ERROR]', workflowError?.message || workflowError);
+
+            const errorMsg = `[DEBUG] Agent Error:\n\n${workflowError?.message || String(workflowError)}\n\nStep: ${workflowError?.stack?.split('\n')?.[1]?.trim() || 'unknown'}`;
+
+            try {
+                const { data: clientSettings } = await supabase
+                    .from('clients')
+                    .select('whatsapp_phone_number_id, whatsapp_access_token')
+                    .eq('id', business_id)
+                    .single();
+
+                const phoneNumberId = clientSettings?.whatsapp_phone_number_id;
+                const accessToken = clientSettings?.whatsapp_access_token;
+
+                if (phoneNumberId && accessToken && event.data.platform !== 'simulation') {
+                    await axios.post(`https://graph.facebook.com/v19.0/${phoneNumberId}/messages`, {
+                        messaging_product: "whatsapp",
+                        to: user_id,
+                        type: "text",
+                        text: { body: errorMsg }
+                    }, {
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    console.log('[DEBUG] Error message sent to WhatsApp');
+                }
+            } catch (sendErr) {
+                console.error('[DEBUG] Failed to send error to WhatsApp:', sendErr.message);
             }
-        });
 
-        return { success: true, reply: aiResponse };
-
-      } catch (workflowError) {
-        // DEBUG MODE: Send the error directly to WhatsApp so we can see it
-        console.error('[AGENT WORKFLOW ERROR]', workflowError?.message || workflowError);
-
-        const errorMsg = `[DEBUG] Agent Error:\n\n${workflowError?.message || String(workflowError)}\n\nStep: ${workflowError?.stack?.split('\n')?.[1]?.trim() || 'unknown'}`;
-
-        try {
-            const { data: clientSettings } = await supabase
-                .from('clients')
-                .select('whatsapp_phone_number_id, whatsapp_access_token')
-                .eq('id', business_id)
-                .single();
-
-            const phoneNumberId = clientSettings?.whatsapp_phone_number_id;
-            const accessToken = clientSettings?.whatsapp_access_token;
-
-            if (phoneNumberId && accessToken && event.data.platform !== 'simulation') {
-                await axios.post(`https://graph.facebook.com/v19.0/${phoneNumberId}/messages`, {
-                    messaging_product: "whatsapp",
-                    to: user_id,
-                    type: "text",
-                    text: { body: errorMsg }
-                }, {
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                console.log('[DEBUG] Error message sent to WhatsApp');
-            }
-        } catch (sendErr) {
-            console.error('[DEBUG] Failed to send error to WhatsApp:', sendErr.message);
+            return { success: false, error: workflowError.message };
         }
-
-        return { success: false, error: workflowError.message };
-      }
     }
 );
