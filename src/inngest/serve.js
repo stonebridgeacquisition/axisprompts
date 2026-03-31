@@ -117,14 +117,30 @@ app.post("/api/whatsapp-webhook/:bid", async (req, res) => {
                 for (const change of entry.changes || []) {
                     const value = change.value;
                     
-                    // Check if it's a message and has text
+                    // Skip status updates (delivered, read, sent) — these are NOT messages
+                    if (value.statuses) {
+                        console.log(`[WHATSAPP] Skipping status update: ${value.statuses[0]?.status}`);
+                        continue;
+                    }
+
+                    // Only process actual text messages
                     if (value.messages && value.messages[0]) {
                         const messagePart = value.messages[0];
-                        const senderPhoneNumber = messagePart.from; // User's phone number
+
+                        // Skip non-text messages (images without caption, reactions, buttons, etc.)
+                        if (messagePart.type !== 'text') {
+                            console.log(`[WHATSAPP] Skipping non-text message type: ${messagePart.type}`);
+                            continue;
+                        }
+
+                        const senderPhoneNumber = messagePart.from;
                         const messageText = messagePart.text?.body;
                         const userName = value.contacts?.[0]?.profile?.name || "Customer";
 
-                        if (!messageText) continue; // Skip if no text body (e.g. image without caption, read receipts, etc)
+                        if (!messageText || messageText.trim().length === 0) {
+                            console.log(`[WHATSAPP] Skipping empty message`);
+                            continue;
+                        }
 
                         console.log(`[WHATSAPP] Msg from ${senderPhoneNumber} to BID ${businessId}: "${messageText}"`);
 
