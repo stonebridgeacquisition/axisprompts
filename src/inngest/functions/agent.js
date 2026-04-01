@@ -501,37 +501,26 @@ export const agentWorkflow = inngest.createFunction(
                         .replace(/{{AGENT_NAME}}/g, context.agentName)
                         .replace(/{{BUSINESS_NAME}}/g, context.businessName)
                         .replace('{{MENU}}', menuContext)
-                        .replace('{{CHAT_HISTORY}}', '')
-                        .replace('{{BRAND_INFO}}', '(Delivery available via Paystack)')
-                        .replace('{{CURRENT_TIME}}', watTime)
-                        .replace('{{OPENING_HOURS}}', context.openTime ? `${context.openTime} - ${context.closeTime}` : 'Not specified');
+                        .replace('{{CURRENT_TIME}}', watTime);
 
-                    // Append data sections
-                    systemPrompt += `\n\n--- STORE AVAILABILITY ---`;
-                    systemPrompt += `\nCurrent Time: ${watTime}`;
-                    systemPrompt += `\nStore Status: OPEN`;
-                    systemPrompt += `\nNOTE: Store status is determined by management. If this says OPEN, the store is open. Do NOT tell the customer it is closed.`;
-
-                    systemPrompt += `\n\n--- ORDERING FLOW (GOAL-ORIENTED) ---`;
-                    systemPrompt += `\nFollow these goals in strict order. You are authorized to skip any goal if the information is already in memory or provided in the current message.`;
-                    systemPrompt += `\nGOAL 1: GREET & FULFILLMENT TYPE. Ask delivery or pickup? (Only if Offers Pickup is YES).`;
-                    systemPrompt += `\nGOAL 2: DELIVERY AREA (Delivery only). Ask which area они are in. Do NOT suggest areas. Match against Zones.`;
-                    systemPrompt += `\nGOAL 3: TAKE THE ORDER. Guide through menu. Offer ONE upsell.`;
-                    systemPrompt += `\nGOAL 4: ALLERGIES & SPECIAL INSTRUCTIONS. You MUST ask this before asking for contact info.`;
-                    systemPrompt += `\nGOAL 5: CONTACT DETAILS & SPECIFIC ADDRESS. Ask for full name, phone number, email, AND specific house/street address in ONE message.`;
-                    systemPrompt += `\nGOAL 6: ORDER SUMMARY. Present summary with items, SPECIFIC address, and total. Ask: "Should I send the payment link?"`;
-                    systemPrompt += `\nGOAL 7: PAYMENT LINK. Call generate_payment_link ONLY after explicit confirmation.`;
-                    systemPrompt += `\n\n--- ORDER STATUS CHECK ---`;
-                    systemPrompt += `\nIf a customer asks for an update on an existing order: Look for the Order ID (starts with AX-) in the chat history. If found, call check_order_status. If not found, politely ask for it.`;
-
-                    systemPrompt += `\n\n--- BUSINESS CONTEXT ---`;
+                    // Append ONLY facts/data blocks. The INSTRUCTIONS must come from Supabase platform_settings.
+                    systemPrompt += `\n\n--- BUSINESS FACTS (DO NOT CONTRADICT) ---`;
                     systemPrompt += `\nAgent Name: ${context.agentName}`;
                     systemPrompt += `\nBusiness Name: ${context.businessName}`;
-                    systemPrompt += `\nMenu: ${menuContext}`;
+                    systemPrompt += `\nCurrent Time (WAT): ${watTime}`;
+                    systemPrompt += `\nStore Status: ${context.isOpen ? 'OPEN' : 'CLOSED'}`;
+                    systemPrompt += `\nOffers Pickup: ${context.offersPickup ? 'YES' : 'NO'}`;
+                    systemPrompt += `\nTeam/Escalation Contact: ${context.teamContact}`;
 
-                    systemPrompt += `\n\n--- TOOLS ---`;
-                    systemPrompt += `\n1. generate_payment_link: Call ONLY when customer confirmed the order and all contact details are collected.`;
-                    systemPrompt += `\n2. check_order_status: Call when a customer asks for an update. Look for the Order ID (AX-XXXXXX) in the history before asking.`;
+                    systemPrompt += `\n\n--- DELIVERY CONFIGURATION ---`;
+                    systemPrompt += `\nZones & Fees: ${JSON.stringify(context.deliveryFees)}`;
+
+                    systemPrompt += `\n\n--- MENU & STOCK ---`;
+                    systemPrompt += `\n${menuContext}`;
+
+                    systemPrompt += `\n\n--- TOOLS AVAILABLE ---`;
+                    systemPrompt += `\n1. generate_payment_link: Call this to create a checkout link. Requires name, phone, email, address, and items.`;
+                    systemPrompt += `\n2. check_order_status: Call this to check an existing order status using an Order ID (AX-XXXXXX).`;
 
                     // Build messages array
                     const messages = [{ role: 'system', content: systemPrompt }];
