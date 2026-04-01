@@ -410,13 +410,13 @@ export const agentWorkflow = inngest.createFunction(
                     sessionId = newSession.id;
                 }
 
-                // Fetch last 15 messages
+                // Fetch last 30 messages
                 const { data: history } = await supabase
                     .from('chat_messages')
                     .select('role, content')
                     .eq('session_id', sessionId)
                     .order('created_at', { ascending: false })
-                    .limit(15);
+                    .limit(30);
 
                 return {
                     sessionId,
