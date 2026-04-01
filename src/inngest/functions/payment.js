@@ -53,21 +53,12 @@ export const paymentLifecycle = inngest.createFunction(
 
                 if (phoneNumberId && accessToken) {
                     try {
-                        const successMsg = `🎉 *Order Confirmed!*\n\nWe have received your payment for Order #${shortOrderId}.\n\n👨‍🍳 Your food is currently being prepared!\n🛵 You will receive another message with your rider's number as soon as it's out for delivery.\n\nThank you for choosing us! 🍽️`;
+                        const successMsg = `🎉 *Order Confirmed!*\n\nOrder #${shortOrderId} has been received and the kitchen has started preparing your meal! 👨‍🍳\n\nThank you for choosing us! 🍽️`;
                         
-                        await axios.post(
-                            `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`,
-                            {
-                                messaging_product: "whatsapp",
-                                to: user_id,
-                                type: "text",
-                                text: { body: successMsg }
-                            },
-                            { headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }
-                        );
-                        
-                        // Also record this message in the chat history so the AI has context
-                        // We need the session_id to do this properly. Try to find the latest session.
+                        // NOTE: Skip sending WhatsApp message here because paystack-webhook already sent an instant confirmation.
+                        // We ONLY record this in chat history so the AI agent has context for the order ID.
+
+                        // Try to find the latest session
                         const { data: session } = await supabase
                             .from('chat_sessions')
                             .select('id')
@@ -84,7 +75,7 @@ export const paymentLifecycle = inngest.createFunction(
                             });
                         }
                     } catch (err) {
-                        console.error("Failed to send success message via WhatsApp:", err.message);
+                        console.error("Failed to sync success message to chat history:", err.message);
                     }
                 }
             });

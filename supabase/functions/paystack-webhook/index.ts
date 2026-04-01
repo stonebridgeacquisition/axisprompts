@@ -55,6 +55,51 @@ async function sendEmail(to: string, subject: string, html: string, fromName: st
   }
 }
 
+/**
+ * Normalizes Nigerian phone numbers to the format required by WhatsApp (234...)
+ * Handles: 090..., +234..., 234..., and spaces/hyphens.
+ */
+function normalizePhone(phone: string): string {
+    // Remove all non-digits
+    let cleaned = phone.replace(/\D/g, '');
+    
+    // If starts with 0 (e.g. 090...), replace with 234
+    if (cleaned.startsWith('0')) {
+        cleaned = '234' + cleaned.substring(1);
+    }
+    
+    // If it's already 234..., leave as is. 
+    // If it's 10 digits and missing 234, prepending it
+    if (!cleaned.startsWith('234') && cleaned.length === 10) {
+        cleaned = '234' + cleaned;
+    }
+    
+    return cleaned;
+}
+
+/**
+ * Sends a POST event to Inngest to trigger workflows
+ */
+async function sendInngestEvent(name: string, data: any) {
+  const INNGEST_EVENT_KEY = Deno.env.get('INNGEST_EVENT_KEY');
+  if (!INNGEST_EVENT_KEY) {
+    console.warn('Skipping Inngest: Missing INNGEST_EVENT_KEY');
+    return;
+  }
+  
+  try {
+    const res = await fetch(`https://inn.gs/e/${INNGEST_EVENT_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify([{ name, data }])
+    });
+    if (!res.ok) console.error('Inngest Error:', await res.text());
+    else console.log(`Inngest Event '${name}' sent successfully.`);
+  } catch (err) {
+    console.error('Inngest Event Failed:', err);
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'GET') {
     return new Response('Paystack Webhook is ACTIVE. Listening for POST requests from Paystack.', { status: 200 })
@@ -229,7 +274,7 @@ Deno.serve(async (req: Request) => {
   // Verify Subaccount MATCHES the Client Record (Rigid Check)
   const { data: client, error: clientError } = await supabase
     .from('clients')
-    .select('id, business_name, payment_model, email, logo_url, phone_number')
+    .select('id, business_name, payment_model, email, logo_url, phone_number, whatsapp_phone_number_id, whatsapp_access_token')
     .eq('paystack_subaccount_code', subaccountCode)
     .single()
 
@@ -341,54 +386,54 @@ Deno.serve(async (req: Request) => {
   })
 
   // ---------------------------------------------------------
-  // SEND CONFIRMATION TO CUSTOMER VIA MANYCHAT
+  // SEND CONFIRMATION TO CUSTOMER VIA WHATSAPP CLOUD API
   // ---------------------------------------------------------
-  const userId = paymentData.metadata?.user_id
-  if (userId) {
+  const whatsappUserId = paymentData.metadata?.user_id
+  const whatsappPhoneId = client.whatsapp_phone_number_id
+  const whatsappToken = client.whatsapp_access_token
+
+  if (whatsappUserId && whatsappPhoneId && whatsappToken) {
     try {
-      // Fetch client's ManyChat API key
-      const { data: clientKeys } = await supabase
-        .from('clients')
-        .select('manychat_api_key')
-        .eq('id', client.id)
-        .single()
+      const confirmMsg = `🎉 *Payment Confirmed!* (Order #${shortOrderId})\n\nPayment of ₦${amount.toLocaleString()} received. Your order is now being prepared! Thank you for ordering with ${client.business_name}.`
 
-      const manyChatKey = clientKeys?.manychat_api_key
-      if (manyChatKey) {
-        const confirmMsg = `Payment of ₦${amount.toLocaleString()} received. Your order is now being prepared. Thank you for ordering with ${client.business_name}.`
-
-        const mcResponse = await fetch('https://api.manychat.com/fb/sending/sendContent', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${manyChatKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            subscriber_id: userId,
-            data: {
-              version: 'v2',
-              content: {
-                type: 'instagram',
-                messages: [{ type: 'text', text: confirmMsg }]
-              }
-            }
-          })
+      const waResponse = await fetch(`https://graph.facebook.com/v19.0/${whatsappPhoneId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${whatsappToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          to: normalizePhone(whatsappUserId),
+          type: "text",
+          text: { body: confirmMsg }
         })
+      });
 
-        const mcResult = await mcResponse.json()
-        if (mcResult.status === 'success') {
-          console.log(`Payment confirmation sent to user ${userId} via ManyChat`)
-        } else {
-          console.error('ManyChat send failed:', mcResult)
-        }
+      const waResult = await waResponse.json();
+      if (waResponse.ok) {
+        console.log(`Payment confirmation sent to user ${whatsappUserId} via Meta API`);
       } else {
-        console.warn(`No ManyChat API key found for client ${client.id}`)
+        console.error('WhatsApp API send failed:', waResult);
       }
-    } catch (mcError) {
-      console.error('ManyChat confirmation error:', mcError)
+    } catch (waError) {
+      console.error('WhatsApp confirmation error:', waError);
     }
   } else {
-    console.warn('No user_id in payment metadata, skipping ManyChat confirmation')
+    console.warn('Missing WhatsApp credentials or user_id in payment metadata');
+  }
+
+  // ---------------------------------------------------------
+  // TRIGGER INNGEST PAYMENT LIFECYCLE
+  // ---------------------------------------------------------
+  if (reference) {
+    await sendInngestEvent('payment/success', {
+      reference: reference,
+      amount: amount,
+      business_id: client.id,
+      user_id: whatsappUserId,
+      status: 'Paid'
+    });
   }
 
   // --- Send Telegram Order Alert to Client ---

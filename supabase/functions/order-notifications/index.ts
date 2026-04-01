@@ -28,27 +28,36 @@ function normalizePhone(phone: string): string {
 Deno.serve(async (req: Request) => {
     // Handle Supabase Database Webhook trigger
     const payload = await req.json();
+    console.log('--- DATABASE WEBHOOK RECEIVED ---');
+    console.log('Payload:', JSON.stringify(payload, null, 2));
+
     const { record, old_record, type } = payload;
 
     // Only process UPDATE events where the status has changed
     if (type !== 'UPDATE' || !record || !old_record) {
+        console.warn(`[ORDER NOTIFICATION] Event ignored: Type is ${type}, not UPDATE`);
         return new Response(JSON.stringify({ message: 'Event ignored: Not a record update' }), { status: 200 });
     }
 
-    const newStatus = record.status;
-    const oldStatus = old_record.status;
+    // Normalize statuses for comparison
+    const newStatus = record.status?.trim();
+    const oldStatus = old_record.status?.trim();
 
     if (newStatus === oldStatus) {
+        console.warn(`[ORDER NOTIFICATION] Event ignored: Status unchanged (${newStatus})`);
         return new Response(JSON.stringify({ message: 'Event ignored: Status unchanged' }), { status: 200 });
     }
 
     // Target statuses for notifications
     const targetStatuses = ['Out for Delivery', 'Delivered', 'Cancelled'];
-    if (!targetStatuses.includes(newStatus)) {
+    const isTarget = targetStatuses.some(s => s.toLowerCase() === newStatus?.toLowerCase());
+    
+    if (!isTarget) {
+        console.warn(`[ORDER NOTIFICATION] Event ignored: Status "${newStatus}" not in target list`);
         return new Response(JSON.stringify({ message: `Event ignored: Status ${newStatus} not in target list` }), { status: 200 });
     }
 
-    console.log(`[ORDER NOTIFICATION] Status change detected: ${oldStatus} -> ${newStatus} for Order ID: ${record.id}`);
+    console.log(`[ORDER NOTIFICATION] Triggering notification: ${oldStatus} -> ${newStatus} for Order ID: ${record.id}`);
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
