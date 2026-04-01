@@ -48,6 +48,21 @@ const PAYMENT_TOOL = {
     }
 };
 
+const CHECK_ORDER_STATUS_TOOL = {
+    type: "function",
+    function: {
+        name: "check_order_status",
+        description: "Checks the current fulfillment status of an order using its Order ID (e.g. AX-7H2R). Look for the ID in the chat history before asking the customer.",
+        parameters: {
+            type: "object",
+            properties: {
+                order_id: { type: "string", description: "The 6-character Order ID starting with AX-. Example: AX-7G3Q" }
+            },
+            required: ["order_id"]
+        }
+    }
+};
+
 /**
  * Call OpenRouter with messages + optional tools.
  * Retries across multiple models if one fails.
@@ -110,8 +125,8 @@ async function callLLMWithTools(messages, tools, toolExecutor) {
 
                     console.log(`[TOOL] Executing ${fnName} with args:`, JSON.stringify(fnArgs).substring(0, 200));
 
-                    // Reject unknown tool calls — only generate_payment_link exists
-                    if (fnName !== 'generate_payment_link') {
+                    // Reject unknown tool calls
+                    if (fnName !== 'generate_payment_link' && fnName !== 'check_order_status') {
                         console.warn(`[TOOL] Model called unknown tool "${fnName}" - rejecting`);
                         updatedMessages.push({
                             role: "tool",
@@ -497,25 +512,26 @@ export const agentWorkflow = inngest.createFunction(
                     systemPrompt += `\nStore Status: OPEN`;
                     systemPrompt += `\nNOTE: Store status is determined by management. If this says OPEN, the store is open. Do NOT tell the customer it is closed.`;
 
-                    systemPrompt += `\n\n--- DELIVERY CONFIGURATION ---`;
-                    systemPrompt += `\nOffers Pickup: ${context.offersPickup ? 'YES' : 'NO'}`;
-                    systemPrompt += `\nDelivery Zones & Fees: ${JSON.stringify(context.deliveryFees)}`;
-                    systemPrompt += `\nTeam Escalation Contact: ${context.teamContact}`;
-                    systemPrompt += `\nORDER RULE 1: In your first message, ask the user if they want Delivery or Pickup (only if Offers Pickup is YES). If NO, skip straight to taking the order.`;
-                    systemPrompt += `\nORDER RULE 2: If Delivery, ask for their area. It MUST match one of the Delivery Zones. If no match, say you don't deliver there and give the team contact.`;
-                    systemPrompt += `\nORDER RULE 3: For Delivery, add the matched Delivery Fee to the total.`;
-                    systemPrompt += `\nORDER RULE 4: For Pickup, at the final step add: "Since you're picking up, please CALL our team at ${context.teamContact} when you or your rider arrives to collect, and give your Order ID."`;
-                    systemPrompt += `\nORDER RULE 5: For Delivery, at the final step add: "Our rider will call you when they're out for delivery."`;
-                    systemPrompt += `\nORDER RULE 6: For complaints, refunds, or special requests, give the Team Escalation Contact.`;
+                    systemPrompt += `\n\n--- ORDERING FLOW (GOAL-ORIENTED) ---`;
+                    systemPrompt += `\nFollow these goals in strict order. You are authorized to skip any goal if the information is already in memory or provided in the current message.`;
+                    systemPrompt += `\nGOAL 1: GREET & FULFILLMENT TYPE. Ask delivery or pickup? (Only if Offers Pickup is YES).`;
+                    systemPrompt += `\nGOAL 2: DELIVERY AREA (Delivery only). Ask which area они are in. Do NOT suggest areas. Match against Zones.`;
+                    systemPrompt += `\nGOAL 3: TAKE THE ORDER. Guide through menu. Offer ONE upsell.`;
+                    systemPrompt += `\nGOAL 4: ALLERGIES & SPECIAL INSTRUCTIONS. You MUST ask this before asking for contact info.`;
+                    systemPrompt += `\nGOAL 5: CONTACT DETAILS & SPECIFIC ADDRESS. Ask for full name, phone number, email, AND specific house/street address in ONE message.`;
+                    systemPrompt += `\nGOAL 6: ORDER SUMMARY. Present summary with items, SPECIFIC address, and total. Ask: "Should I send the payment link?"`;
+                    systemPrompt += `\nGOAL 7: PAYMENT LINK. Call generate_payment_link ONLY after explicit confirmation.`;
+                    systemPrompt += `\n\n--- ORDER STATUS CHECK ---`;
+                    systemPrompt += `\nIf a customer asks for an update on an existing order: Look for the Order ID (starts with AX-) in the chat history. If found, call check_order_status. If not found, politely ask for it.`;
 
                     systemPrompt += `\n\n--- BUSINESS CONTEXT ---`;
                     systemPrompt += `\nAgent Name: ${context.agentName}`;
                     systemPrompt += `\nBusiness Name: ${context.businessName}`;
                     systemPrompt += `\nMenu: ${menuContext}`;
 
-                    systemPrompt += `\n\n--- PAYMENT TOOL ---`;
-                    systemPrompt += `\nYou have exactly ONE tool: generate_payment_link. Do NOT call any other function. If you want to say something, write plain text.`;
-                    systemPrompt += `\nCall generate_payment_link ONLY when: (1) customer confirmed the order, AND (2) you have their name, phone, email, and all items.`;
+                    systemPrompt += `\n\n--- TOOLS ---`;
+                    systemPrompt += `\n1. generate_payment_link: Call ONLY when customer confirmed the order and all contact details are collected.`;
+                    systemPrompt += `\n2. check_order_status: Call when a customer asks for an update. Look for the Order ID (AX-XXXXXX) in the history before asking.`;
 
                     // Build messages array
                     const messages = [{ role: 'system', content: systemPrompt }];
@@ -546,16 +562,38 @@ export const agentWorkflow = inngest.createFunction(
                             if (!isValid(fnArgs.customer_email) || !String(fnArgs.customer_email).includes('@')) {
                                 return { error: 'STOP. Do not call this tool again. Tell the customer: "I need your full name, phone number, and email address."' };
                             }
+
                             if (!fnArgs.items || !Array.isArray(fnArgs.items) || fnArgs.items.length === 0) {
                                 return { error: 'STOP. No items in the order. Ask the customer what they want to order first.' };
                             }
 
                             return await executePaymentLink(fnArgs, business_id, user_id);
                         }
+                        
+                        if (fnName === 'check_order_status') {
+                            const { data, error } = await supabase
+                                .from('orders')
+                                .select('status, delivery_address, items_summary, total_amount')
+                                .eq('order_id', fnArgs.order_id)
+                                .eq('client_id', business_id)
+                                .maybeSingle();
+
+                            if (error || !data) {
+                                return { error: `I couldn't find an order with ID ${fnArgs.order_id}. Please double-check the number.` };
+                            }
+
+                            return {
+                                success: true,
+                                order_id: fnArgs.order_id,
+                                status: data.status,
+                                message: `Order #${fnArgs.order_id} is currently: ${data.status}.`
+                            };
+                        }
+
                         return { error: `Unknown tool: ${fnName}` };
                     };
 
-                    let text = await callLLMWithTools(messages, [PAYMENT_TOOL], toolExecutor);
+                    let text = await callLLMWithTools(messages, [PAYMENT_TOOL, CHECK_ORDER_STATUS_TOOL], toolExecutor);
 
                     // Strip any <internal_thinking> tags that leak into responses
                     text = text.replace(/<internal_thinking>[\s\S]*?<\/internal_thinking>/gi, '').trim();

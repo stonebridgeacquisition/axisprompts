@@ -253,6 +253,17 @@ Deno.serve(async (req: Request) => {
     }).join('\n');
   }
 
+  // Generate a short, unique Order ID (e.g., AX-7H2R)
+  const generateShortId = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No O, 0, I, 1 to avoid confusion
+    let result = '';
+    for (let i = 0; i < 6; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return `AX-${result}`;
+  };
+  const shortOrderId = generateShortId();
+
   // Fallback for delivery address mapping
   const deliveryAddress = metadata.delivery_details || metadata.delivery_address || 'Pickup';
 
@@ -276,7 +287,7 @@ Deno.serve(async (req: Request) => {
       customer_name: customerName,
       customer_phone: customerPhone,
       customer_email: paymentData.customer?.email || null,
-      order_id: orderId,
+      order_id: shortOrderId,
       delivery_address: deliveryAddress,
       total_amount: amount,
       payment_status: 'Paid',

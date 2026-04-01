@@ -32,21 +32,14 @@ export const paymentLifecycle = inngest.createFunction(
                     .update({ status: 'success' })
                     .eq('reference', reference);
 
-                // 2. Create Order in Dashboard
-                if (orderData) {
-                    await supabase.from('orders').insert({
-                        client_id: business_id,
-                        order_id: reference.replace('REF-', ''), // Clean custom ID for UI
-                        customer_name: orderData.customer_name || 'Customer',
-                        customer_phone: orderData.customer_phone || user_id,
-                        delivery_address: orderData.delivery_address || 'Pickup / Not specified',
-                        items_summary: JSON.stringify(orderData.items || []),
-                        total_amount: amount,
-                        status: 'In Progress',
-                        payment_status: 'Paid',
-                        payment_method: 'Paystack'
-                    });
-                }
+                // 2. Fetch Order Created by Webhook
+                const { data: order } = await supabase
+                    .from('orders')
+                    .select('order_id')
+                    .eq('paystack_reference', reference)
+                    .single();
+
+                const shortOrderId = order?.order_id || reference.replace('REF-', '');
 
                 // 3. Notify User via WhatsApp
                 const { data: clientSettings } = await supabase
@@ -60,7 +53,7 @@ export const paymentLifecycle = inngest.createFunction(
 
                 if (phoneNumberId && accessToken) {
                     try {
-                        const successMsg = `🎉 *Order Confirmed!*\n\nWe have received your payment for the order (Ref: ${reference}).\n\n👨‍🍳 Your food is currently being prepared!\n🛵 You will receive another message with your rider's number as soon as it's out for delivery.\n\nThank you for choosing us! 🍽️`;
+                        const successMsg = `🎉 *Order Confirmed!*\n\nWe have received your payment for Order #${shortOrderId}.\n\n👨‍🍳 Your food is currently being prepared!\n🛵 You will receive another message with your rider's number as soon as it's out for delivery.\n\nThank you for choosing us! 🍽️`;
                         
                         await axios.post(
                             `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`,
