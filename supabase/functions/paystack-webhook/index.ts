@@ -241,8 +241,21 @@ Deno.serve(async (req: Request) => {
   // Extract metadata for complete order fulfillment
   const metadata = paymentData.metadata || {};
   const orderId = metadata.order_id || null;
-  const itemsSummary = metadata.items_summary || 'Awaiting agent confirmation';
-  const deliveryAddress = metadata.delivery_details || null;
+
+  // Build itemsSummary from the metadata.items array if present
+  let itemsSummary = metadata.items_summary || 'Awaiting agent confirmation';
+  if (metadata.items && Array.isArray(metadata.items)) {
+    itemsSummary = metadata.items.map((item: any) => {
+      const qty = parseInt(item.quantity) || 0;
+      const price = parseInt(item.price) || 0;
+      const total = qty * price;
+      return `- ${qty}x ${item.name} — ₦${total.toLocaleString()}`;
+    }).join('\n');
+  }
+
+  // Fallback for delivery address mapping
+  const deliveryAddress = metadata.delivery_details || metadata.delivery_address || 'Pickup';
+
   const customerName = metadata.customer_name || paymentData.customer?.first_name || 'Unknown';
   const customerPhone = metadata.customer_phone || paymentData.customer?.phone || null;
 
