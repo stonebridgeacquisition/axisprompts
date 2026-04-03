@@ -504,6 +504,19 @@ Deno.serve(async (req: Request) => {
         console.error('Telegram Push Result Error:', telegramResult);
       } else {
         console.log('Telegram Push Result Success:', telegramResult.result.message_id);
+
+        // Save the Telegram order notification to conversation history (assistant message)
+        try {
+          await supabase.from('telegram_conversations').insert({
+            client_id: client.id,
+            message_text: messageText,
+            sender: 'assistant',
+            telegram_message_id: telegramResult.result.message_id
+          });
+          console.log('Telegram notification saved to conversation history');
+        } catch (saveErr) {
+          console.error('Failed to save Telegram notification to history:', saveErr);
+        }
       }
     } else {
       console.warn("Skipping Telegram: Missing telegram_chat_id or bot token.");
