@@ -9,7 +9,7 @@ const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const TELEGRAM_BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN')!
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 
-const OPENROUTER_MODEL = 'minimax/minimax-m2.5:free'
+const OPENROUTER_MODEL = 'qwen/qwen3.6-plus:free'
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const MAX_HISTORY_MESSAGES = 20
 
