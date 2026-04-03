@@ -377,7 +377,7 @@ export const agentWorkflow = inngest.createFunction(
                 // C. Client info (includes WhatsApp credentials, hours, pickup setting)
                 const { data: clientInfo } = await supabase
                     .from('clients')
-                    .select('status, is_open, open_time, close_time, agent_name, business_name, offers_pickup, team_contact, whatsapp_phone_number_id, whatsapp_access_token')
+                    .select('status, is_open, open_time, close_time, agent_name, business_name, offers_pickup, team_contact, whatsapp_phone_number_id, whatsapp_access_token, open_days')
                     .eq('id', business_id)
                     .single();
 
@@ -427,6 +427,7 @@ export const agentWorkflow = inngest.createFunction(
                     isOpen: clientInfo?.is_open !== false,
                     openTime: clientInfo?.open_time || null,
                     closeTime: clientInfo?.close_time || null,
+                    openDays: clientInfo?.open_days || ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
                     agentName: clientInfo?.agent_name || 'Agent',
                     businessName: clientInfo?.business_name || 'Our Store',
                     offersPickup: clientInfo?.offers_pickup || false,
@@ -453,7 +454,32 @@ export const agentWorkflow = inngest.createFunction(
                     : '';
                 const hoursStr = closeTimeStr ? `${openTimeStr} - ${closeTimeStr}` : openTimeStr;
 
-                const closedMsg = `Hey there! We're currently closed and not accepting orders right now.\n\nWe'll be open by ${hoursStr}. Feel free to message us then and we'll be happy to help you place your order!`;
+                // Check if store is closed because today is not an open day
+                const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                const currentWATTime = new Date().toLocaleString('en-US', { timeZone: 'Africa/Lagos' });
+                const currentWATDate = new Date(currentWATTime);
+                const currentDay = daysOfWeek[currentWATDate.getDay()];
+
+                let closedMsg = '';
+                const isClosedDueToDay = context.openDays && !context.openDays.includes(currentDay);
+
+                if (isClosedDueToDay) {
+                    // Find next open day
+                    let nextOpenDay = null;
+                    for (let i = 1; i <= 7; i++) {
+                        const nextDate = new Date(currentWATDate);
+                        nextDate.setDate(nextDate.getDate() + i);
+                        const nextDay = daysOfWeek[nextDate.getDay()];
+                        if (context.openDays.includes(nextDay)) {
+                            nextOpenDay = nextDay;
+                            break;
+                        }
+                    }
+
+                    closedMsg = `Hey there! We're not open today, but we'll be back on ${nextOpenDay} at ${openTimeStr}.\n\nFeel free to reach out then and we'd be happy to help you place your order!`;
+                } else {
+                    closedMsg = `Hey there! We're currently closed and not accepting orders right now.\n\nWe'll be open by ${hoursStr}. Feel free to message us then and we'll be happy to help you place your order!`;
+                }
 
                 await step.run("send-closed-reply", async () => {
                     await supabase.from('chat_messages').insert({ session_id: context.sessionId, role: 'user', content: event.data.message });
@@ -517,6 +543,7 @@ export const agentWorkflow = inngest.createFunction(
                     systemPrompt += `\nBusiness Name: ${context.businessName}`;
                     systemPrompt += `\nCurrent Time (WAT): ${watTime}`;
                     systemPrompt += `\nStore Status: ${context.isOpen ? 'OPEN' : 'CLOSED'}`;
+                    systemPrompt += `\nOpen Days: ${context.openDays ? context.openDays.join(', ') : 'Every day'}`;
                     systemPrompt += `\nOffers Pickup: ${context.offersPickup ? 'YES' : 'NO'}`;
                     systemPrompt += `\nTeam/Escalation Contact: ${context.teamContact}`;
 

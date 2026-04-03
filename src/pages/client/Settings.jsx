@@ -372,6 +372,44 @@ const ClientSettings = () => {
                             <InputField label="Open Time" name="open_time" type="time" value={form.open_time} onChange={handleChange} />
                             <InputField label="Close Time" name="close_time" type="time" value={form.close_time} onChange={handleChange} />
                         </div>
+
+                        {/* Open Days Picker */}
+                        <div className="sm:col-span-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase mb-3 block">Days Open</label>
+                            <div className="flex flex-wrap gap-2">
+                                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                                    <button
+                                        key={day}
+                                        type="button"
+                                        onClick={() => {
+                                            const currentDays = form.open_days || [];
+                                            if (currentDays.includes(day)) {
+                                                handleChange({
+                                                    target: {
+                                                        name: 'open_days',
+                                                        value: currentDays.filter(d => d !== day)
+                                                    }
+                                                });
+                                            } else {
+                                                handleChange({
+                                                    target: {
+                                                        name: 'open_days',
+                                                        value: [...currentDays, day]
+                                                    }
+                                                });
+                                            }
+                                        }}
+                                        className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                                            form.open_days?.includes(day)
+                                                ? 'bg-brand-600 text-white'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        {day}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
 

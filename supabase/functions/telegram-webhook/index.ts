@@ -262,6 +262,7 @@ const toolDeclarations = [
         team_contact: { type: 'STRING' },
         open_time: { type: 'STRING', description: 'Opening time in HH:MM format.' },
         close_time: { type: 'STRING', description: 'Closing time in HH:MM format.' },
+        open_days: { type: 'STRING', description: 'Comma-separated days the business is open (e.g. "Mon,Tue,Wed,Thu,Fri" or "Mon,Tue,Wed,Thu,Fri,Sat,Sun").' },
         agent_name: { type: 'STRING', description: 'Name of the AI ordering agent.' },
       },
     },
@@ -300,7 +301,7 @@ You help the client manage their business — the same things they can do on the
 - Cuisine: ${client.cuisine || 'Not set'}
 - Address: ${client.address || 'Not set'}
 - Phone: ${client.phone_number || 'Not set'}
-- Operating Hours: ${client.open_time || '?'} - ${client.close_time || '?'}
+- Operating Hours: ${client.open_time || '?'} - ${client.close_time || '?'} (Days: ${client.open_days?.join(', ') || 'Every day'})
 - AI Agent Name: ${client.agent_name || 'Not set'}`
 }
 
@@ -547,7 +548,7 @@ async function executeTool(
     // --- SETTINGS ---
     case 'get_settings': {
       const { data, error } = await supabase.from('clients')
-        .select('business_name, email, phone_number, address, cuisine, team_contact, open_time, close_time, agent_name, logo_url')
+        .select('business_name, email, phone_number, address, cuisine, team_contact, open_time, close_time, open_days, agent_name, logo_url')
         .eq('id', clientId)
         .single()
       if (error) return { error: error.message }
@@ -555,11 +556,18 @@ async function executeTool(
     }
 
     case 'update_settings': {
-      const allowedFields = ['business_name', 'email', 'phone_number', 'address', 'cuisine', 'team_contact', 'open_time', 'close_time', 'agent_name']
+      const allowedFields = ['business_name', 'email', 'phone_number', 'address', 'cuisine', 'team_contact', 'open_time', 'close_time', 'open_days', 'agent_name']
       const updates: any = {}
       for (const field of allowedFields) {
         if (args[field] !== undefined) {
-          updates[field] = field.endsWith('_time') && args[field] && !args[field].includes(':') ? args[field] + ':00' : args[field]
+          if (field === 'open_days' && typeof args[field] === 'string') {
+            // Convert comma-separated string to array
+            updates[field] = args[field].split(',').map((day: string) => day.trim())
+          } else if (field.endsWith('_time') && args[field] && !args[field].includes(':')) {
+            updates[field] = args[field] + ':00'
+          } else {
+            updates[field] = args[field]
+          }
         }
       }
       if (Object.keys(updates).length === 0) return { error: 'No valid fields to update.' }

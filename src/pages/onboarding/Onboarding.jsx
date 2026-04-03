@@ -46,6 +46,7 @@ const Onboarding = () => {
         bankCode: '',
         openTime: '09:00',
         closeTime: '22:00',
+        openDays: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
         agentName: 'Jade',
         paymentModel: 'subscription' // 'subscription' or 'commission'
     });
@@ -276,6 +277,7 @@ const Onboarding = () => {
                         status: 'Active',
                         open_time: formData.openTime + ':00',
                         close_time: formData.closeTime + ':00',
+                        open_days: formData.openDays || ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
                         payment_model: formData.paymentModel,
                         subscription_status: formData.paymentModel === 'commission' ? null : 'trial',
                         delivery_method: onboardingDeliveryMethod,
@@ -763,6 +765,33 @@ const Onboarding = () => {
                                         onChange={handleChange}
                                         className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 shadow-sm transition-all text-sm"
                                     />
+                                </div>
+                            </div>
+
+                            {/* Days Open Picker */}
+                            <div className="col-span-2">
+                                <label className="block text-sm font-medium text-gray-700 mb-3">Days Open</label>
+                                <div className="flex flex-wrap gap-2">
+                                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                                        <button
+                                            key={day}
+                                            type="button"
+                                            onClick={() => {
+                                                const currentDays = formData.openDays || ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+                                                const newDays = currentDays.includes(day)
+                                                    ? currentDays.filter(d => d !== day)
+                                                    : [...currentDays, day];
+                                                setFormData({...formData, openDays: newDays});
+                                            }}
+                                            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                                                (formData.openDays || ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']).includes(day)
+                                                    ? 'bg-brand-600 text-white'
+                                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            {day}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
                         </div>
