@@ -7,10 +7,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const TELEGRAM_BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN')!
-const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')!
+const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 
-const GEMINI_MODEL = 'gemini-3-flash-preview'
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`
+const OPENROUTER_MODEL = 'minimax/minimax-m2.5:free'
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const MAX_HISTORY_MESSAGES = 20
 
 // =====================
@@ -71,199 +71,247 @@ async function getTelegramFileUrl(fileId: string): Promise<string | null> {
 }
 
 // =====================
-// TOOL DEFINITIONS (for Gemini function calling)
+// TOOL DEFINITIONS (for OpenRouter function calling)
 // =====================
 
 const toolDeclarations = [
   // --- ORDERS ---
   {
-    name: 'get_orders',
-    description: 'Get a list of orders for this client. Can filter by status, date range, or search term.',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        status: { type: 'STRING', description: 'Filter by order status: "In Progress", "Out for Delivery", "Completed", "Cancelled". Leave empty for all.' },
-        period: { type: 'STRING', description: 'Filter by time period: "today", "week", "month", or "all". Default is "all".' },
-        search: { type: 'STRING', description: 'Search by customer name.' },
-        limit: { type: 'INTEGER', description: 'Max number of orders to return. Default 10.' },
+    type: 'function',
+    function: {
+      name: 'get_orders',
+      description: 'Get a list of orders for this client. Can filter by status, date range, or search term.',
+      parameters: {
+        type: 'object',
+        properties: {
+          status: { type: 'string', description: 'Filter by order status: "In Progress", "Out for Delivery", "Completed", "Cancelled". Leave empty for all.' },
+          period: { type: 'string', description: 'Filter by time period: "today", "week", "month", or "all". Default is "all".' },
+          search: { type: 'string', description: 'Search by customer name.' },
+          limit: { type: 'integer', description: 'Max number of orders to return. Default 10.' },
+        },
       },
     },
   },
   {
-    name: 'get_order_details',
-    description: 'Get full details for a specific order by its ID or order_id.',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        order_id: { type: 'STRING', description: 'The order ID or UUID to look up.' },
+    type: 'function',
+    function: {
+      name: 'get_order_details',
+      description: 'Get full details for a specific order by its ID or order_id.',
+      parameters: {
+        type: 'object',
+        properties: {
+          order_id: { type: 'string', description: 'The order ID or UUID to look up.' },
+        },
+        required: ['order_id'],
       },
-      required: ['order_id'],
     },
   },
   {
-    name: 'update_order_status',
-    description: 'Update the status of an order. Valid statuses: "In Progress", "Out for Delivery", "Completed", "Cancelled".',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        order_id: { type: 'STRING', description: 'The order UUID.' },
-        new_status: { type: 'STRING', description: 'The new status to set.' },
+    type: 'function',
+    function: {
+      name: 'update_order_status',
+      description: 'Update the status of an order. Valid statuses: "In Progress", "Out for Delivery", "Completed", "Cancelled".',
+      parameters: {
+        type: 'object',
+        properties: {
+          order_id: { type: 'string', description: 'The order UUID.' },
+          new_status: { type: 'string', description: 'The new status to set.' },
+        },
+        required: ['order_id', 'new_status'],
       },
-      required: ['order_id', 'new_status'],
     },
   },
 
   // --- MENU ---
   {
-    name: 'get_menu_items',
-    description: 'Get all menu items for this client. Can filter by category or availability.',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        category: { type: 'STRING', description: 'Filter by category name.' },
-        available_only: { type: 'BOOLEAN', description: 'If true, only return available items.' },
+    type: 'function',
+    function: {
+      name: 'get_menu_items',
+      description: 'Get all menu items for this client. Can filter by category or availability.',
+      parameters: {
+        type: 'object',
+        properties: {
+          category: { type: 'string', description: 'Filter by category name.' },
+          available_only: { type: 'boolean', description: 'If true, only return available items.' },
+        },
       },
     },
   },
   {
-    name: 'add_menu_item',
-    description: 'Add a new item to the menu.',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        name: { type: 'STRING', description: 'Item name.' },
-        price: { type: 'NUMBER', description: 'Item price in Naira.' },
-        category: { type: 'STRING', description: 'Category name. Default "General".' },
-        description: { type: 'STRING', description: 'Item description.' },
+    type: 'function',
+    function: {
+      name: 'add_menu_item',
+      description: 'Add a new item to the menu.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Item name.' },
+          price: { type: 'number', description: 'Item price in Naira.' },
+          category: { type: 'string', description: 'Category name. Default "General".' },
+          description: { type: 'string', description: 'Item description.' },
+        },
+        required: ['name', 'price'],
       },
-      required: ['name', 'price'],
     },
   },
   {
-    name: 'update_menu_item',
-    description: 'Update an existing menu item. Provide the item ID and the fields to change.',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        item_id: { type: 'STRING', description: 'The menu item UUID.' },
-        name: { type: 'STRING', description: 'New name.' },
-        price: { type: 'NUMBER', description: 'New price.' },
-        category: { type: 'STRING', description: 'New category.' },
-        description: { type: 'STRING', description: 'New description.' },
-        is_available: { type: 'BOOLEAN', description: 'Set availability.' },
+    type: 'function',
+    function: {
+      name: 'update_menu_item',
+      description: 'Update an existing menu item. Provide the item ID and the fields to change.',
+      parameters: {
+        type: 'object',
+        properties: {
+          item_id: { type: 'string', description: 'The menu item UUID.' },
+          name: { type: 'string', description: 'New name.' },
+          price: { type: 'number', description: 'New price.' },
+          category: { type: 'string', description: 'New category.' },
+          description: { type: 'string', description: 'New description.' },
+          is_available: { type: 'boolean', description: 'Set availability.' },
+        },
+        required: ['item_id'],
       },
-      required: ['item_id'],
     },
   },
   {
-    name: 'delete_menu_item',
-    description: 'Delete a menu item. IMPORTANT: Always ask the user for confirmation before calling this.',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        item_id: { type: 'STRING', description: 'The menu item UUID to delete.' },
+    type: 'function',
+    function: {
+      name: 'delete_menu_item',
+      description: 'Delete a menu item. IMPORTANT: Always ask the user for confirmation before calling this.',
+      parameters: {
+        type: 'object',
+        properties: {
+          item_id: { type: 'string', description: 'The menu item UUID to delete.' },
+        },
+        required: ['item_id'],
       },
-      required: ['item_id'],
     },
   },
   {
-    name: 'toggle_item_availability',
-    description: 'Toggle a menu item between available and unavailable.',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        item_id: { type: 'STRING', description: 'The menu item UUID.' },
+    type: 'function',
+    function: {
+      name: 'toggle_item_availability',
+      description: 'Toggle a menu item between available and unavailable.',
+      parameters: {
+        type: 'object',
+        properties: {
+          item_id: { type: 'string', description: 'The menu item UUID.' },
+        },
+        required: ['item_id'],
       },
-      required: ['item_id'],
     },
   },
 
   // --- DELIVERY ---
   {
-    name: 'get_delivery_settings',
-    description: 'Get the current delivery configuration and all delivery fee zones.',
-    parameters: { type: 'OBJECT', properties: {} },
+    type: 'function',
+    function: {
+      name: 'get_delivery_settings',
+      description: 'Get the current delivery configuration and all delivery fee zones.',
+      parameters: { type: 'object', properties: {} },
+    },
   },
   {
-    name: 'update_delivery_config',
-    description: 'Update delivery settings: method, instructions, or pickup availability.',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        delivery_method: { type: 'STRING', description: '"rider_collects" or "restaurant_delivers".' },
-        delivery_instructions: { type: 'STRING', description: 'Delivery instructions text.' },
-        offers_pickup: { type: 'BOOLEAN', description: 'Whether the restaurant offers pickup.' },
+    type: 'function',
+    function: {
+      name: 'update_delivery_config',
+      description: 'Update delivery settings: method, instructions, or pickup availability.',
+      parameters: {
+        type: 'object',
+        properties: {
+          delivery_method: { type: 'string', description: '"rider_collects" or "restaurant_delivers".' },
+          delivery_instructions: { type: 'string', description: 'Delivery instructions text.' },
+          offers_pickup: { type: 'boolean', description: 'Whether the restaurant offers pickup.' },
+        },
       },
     },
   },
   {
-    name: 'add_delivery_zone',
-    description: 'Add a new delivery location/zone with a fee.',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        location: { type: 'STRING', description: 'Location/zone name (e.g. "Kado", "Wuse 2").' },
-        fee: { type: 'NUMBER', description: 'Delivery fee in Naira.' },
+    type: 'function',
+    function: {
+      name: 'add_delivery_zone',
+      description: 'Add a new delivery location/zone with a fee.',
+      parameters: {
+        type: 'object',
+        properties: {
+          location: { type: 'string', description: 'Location/zone name (e.g. "Kado", "Wuse 2").' },
+          fee: { type: 'number', description: 'Delivery fee in Naira.' },
+        },
+        required: ['location', 'fee'],
       },
-      required: ['location', 'fee'],
     },
   },
   {
-    name: 'remove_delivery_zone',
-    description: 'Remove a delivery zone. IMPORTANT: Always ask the user for confirmation before calling this.',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        zone_id: { type: 'STRING', description: 'The delivery fee UUID to remove.' },
+    type: 'function',
+    function: {
+      name: 'remove_delivery_zone',
+      description: 'Remove a delivery zone. IMPORTANT: Always ask the user for confirmation before calling this.',
+      parameters: {
+        type: 'object',
+        properties: {
+          zone_id: { type: 'string', description: 'The delivery fee UUID to remove.' },
+        },
+        required: ['zone_id'],
       },
-      required: ['zone_id'],
     },
   },
 
   // --- FINANCE ---
   {
-    name: 'get_finance_summary',
-    description: 'Get a financial summary: total revenue, paid orders, pending orders.',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        period: { type: 'STRING', description: '"today", "week", "month", "all". Default "all".' },
+    type: 'function',
+    function: {
+      name: 'get_finance_summary',
+      description: 'Get a financial summary: total revenue, paid orders, pending orders.',
+      parameters: {
+        type: 'object',
+        properties: {
+          period: { type: 'string', description: '"today", "week", "month", "all". Default "all".' },
+        },
       },
     },
   },
   {
-    name: 'get_transactions',
-    description: 'Get a list of recent transactions/orders with payment details.',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        limit: { type: 'INTEGER', description: 'Max transactions to return. Default 10.' },
+    type: 'function',
+    function: {
+      name: 'get_transactions',
+      description: 'Get a list of recent transactions/orders with payment details.',
+      parameters: {
+        type: 'object',
+        properties: {
+          limit: { type: 'integer', description: 'Max transactions to return. Default 10.' },
+        },
       },
     },
   },
 
   // --- SETTINGS ---
   {
-    name: 'get_settings',
-    description: 'Get the current business profile settings.',
-    parameters: { type: 'OBJECT', properties: {} },
+    type: 'function',
+    function: {
+      name: 'get_settings',
+      description: 'Get the current business profile settings.',
+      parameters: { type: 'object', properties: {} },
+    },
   },
   {
-    name: 'update_settings',
-    description: 'Update business profile settings. Only provide the fields you want to change.',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        business_name: { type: 'STRING' },
-        email: { type: 'STRING' },
-        phone_number: { type: 'STRING' },
-        address: { type: 'STRING' },
-        cuisine: { type: 'STRING' },
-        team_contact: { type: 'STRING' },
-        open_time: { type: 'STRING', description: 'Opening time in HH:MM format.' },
-        close_time: { type: 'STRING', description: 'Closing time in HH:MM format.' },
-        open_days: { type: 'STRING', description: 'Comma-separated days the business is open (e.g. "Mon,Tue,Wed,Thu,Fri" or "Mon,Tue,Wed,Thu,Fri,Sat,Sun").' },
-        agent_name: { type: 'STRING', description: 'Name of the AI ordering agent.' },
+    type: 'function',
+    function: {
+      name: 'update_settings',
+      description: 'Update business profile settings. Only provide the fields you want to change.',
+      parameters: {
+        type: 'object',
+        properties: {
+          business_name: { type: 'string' },
+          email: { type: 'string' },
+          phone_number: { type: 'string' },
+          address: { type: 'string' },
+          cuisine: { type: 'string' },
+          team_contact: { type: 'string' },
+          open_time: { type: 'string', description: 'Opening time in HH:MM format.' },
+          close_time: { type: 'string', description: 'Closing time in HH:MM format.' },
+          open_days: { type: 'string', description: 'Comma-separated days the business is open (e.g. "Mon,Tue,Wed,Thu,Fri" or "Mon,Tue,Wed,Thu,Fri,Sat,Sun").' },
+          agent_name: { type: 'string', description: 'Name of the AI ordering agent.' },
+        },
       },
     },
   },
@@ -600,8 +648,8 @@ async function loadConversationHistory(supabase: any, clientId: string): Promise
 
   // Reverse so oldest first (they came DESC)
   return data.reverse().map((msg: any) => ({
-    role: msg.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: msg.content }],
+    role: msg.role === 'assistant' ? 'assistant' : 'user',
+    content: msg.content,
   }))
 }
 
@@ -614,70 +662,75 @@ async function saveMessage(supabase: any, clientId: string, role: string, conten
 }
 
 // =====================
-// GEMINI API CALL
+// OPENROUTER API CALL
 // =====================
 
-async function callGemini(systemPrompt: string, history: any[], userMessage: string) {
-  const contents = [
+async function callOpenRouter(systemPrompt: string, history: any[], userMessage: string) {
+  const messages = [
     ...history,
-    { role: 'user', parts: [{ text: userMessage }] },
+    { role: 'user', content: userMessage },
   ]
 
   const requestBody: any = {
-    system_instruction: { parts: [{ text: systemPrompt }] },
-    contents,
-    tools: [{ function_declarations: toolDeclarations }],
-    tool_config: { function_calling_config: { mode: 'AUTO' } },
-    generation_config: {
-      temperature: 0.7,
-      maxOutputTokens: 1024,
-    },
+    model: OPENROUTER_MODEL,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      ...messages,
+    ],
+    tools: toolDeclarations,
+    temperature: 0.7,
+    max_tokens: 1024,
   }
 
-  const res = await fetch(GEMINI_URL, {
+  const res = await fetch(OPENROUTER_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
     body: JSON.stringify(requestBody),
   })
 
   if (!res.ok) {
     const errText = await res.text()
-    console.error('Gemini API error:', errText)
-    throw new Error('Failed to call Gemini API')
+    console.error('[OPENROUTER] API error:', errText)
+    throw new Error('Failed to call OpenRouter API')
   }
 
   return await res.json()
 }
 
-async function callGeminiWithToolResults(systemPrompt: string, history: any[], userMessage: string, toolCallParts: any[], toolResultParts: any[]) {
-  const contents = [
+async function callOpenRouterWithToolResults(systemPrompt: string, history: any[], userMessage: string, toolResults: any[]) {
+  const messages = [
     ...history,
-    { role: 'user', parts: [{ text: userMessage }] },
-    { role: 'model', parts: toolCallParts },
-    { role: 'function', parts: toolResultParts },
+    { role: 'user', content: userMessage },
+    ...toolResults,
   ]
 
   const requestBody: any = {
-    system_instruction: { parts: [{ text: systemPrompt }] },
-    contents,
-    tools: [{ function_declarations: toolDeclarations }],
-    tool_config: { function_calling_config: { mode: 'AUTO' } },
-    generation_config: {
-      temperature: 0.7,
-      maxOutputTokens: 1024,
-    },
+    model: OPENROUTER_MODEL,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      ...messages,
+    ],
+    tools: toolDeclarations,
+    temperature: 0.7,
+    max_tokens: 1024,
   }
 
-  const res = await fetch(GEMINI_URL, {
+  const res = await fetch(OPENROUTER_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
     body: JSON.stringify(requestBody),
   })
 
   if (!res.ok) {
     const errText = await res.text()
-    console.error('Gemini API error (with tools):', errText)
-    throw new Error('Failed to call Gemini API')
+    console.error('[OPENROUTER] API error (with tools):', errText)
+    throw new Error('Failed to call OpenRouter API')
   }
 
   return await res.json()
@@ -765,54 +818,93 @@ Deno.serve(async (req: Request) => {
     const history = await loadConversationHistory(supabase, client.id)
     const systemPrompt = buildSystemPrompt(client)
 
-    // ---- CALL GEMINI ----
-    let geminiResponse = await callGemini(systemPrompt, history, userMessage)
-    let candidate = geminiResponse.candidates?.[0]
-    let parts = candidate?.content?.parts || []
+    // ---- CALL OPENROUTER ----
+    let messages = [
+      ...history,
+      { role: 'user', content: userMessage },
+    ]
 
-    console.log('Gemini Initial Response:', JSON.stringify(geminiResponse, null, 2))
-
-    // ---- HANDLE FUNCTION CALLS (possibly multiple rounds) ----
+    let finalText = ''
     let rounds = 0
     const MAX_ROUNDS = 3
 
     while (rounds < MAX_ROUNDS) {
-      const functionCalls = parts.filter((p: any) => p.functionCall)
-      if (functionCalls.length === 0) break
+      const requestBody = {
+        model: OPENROUTER_MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...messages,
+        ],
+        tools: toolDeclarations,
+        temperature: 0.7,
+        max_tokens: 1024,
+      }
 
-      console.log(`Tool calls (round ${rounds + 1}):`, functionCalls.map((fc: any) => fc.functionCall.name))
+      const res = await fetch(OPENROUTER_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      })
 
-      // Execute all tool calls
-      const toolCallParts = parts
-      const toolResultParts: any[] = []
+      if (!res.ok) {
+        const errText = await res.text()
+        console.error('[OPENROUTER] API error:', errText)
+        throw new Error('Failed to call OpenRouter API')
+      }
 
-      for (const fc of functionCalls) {
-        const toolName = fc.functionCall.name
-        const toolArgs = fc.functionCall.args || {}
+      const openRouterResponse = await res.json()
+      console.log(`[OPENROUTER] Response (round ${rounds + 1}):`, JSON.stringify(openRouterResponse, null, 2))
+
+      const choice = openRouterResponse.choices?.[0]
+      if (!choice) throw new Error('No response from OpenRouter')
+
+      const assistantMessage = choice.message
+      const toolCalls = assistantMessage.tool_calls || []
+
+      // If no tool calls, extract final text and break
+      if (toolCalls.length === 0) {
+        finalText = assistantMessage.content || "I'm not sure how to help with that. Could you rephrase?"
+        // Add assistant response to messages for history
+        messages.push({ role: 'assistant', content: finalText })
+        break
+      }
+
+      // Process tool calls
+      console.log(`Tool calls (round ${rounds + 1}):`, toolCalls.map((tc: any) => tc.function.name))
+      messages.push({ role: 'assistant', content: assistantMessage.content || '', tool_calls: toolCalls })
+
+      const toolResults: any[] = []
+      for (const toolCall of toolCalls) {
+        const toolName = toolCall.function.name
+        let toolArgs = {}
+        try {
+          toolArgs = JSON.parse(toolCall.function.arguments)
+        } catch (e) {
+          console.error(`Failed to parse tool arguments: ${toolCall.function.arguments}`)
+        }
 
         console.log(`Executing tool: ${toolName}`, toolArgs)
         const result = await executeTool(toolName, toolArgs, client.id, supabase)
         console.log(`Tool result for ${toolName}:`, JSON.stringify(result).slice(0, 200))
 
-        toolResultParts.push({
-          functionResponse: {
-            name: toolName,
-            response: result,
-          },
+        toolResults.push({
+          role: 'tool',
+          tool_call_id: toolCall.id,
+          content: JSON.stringify(result),
         })
       }
 
-      // Call Gemini again with tool results
-      geminiResponse = await callGeminiWithToolResults(systemPrompt, history, userMessage, toolCallParts, toolResultParts)
-      console.log(`Gemini Tool Result Response (round ${rounds + 1}):`, JSON.stringify(geminiResponse, null, 2))
-      candidate = geminiResponse.candidates?.[0]
-      parts = candidate?.content?.parts || []
+      messages.push(...toolResults)
       rounds++
     }
 
-    // ---- EXTRACT FINAL TEXT ----
-    const textParts = parts.filter((p: any) => p.text)
-    const finalText = textParts.map((p: any) => p.text).join('\n') || "I'm not sure how to help with that. Could you rephrase?"
+    // ---- EXTRACT FINAL TEXT IF NOT ALREADY SET ----
+    if (!finalText) {
+      finalText = "I'm not sure how to help with that. Could you rephrase?"
+    }
 
     // ---- SAVE CONVERSATION ----
     await saveMessage(supabase, client.id, 'user', userMessage)
