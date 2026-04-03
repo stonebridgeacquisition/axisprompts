@@ -73,6 +73,11 @@ export const paymentLifecycle = inngest.createFunction(
                                 role: 'assistant',
                                 content: successMsg
                             });
+
+                            // Mark session as not eligible for follow-up (this is a payment notification)
+                            await supabase.from('chat_sessions').update({
+                                follow_up_eligible: false
+                            }).eq('id', session.id);
                         }
                     } catch (err) {
                         console.error("Failed to sync success message to chat history:", err.message);
@@ -124,16 +129,43 @@ export const paymentLifecycle = inngest.createFunction(
 
                 if (phoneNumberId && accessToken) {
                     try {
+                        const expiryMsg = `⏳ Your payment link has expired (30 mins).\n\nPlease place your order again if you still wish to proceed. Thank you!`;
+
                         await axios.post(
                             `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`,
                             {
                                 messaging_product: "whatsapp",
                                 to: user_id,
                                 type: "text",
-                                text: { body: `⏳ Your payment link has expired (30 mins).\n\nPlease place your order again if you still wish to proceed. Thank you!` }
+                                text: { body: expiryMsg }
                             },
                             { headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }
                         );
+
+                        // Save expiration message to chat history and mark not eligible for follow-up
+                        try {
+                            const { data: session } = await supabase
+                                .from('chat_sessions')
+                                .select('id')
+                                .match({ client_id: business_id, whatsapp_user_id: user_id })
+                                .order('created_at', { ascending: false })
+                                .limit(1)
+                                .single();
+
+                            if (session) {
+                                await supabase.from('chat_messages').insert({
+                                    session_id: session.id,
+                                    role: 'assistant',
+                                    content: expiryMsg
+                                });
+
+                                await supabase.from('chat_sessions').update({
+                                    follow_up_eligible: false
+                                }).eq('id', session.id);
+                            }
+                        } catch (err) {
+                            console.error("Failed to log expiration message to chat history:", err.message);
+                        }
                     } catch (err) {
                         console.error("Failed to send expiration message via WhatsApp:", err.message);
                     }

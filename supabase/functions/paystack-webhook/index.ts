@@ -285,8 +285,7 @@ Deno.serve(async (req: Request) => {
 
   // Extract metadata for complete order fulfillment
   const metadata = paymentData.metadata || {};
-  const orderId = metadata.order_id || null;
-
+  const whatsappUserId = metadata.user_id || null;
   // Build itemsSummary from the metadata.items array if present
   let itemsSummary = metadata.items_summary || 'Awaiting agent confirmation';
   if (metadata.items && Array.isArray(metadata.items)) {
@@ -340,7 +339,8 @@ Deno.serve(async (req: Request) => {
       paystack_transaction_id: paymentData.id,
       subaccount_code: subaccountCode,
       status: 'In Progress',
-      items_summary: itemsSummary
+      items_summary: itemsSummary,
+      whatsapp_user_id: whatsappUserId || null
     })
     .select()
     .single()
@@ -388,7 +388,6 @@ Deno.serve(async (req: Request) => {
   // ---------------------------------------------------------
   // SEND CONFIRMATION TO CUSTOMER VIA WHATSAPP CLOUD API
   // ---------------------------------------------------------
-  const whatsappUserId = paymentData.metadata?.user_id
   const whatsappPhoneId = client.whatsapp_phone_number_id
   const whatsappToken = client.whatsapp_access_token
 
@@ -413,6 +412,26 @@ Deno.serve(async (req: Request) => {
       const waResult = await waResponse.json();
       if (waResponse.ok) {
         console.log(`Payment confirmation sent to user ${whatsappUserId} via Meta API`);
+
+        // Save confirmation message to chat history so the AI sees it in context
+        const { data: session } = await supabase
+          .from('chat_sessions')
+          .select('id')
+          .match({ client_id: client.id, whatsapp_user_id: whatsappUserId })
+          .single();
+
+        if (session) {
+          await supabase.from('chat_messages').insert({
+            session_id: session.id,
+            role: 'assistant',
+            content: confirmMsg
+          });
+
+          // Mark session as not eligible for follow-up (this is a payment notification)
+          await supabase.from('chat_sessions').update({
+            follow_up_eligible: false
+          }).eq('id', session.id);
+        }
       } else {
         console.error('WhatsApp API send failed:', waResult);
       }
@@ -460,8 +479,9 @@ Deno.serve(async (req: Request) => {
 
       const messageText = `🚨 *New Customer Order!* 🚨\n\n` +
         `👤 *Customer:* ${customerName}\n` +
+        `📞 *Phone:* ${customerPhone || 'N/A'}\n` +
         `💰 *Amount:* ₦${amount.toLocaleString()}\n` +
-        `📦 *Order ID:* ${orderId || 'N/A'}\n\n` +
+        `📦 *Order ID:* ${shortOrderId}\n\n` +
         `📝 *Items:* \n${itemsSummary}\n\n` +
         `${fulfillmentEmoji} *${fulfillmentLabel}:* \n${fulfillmentValue}\n\n` +
         `[Tap here to view order details](https://swiftorderai.com/client/${clientData.slug}/orders)`;
@@ -520,7 +540,7 @@ Deno.serve(async (req: Request) => {
             <h1>Order Confirmed! 🍔</h1>
             <p>Hi ${customerName}, thanks for ordering from <strong>${client.business_name}</strong>. Your meal is being prepared.</p>
             <div class="order-box">
-              <div style="font-weight: 700; margin-bottom: 15px;">Order #${orderId || 'N/A'}</div>
+              <div style="font-weight: 700; margin-bottom: 15px;">Order #${shortOrderId}</div>
               <div style="white-space: pre-wrap; font-size: 14px; color: #4B5563;">${itemsSummary}</div>
               <div class="total-row">
                 <span>Total Paid</span>
@@ -563,7 +583,7 @@ Deno.serve(async (req: Request) => {
               <h1>You have a new customer!</h1>
               <p><strong>${customerName}</strong> just placed an order through your AI assistant.</p>
               <div class="order-box">
-                <div style="font-weight: 700; margin-bottom: 5px;">Order ID: ${orderId || 'N/A'}</div>
+                <div style="font-weight: 700; margin-bottom: 5px;">Order ID: ${shortOrderId}</div>
                 <div style="font-size: 14px; margin-bottom: 15px;">Phone: ${customerPhone || 'N/A'}</div>
                 <div style="white-space: pre-wrap; font-size: 14px; color: #4B5563;">${itemsSummary}</div>
                 <div class="total-row">

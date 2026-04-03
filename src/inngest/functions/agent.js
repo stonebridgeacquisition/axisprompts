@@ -459,6 +459,14 @@ export const agentWorkflow = inngest.createFunction(
                     await supabase.from('chat_messages').insert({ session_id: context.sessionId, role: 'user', content: event.data.message });
                     await supabase.from('chat_messages').insert({ session_id: context.sessionId, role: 'assistant', content: closedMsg });
 
+                    // Mark session as not eligible for follow-up (this is a system message, not a conversation)
+                    await supabase.from('chat_sessions').update({
+                        last_user_message_at: new Date().toISOString(),
+                        last_assistant_message_at: new Date().toISOString(),
+                        follow_up_sent: false,
+                        follow_up_eligible: false
+                    }).eq('id', context.sessionId);
+
                     if (context.phoneNumberId && context.accessToken) {
                         if (event.data.platform !== 'simulation') {
                             await axios.post(`https://graph.facebook.com/v19.0/${context.phoneNumberId}/messages`, {
@@ -604,6 +612,14 @@ export const agentWorkflow = inngest.createFunction(
                 // Insert user message first, then assistant — separate inserts ensure correct timestamp ordering
                 await supabase.from('chat_messages').insert({ session_id: context.sessionId, role: 'user', content: event.data.message });
                 await supabase.from('chat_messages').insert({ session_id: context.sessionId, role: 'assistant', content: aiResponse });
+
+                // Update session timestamps for follow-up tracking
+                await supabase.from('chat_sessions').update({
+                    last_user_message_at: new Date().toISOString(),
+                    last_assistant_message_at: new Date().toISOString(),
+                    follow_up_sent: false,
+                    follow_up_eligible: true
+                }).eq('id', context.sessionId);
 
                 // Send via WhatsApp Cloud API
                 if (context.phoneNumberId && context.accessToken) {

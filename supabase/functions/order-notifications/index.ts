@@ -27,37 +27,46 @@ function normalizePhone(phone: string): string {
 
 Deno.serve(async (req: Request) => {
     // Handle Supabase Database Webhook trigger
-    const payload = await req.json();
+    let payload: any;
+    try {
+        payload = await req.json();
+    } catch (e) {
+        console.error('[ORDER NOTIFICATION] Failed to parse JSON payload');
+        return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 });
+    }
+
     console.log('--- DATABASE WEBHOOK RECEIVED ---');
     console.log('Payload:', JSON.stringify(payload, null, 2));
 
     const { record, old_record, type } = payload;
 
-    // Only process UPDATE events where the status has changed
-    if (type !== 'UPDATE' || !record || !old_record) {
-        console.warn(`[ORDER NOTIFICATION] Event ignored: Type is ${type}, not UPDATE`);
+    // Only process UPDATE events
+    if (type !== 'UPDATE' || !record) {
+        console.warn(`[ORDER NOTIFICATION] Event ignored: Type is ${type}, or record missing`);
         return new Response(JSON.stringify({ message: 'Event ignored: Not a record update' }), { status: 200 });
     }
 
     // Normalize statuses for comparison
-    const newStatus = record.status?.trim();
-    const oldStatus = old_record.status?.trim();
+    const newStatus = record.status?.trim() || '';
+    const oldStatus = old_record?.status?.trim() || ''; // old_record might be null in some configurations
 
-    if (newStatus === oldStatus) {
+    // If status hasn't changed, we skip (to avoid double-notifying)
+    // NOTE: If oldStatus is empty, we proceed anyway to be safe.
+    if (oldStatus && newStatus.toLowerCase() === oldStatus.toLowerCase()) {
         console.warn(`[ORDER NOTIFICATION] Event ignored: Status unchanged (${newStatus})`);
         return new Response(JSON.stringify({ message: 'Event ignored: Status unchanged' }), { status: 200 });
     }
 
     // Target statuses for notifications
     const targetStatuses = ['Out for Delivery', 'Delivered', 'Cancelled'];
-    const isTarget = targetStatuses.some(s => s.toLowerCase() === newStatus?.toLowerCase());
+    const isTarget = targetStatuses.some(s => s.toLowerCase() === newStatus.toLowerCase());
     
     if (!isTarget) {
         console.warn(`[ORDER NOTIFICATION] Event ignored: Status "${newStatus}" not in target list`);
         return new Response(JSON.stringify({ message: `Event ignored: Status ${newStatus} not in target list` }), { status: 200 });
     }
 
-    console.log(`[ORDER NOTIFICATION] Triggering notification: ${oldStatus} -> ${newStatus} for Order ID: ${record.id}`);
+    console.log(`[ORDER NOTIFICATION] Triggering notification: ${oldStatus || 'NONE'} -> ${newStatus} for Order ID: ${record.id}`);
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
@@ -85,19 +94,20 @@ Deno.serve(async (req: Request) => {
         message = `Update: Your order from ${businessName} has been cancelled. If you have any questions, please contact the team.`;
     }
 
-    // 3. Normalize Phone Number
-    const rawPhone = record.customer_phone || '';
+    // 3. Resolve recipient — prefer whatsapp_user_id (authoritative session ID),
+    //    fall back to customer_phone for older orders that predate the column.
+    const rawPhone = record.whatsapp_user_id || record.customer_phone || '';
     const normalizedPhone = normalizePhone(rawPhone);
 
     if (!normalizedPhone || normalizedPhone.length < 10) {
-        console.error('[ORDER NOTIFICATION] Invalid customer phone:', rawPhone);
-        return new Response(JSON.stringify({ error: 'Invalid customer phone' }), { status: 200 });
+        console.error('[ORDER NOTIFICATION] Invalid recipient phone:', rawPhone);
+        return new Response(JSON.stringify({ error: 'Invalid recipient phone' }), { status: 200 });
     }
 
     // 4. Send via WhatsApp Cloud API
     try {
         console.log(`[ORDER NOTIFICATION] Sending WhatsApp to ${normalizedPhone} via Phone ID: ${client.whatsapp_phone_number_id}`);
-        
+
         const waResponse = await fetch(`https://graph.facebook.com/v19.0/${client.whatsapp_phone_number_id}/messages`, {
             method: 'POST',
             headers: {
@@ -120,6 +130,28 @@ Deno.serve(async (req: Request) => {
         }
 
         console.log(`[ORDER NOTIFICATION] Message sent successfully to ${normalizedPhone} ✅`);
+
+        // Save notification to chat history so the AI sees it in context
+        const whatsappUserId = record.whatsapp_user_id || normalizedPhone;
+        const { data: session } = await supabase
+            .from('chat_sessions')
+            .select('id')
+            .match({ client_id: record.client_id, whatsapp_user_id: whatsappUserId })
+            .single();
+
+        if (session) {
+            await supabase.from('chat_messages').insert({
+                session_id: session.id,
+                role: 'assistant',
+                content: message
+            });
+
+            // Mark session as not eligible for follow-up (this is a notification, not a conversation)
+            await supabase.from('chat_sessions').update({
+                follow_up_eligible: false
+            }).eq('id', session.id);
+        }
+
         return new Response(JSON.stringify({ success: true, message_id: waData.messages?.[0]?.id }), { status: 200 });
 
     } catch (err) {
