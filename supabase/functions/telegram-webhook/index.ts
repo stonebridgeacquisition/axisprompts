@@ -110,12 +110,12 @@ const toolDeclarations = [
     type: 'function',
     function: {
       name: 'update_order_status',
-      description: 'Update the status of an order. Valid statuses: "In Progress", "Out for Delivery", "Completed", "Cancelled".',
+      description: 'Update the status of an order. Valid statuses: "In Progress", "Out for Delivery", "Delivered", "Cancelled".',
       parameters: {
         type: 'object',
         properties: {
           order_id: { type: 'string', description: 'The order UUID.' },
-          new_status: { type: 'string', description: 'The new status to set.' },
+          new_status: { type: 'string', description: 'The new status to set. Must be one of: In Progress, Out for Delivery, Delivered, Cancelled.' },
         },
         required: ['order_id', 'new_status'],
       },
@@ -326,11 +326,14 @@ function buildSystemPrompt(client: any): string {
 
 ## Your Role
 You help the client manage their business — the same things they can do on their web dashboard:
-- View and manage **orders** (check status, mark completed, etc.)
+- View and manage **orders** (check status, update progress, etc.)
 - Manage their **menu** (add items, update prices, toggle availability, delete items)
 - Manage **delivery settings** (zones, fees, delivery method, pickup)
 - View **financial summaries** (revenue, transactions)
 - Update **business settings** (name, phone, address, hours, etc.)
+
+## Order Statuses
+Valid order statuses are: **In Progress**, **Out for Delivery**, **Delivered**, **Cancelled**
 
 ## Rules
 1. Always be friendly, professional, and concise. Use emojis sparingly for warmth.
@@ -414,7 +417,7 @@ async function executeTool(
     }
 
     case 'update_order_status': {
-      const validStatuses = ['In Progress', 'Out for Delivery', 'Completed', 'Cancelled']
+      const validStatuses = ['In Progress', 'Out for Delivery', 'Delivered', 'Cancelled']
       if (!validStatuses.includes(args.new_status)) {
         return { error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` }
       }
