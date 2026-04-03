@@ -509,9 +509,8 @@ Deno.serve(async (req: Request) => {
         try {
           await supabase.from('telegram_conversations').insert({
             client_id: client.id,
-            message_text: messageText,
-            sender: 'assistant',
-            telegram_message_id: telegramResult.result.message_id
+            role: 'assistant',
+            content: messageText
           });
           console.log('Telegram notification saved to conversation history');
         } catch (saveErr) {
