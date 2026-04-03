@@ -256,7 +256,7 @@ const ClientSettings = () => {
                     bank_code: form.bank_code,
                     open_time: form.open_time ? form.open_time + ':00' : null,
                     close_time: form.close_time ? form.close_time + ':00' : null,
-                    agent_name: form.agent_name,
+                    open_days: form.open_days,
                     logo_url: form.logo_url
                 })
                 .eq('id', client.id);
