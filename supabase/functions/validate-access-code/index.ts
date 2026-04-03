@@ -3,9 +3,19 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+}
+
 Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders })
+  }
+
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 })
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders })
   }
 
   try {
@@ -15,7 +25,7 @@ Deno.serve(async (req: Request) => {
     if (!code || typeof code !== 'string') {
       return new Response(
         JSON.stringify({ valid: false, reason: 'Invalid request' }),
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
@@ -32,7 +42,7 @@ Deno.serve(async (req: Request) => {
       console.log('[VALIDATE-ACCESS-CODE] Code not found:', code)
       return new Response(
         JSON.stringify({ valid: false, reason: 'Invalid access code' }),
-        { status: 200 }
+        { status: 200, headers: corsHeaders }
       )
     }
 
@@ -41,20 +51,20 @@ Deno.serve(async (req: Request) => {
       console.log('[VALIDATE-ACCESS-CODE] Code already used:', code)
       return new Response(
         JSON.stringify({ valid: false, reason: 'This code has already been used' }),
-        { status: 200 }
+        { status: 200, headers: corsHeaders }
       )
     }
 
     console.log('[VALIDATE-ACCESS-CODE] Code is valid:', code)
     return new Response(
       JSON.stringify({ valid: true, codeId: accessCode.id }),
-      { status: 200 }
+      { status: 200, headers: corsHeaders }
     )
   } catch (err) {
     console.error('[VALIDATE-ACCESS-CODE] Error:', err)
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     )
   }
 })
