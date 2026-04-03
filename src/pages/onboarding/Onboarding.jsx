@@ -90,23 +90,7 @@ const Onboarding = () => {
             }
         };
 
-        const fetchAccessCode = async () => {
-            try {
-                const { data, error } = await supabase
-                    .from('platform_settings')
-                    .select('value')
-                    .eq('key', 'onboarding_access_code')
-                    .single();
-                if (!error && data) {
-                    setRequiredCode(data.value);
-                }
-            } catch (err) {
-                console.error("Error fetching access code:", err);
-            }
-        };
-
         fetchBanks();
-        fetchAccessCode();
     }, []);
 
     const handleChange = (e) => {
@@ -156,18 +140,33 @@ const Onboarding = () => {
         return true;
     };
 
-    const handleVerifyCode = (e) => {
+    const handleVerifyCode = async (e) => {
         e.preventDefault();
+        if (!enteredCode.trim()) {
+            alert('Please enter an access code.');
+            return;
+        }
         setVerifying(true);
-        // Simulate a tiny delay for premium feel
-        setTimeout(() => {
-            if (enteredCode.trim().toUpperCase() === requiredCode.toUpperCase()) {
+        try {
+            const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/validate-access-code`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ code: enteredCode })
+            });
+            const result = await response.json();
+            if (result.valid) {
                 setStep(1);
             } else {
-                alert('Invalid access code. Please contact your agency for the correct code.');
+                alert(`Invalid access code: ${result.reason || 'Please contact your agency.'}`);
             }
+        } catch (err) {
+            console.error('[ONBOARDING] Code verification error:', err);
+            alert('Failed to verify access code. Please try again.');
+        } finally {
             setVerifying(false);
-        }, 500);
+        }
     };
 
     const addManualItem = () => {
@@ -292,6 +291,27 @@ const Onboarding = () => {
 
             const newClient = data[0];
             console.log("Client Created:", newClient);
+
+            // 3a. Redeem the access code
+            try {
+                const redeemResponse = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/redeem-access-code`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ code: enteredCode, client_id: newClient.id })
+                });
+                const redeemResult = await redeemResponse.json();
+                if (!redeemResult.success) {
+                    console.error('[ONBOARDING] Code redemption failed:', redeemResult.error);
+                    // Don't block onboarding if code redemption fails
+                } else {
+                    console.log('[ONBOARDING] Code redeemed successfully');
+                }
+            } catch (err) {
+                console.error('[ONBOARDING] Code redemption error:', err);
+                // Don't block onboarding if code redemption fails
+            }
 
             // 4. Trigger Admin Notification (New User)
             try {

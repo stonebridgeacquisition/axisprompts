@@ -7,11 +7,12 @@ const SetupDashboard = () => {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('general');
     const [copied, setCopied] = useState(false);
+    const [copiedCodeId, setCopiedCodeId] = useState(null);
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [accessCode, setAccessCode] = useState('');
-    const [savingCode, setSavingCode] = useState(false);
-    
+    const [accessCodes, setAccessCodes] = useState([]);
+    const [generatingCode, setGeneratingCode] = useState(false);
+
     // AI Prompt State
     const [agentPrompt, setAgentPrompt] = useState('');
     const [savingPrompt, setSavingPrompt] = useState(false);
@@ -36,7 +37,7 @@ const SetupDashboard = () => {
 
             if (!error && admins) {
                 // Map DB users to UI format
-                // Note: supabase.auth.users() is not accessible from client. 
+                // Note: supabase.auth.users() is not accessible from client.
                 // So 'admin_users' table should ideally have 'email' and 'name' columns sync'd.
                 const mappedAdmins = admins.map(admin => ({
                     id: admin.id,
@@ -48,16 +49,37 @@ const SetupDashboard = () => {
                 setTeamMembers(mappedAdmins);
             }
 
-            // 3. Get platform settings (access code & prompt)
+            // 3. Get access codes & fetch client names for usage tracking
+            const { data: codes, error: codesError } = await supabase
+                .from('access_codes')
+                .select('id, code, used, used_at, used_by');
+
+            if (!codesError && codes) {
+                // Enrich with client names
+                const enrichedCodes = await Promise.all(
+                    codes.map(async (code) => {
+                        let clientName = null;
+                        if (code.used_by) {
+                            const { data: client } = await supabase
+                                .from('clients')
+                                .select('business_name')
+                                .eq('id', code.used_by)
+                                .single();
+                            if (client) clientName = client.business_name;
+                        }
+                        return { ...code, clientName };
+                    })
+                );
+                setAccessCodes(enrichedCodes);
+            }
+
+            // 4. Get universal agent prompt
             const { data: settings, error: settingsError } = await supabase
                 .from('platform_settings')
                 .select('key, value');
 
             if (!settingsError && settings) {
-                const codeSetting = settings.find(s => s.key === 'onboarding_access_code');
                 const promptSetting = settings.find(s => s.key === 'universal_agent_prompt');
-                
-                if (codeSetting) setAccessCode(codeSetting.value);
                 if (promptSetting) setAgentPrompt(promptSetting.value);
             }
 
@@ -73,6 +95,12 @@ const SetupDashboard = () => {
         navigator.clipboard.writeText(onboardingLink);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleCopyCode = (code) => {
+        navigator.clipboard.writeText(code);
+        setCopiedCodeId(code);
+        setTimeout(() => setCopiedCodeId(null), 2000);
     };
 
     const handleInvite = async () => {
@@ -98,22 +126,28 @@ const SetupDashboard = () => {
         }
     };
 
-    const handleUpdateCode = async () => {
-        if (!accessCode) return;
-        setSavingCode(true);
+    const generateNewCode = async () => {
+        setGeneratingCode(true);
         try {
-            const { error } = await supabase
-                .from('platform_settings')
-                .update({ value: accessCode })
-                .eq('key', 'onboarding_access_code');
+            // Generate random code: AX-XXXXXX format (6 random alphanumeric)
+            const randomPart = Math.random().toString(36).substring(2, 8).toUpperCase();
+            const newCode = `AX-${randomPart}`;
+
+            const { data, error } = await supabase
+                .from('access_codes')
+                .insert([{ code: newCode }])
+                .select();
 
             if (error) throw error;
-            alert('Access code updated successfully!');
+
+            // Add to local state
+            setAccessCodes([...accessCodes, { ...data[0], clientName: null }]);
+            alert(`Code generated: ${newCode}`);
         } catch (err) {
-            console.error('Error updating access code:', err);
-            alert('Failed to update access code');
+            console.error('Error generating code:', err);
+            alert('Failed to generate access code');
         } finally {
-            setSavingCode(false);
+            setGeneratingCode(false);
         }
     };
 
@@ -372,35 +406,81 @@ const SetupDashboard = () => {
 
                                         {/* Access Code Management */}
                                         <div className="pt-8 mt-8 border-t border-gray-100 text-left">
-                                            <div className="flex items-center gap-2 mb-4 text-brand-600">
-                                                <Shield size={20} />
-                                                <h3 className="text-lg font-bold text-gray-900">Onboarding Security</h3>
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div className="flex items-center gap-2">
+                                                    <Shield size={20} />
+                                                    <h3 className="text-lg font-bold text-gray-900">Onboarding Access Codes</h3>
+                                                </div>
+                                                <button
+                                                    onClick={generateNewCode}
+                                                    disabled={generatingCode}
+                                                    className="px-4 py-2 bg-brand-600 text-white rounded-lg font-bold text-sm hover:bg-brand-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                                                >
+                                                    <Plus size={16} />
+                                                    {generatingCode ? 'Generating...' : 'Generate Code'}
+                                                </button>
                                             </div>
                                             <p className="text-sm text-gray-500 mb-4">
-                                                Require an access code for clients to fill the onboarding form. This prevents unauthorized submissions.
+                                                Each code can only be used once. Generate a new code for each client onboarding.
                                             </p>
 
-                                            <div className="space-y-4">
-                                                <div>
-                                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Onboarding Access Code</label>
-                                                    <div className="flex gap-2">
-                                                        <input
-                                                            type="text"
-                                                            value={accessCode}
-                                                            onChange={(e) => setAccessCode(e.target.value)}
-                                                            className="flex-1 px-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-sm font-mono shadow-sm"
-                                                            placeholder="e.g. AXIS2026"
-                                                        />
-                                                        <button
-                                                            onClick={handleUpdateCode}
-                                                            disabled={savingCode}
-                                                            className="px-6 py-2.5 bg-gray-900 text-white rounded-lg font-bold text-sm hover:bg-gray-800 transition-all disabled:opacity-50"
-                                                        >
-                                                            {savingCode ? 'Updating...' : 'Update Code'}
-                                                        </button>
-                                                    </div>
+                                            {accessCodes.length === 0 ? (
+                                                <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+                                                    <p className="text-gray-500 text-sm">No codes generated yet. Click the button above to create one.</p>
                                                 </div>
-                                            </div>
+                                            ) : (
+                                                <div className="border border-gray-200 rounded-xl overflow-hidden">
+                                                    <table className="w-full text-left text-sm">
+                                                        <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-200">
+                                                            <tr>
+                                                                <th className="px-4 py-3">Code</th>
+                                                                <th className="px-4 py-3">Status</th>
+                                                                <th className="px-4 py-3">Used By</th>
+                                                                <th className="px-4 py-3">Date Used</th>
+                                                                <th className="px-4 py-3 text-right">Actions</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-gray-100">
+                                                            {accessCodes.map((code) => (
+                                                                <tr key={code.id} className="hover:bg-gray-50/50">
+                                                                    <td className="px-4 py-3">
+                                                                        <span className="font-mono font-bold text-gray-900">{code.code}</span>
+                                                                    </td>
+                                                                    <td className="px-4 py-3">
+                                                                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${code.used ? 'bg-gray-100 text-gray-700' : 'bg-green-50 text-green-700'}`}>
+                                                                            {code.used ? 'Used' : 'Available'}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="px-4 py-3 text-gray-700">
+                                                                        {code.clientName || '-'}
+                                                                    </td>
+                                                                    <td className="px-4 py-3 text-gray-600 text-xs">
+                                                                        {code.used_at ? new Date(code.used_at).toLocaleDateString() : '-'}
+                                                                    </td>
+                                                                    <td className="px-4 py-3 text-right">
+                                                                        <button
+                                                                            onClick={() => handleCopyCode(code.code)}
+                                                                            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${copiedCodeId === code.code ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                                                        >
+                                                                            {copiedCodeId === code.code ? (
+                                                                                <>
+                                                                                    <Check size={14} />
+                                                                                    Copied
+                                                                                </>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <Copy size={14} />
+                                                                                    Copy
+                                                                                </>
+                                                                            )}
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 )}

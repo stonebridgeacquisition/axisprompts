@@ -445,3 +445,13 @@ entrypoint = "./functions/order-notifications/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/send-followups/index.ts"
+
+[functions.validate-access-code]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/validate-access-code/index.ts"
+
+[functions.redeem-access-code]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/redeem-access-code/index.ts"
