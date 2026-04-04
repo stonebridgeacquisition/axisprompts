@@ -63,6 +63,22 @@ const CHECK_ORDER_STATUS_TOOL = {
     }
 };
 
+const CALCULATOR_TOOL = {
+    type: "function",
+    function: {
+        name: "calculate",
+        description: "A calculator tool for performing mathematical calculations. Use this for any arithmetic operations like order subtotals, delivery fee additions, tax calculations, change calculations, etc.",
+        parameters: {
+            type: "object",
+            properties: {
+                operation: { type: "string", description: "The mathematical operation: 'add', 'subtract', 'multiply', 'divide'. Example: 'add'" },
+                values: { type: "array", items: { type: "number" }, description: "Array of numbers to perform the operation on. Example: [2500, 1500, 500] for adding three numbers." }
+            },
+            required: ["operation", "values"]
+        }
+    }
+};
+
 /**
  * Call OpenRouter with messages + optional tools.
  * Retries across multiple models if one fails.
@@ -614,10 +630,47 @@ export const agentWorkflow = inngest.createFunction(
                             };
                         }
 
+                        if (fnName === 'calculate') {
+                            const operation = fnArgs.operation?.toLowerCase();
+                            const values = fnArgs.values || [];
+
+                            if (!operation || values.length === 0) {
+                                return { error: 'Invalid calculator input. Provide operation and values array.' };
+                            }
+
+                            let result;
+                            switch (operation) {
+                                case 'add':
+                                    result = values.reduce((sum, val) => sum + val, 0);
+                                    break;
+                                case 'subtract':
+                                    result = values.reduce((diff, val) => diff - val);
+                                    break;
+                                case 'multiply':
+                                    result = values.reduce((prod, val) => prod * val, 1);
+                                    break;
+                                case 'divide':
+                                    if (values.some(v => v === 0)) {
+                                        return { error: 'Cannot divide by zero.' };
+                                    }
+                                    result = values.reduce((quot, val) => quot / val);
+                                    break;
+                                default:
+                                    return { error: `Unknown operation: ${operation}. Use: add, subtract, multiply, divide.` };
+                            }
+
+                            return {
+                                success: true,
+                                operation,
+                                values,
+                                result: parseFloat(result.toFixed(2))
+                            };
+                        }
+
                         return { error: `Unknown tool: ${fnName}` };
                     };
 
-                    let text = await callLLMWithTools(messages, [PAYMENT_TOOL, CHECK_ORDER_STATUS_TOOL], toolExecutor);
+                    let text = await callLLMWithTools(messages, [PAYMENT_TOOL, CHECK_ORDER_STATUS_TOOL, CALCULATOR_TOOL], toolExecutor);
 
                     // Strip any <internal_thinking> tags that leak into responses
                     text = text.replace(/<internal_thinking>[\s\S]*?<\/internal_thinking>/gi, '').trim();
