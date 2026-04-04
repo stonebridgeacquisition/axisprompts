@@ -157,12 +157,12 @@ async function callLLMWithTools(messages, tools, toolExecutor) {
                     console.log(`[TOOL] Executing ${fnName} with args:`, JSON.stringify(fnArgs).substring(0, 200));
 
                     // Reject unknown tool calls
-                    if (fnName !== 'generate_payment_link' && fnName !== 'check_order_status') {
+                    if (fnName !== 'generate_payment_link' && fnName !== 'check_order_status' && fnName !== 'calculate' && fnName !== 'think') {
                         console.warn(`[TOOL] Model called unknown tool "${fnName}" - rejecting`);
                         updatedMessages.push({
                             role: "tool",
                             tool_call_id: toolCall.id,
-                            content: JSON.stringify({ error: `Tool "${fnName}" does not exist. You only have generate_payment_link. Write your response as plain text.` })
+                            content: JSON.stringify({ error: `Tool "${fnName}" does not exist.` })
                         });
                         continue;
                     }
@@ -177,6 +177,17 @@ async function callLLMWithTools(messages, tools, toolExecutor) {
                     });
                 }
 
+                // Filter out think tool results before sending back to model (they're internal only)
+                const messagesForFollowUp = updatedMessages.filter(msg => {
+                    if (msg.role === 'tool') {
+                        // Find the corresponding tool call to check its name
+                        const originalToolCall = toolCalls.find(tc => tc.id === msg.tool_call_id);
+                        // Exclude think tool responses from being sent back
+                        return originalToolCall?.function.name !== 'think';
+                    }
+                    return true;
+                });
+
                 // Send results back to the model for the final response
                 const followUpRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                     method: 'POST',
@@ -186,7 +197,7 @@ async function callLLMWithTools(messages, tools, toolExecutor) {
                     },
                     body: JSON.stringify({
                         model: modelId,
-                        messages: updatedMessages,
+                        messages: messagesForFollowUp,
                         temperature: 0.5,
                     })
                 });
