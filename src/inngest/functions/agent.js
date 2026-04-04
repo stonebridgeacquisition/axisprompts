@@ -79,6 +79,21 @@ const CALCULATOR_TOOL = {
     }
 };
 
+const THINK_TOOL = {
+    type: "function",
+    function: {
+        name: "think",
+        description: "Use this tool to think through complex problems, reason about customer requests, or work through logic before responding. Your thinking is internal and won't be shown to the customer.",
+        parameters: {
+            type: "object",
+            properties: {
+                reasoning: { type: "string", description: "Your internal reasoning, analysis, or thought process about the customer's request." }
+            },
+            required: ["reasoning"]
+        }
+    }
+};
+
 /**
  * Call OpenRouter with messages + optional tools.
  * Retries across multiple models if one fails.
@@ -667,10 +682,20 @@ export const agentWorkflow = inngest.createFunction(
                             };
                         }
 
+                        if (fnName === 'think') {
+                            const reasoning = fnArgs.reasoning || '';
+                            console.log(`[AGENT-THINKING] ${reasoning}`);
+                            return {
+                                success: true,
+                                acknowledged: true,
+                                message: 'Thinking complete. Proceeding with response.'
+                            };
+                        }
+
                         return { error: `Unknown tool: ${fnName}` };
                     };
 
-                    let text = await callLLMWithTools(messages, [PAYMENT_TOOL, CHECK_ORDER_STATUS_TOOL, CALCULATOR_TOOL], toolExecutor);
+                    let text = await callLLMWithTools(messages, [PAYMENT_TOOL, CHECK_ORDER_STATUS_TOOL, CALCULATOR_TOOL, THINK_TOOL], toolExecutor);
 
                     // Strip any <internal_thinking> tags that leak into responses
                     text = text.replace(/<internal_thinking>[\s\S]*?<\/internal_thinking>/gi, '').trim();
