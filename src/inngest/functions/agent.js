@@ -95,6 +95,16 @@ const THINK_TOOL = {
 };
 
 /**
+ * Strip tool call references from response text.
+ * Removes patterns like: *(calls think: {...})*
+ */
+function stripToolCalls(text) {
+    if (!text) return text;
+    // Remove markdown-style tool calls: *(calls <toolname>: {...})*
+    return text.replace(/\*\(calls\s+\w+:\s*\{[^}]*\}\)\*/g, '').trim();
+}
+
+/**
  * Call OpenRouter with messages + optional tools.
  * Retries across multiple models if one fails.
  * Returns the final text response.
@@ -208,14 +218,18 @@ async function callLLMWithTools(messages, tools, toolExecutor) {
                 }
 
                 const followUpData = await followUpRes.json();
-                const finalText = followUpData.choices?.[0]?.message?.content;
+                let finalText = followUpData.choices?.[0]?.message?.content;
                 if (!finalText) throw new Error('Empty follow-up response');
+                // Strip out any tool call references from the response
+                finalText = stripToolCalls(finalText);
                 return finalText;
             }
 
             // No tool calls — just return the text
-            const text = choice.message?.content;
+            let text = choice.message?.content;
             if (!text) throw new Error('Empty response');
+            // Strip out any tool call references from the response
+            text = stripToolCalls(text);
             return text;
 
         } catch (error) {
@@ -710,6 +724,9 @@ export const agentWorkflow = inngest.createFunction(
 
                     // Strip any <internal_thinking> tags that leak into responses
                     text = text.replace(/<internal_thinking>[\s\S]*?<\/internal_thinking>/gi, '').trim();
+
+                    // Extra layer: strip any remaining tool call references
+                    text = stripToolCalls(text);
 
                     // Remove duplicate consecutive lines
                     const lines = text.split('\n');
