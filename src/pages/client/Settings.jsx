@@ -61,6 +61,7 @@ const ClientSettings = () => {
         bank_code: '',
         open_time: '',
         close_time: '',
+        open_days: [],
     });
 
     // WhatsApp integration state
@@ -95,6 +96,7 @@ const ClientSettings = () => {
                 bank_code: client.bank_code || '',
                 open_time: client.open_time ? client.open_time.substring(0, 5) : '',
                 close_time: client.close_time ? client.close_time.substring(0, 5) : '',
+                open_days: client.open_days || ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
                 logo_url: client.logo_url || '',
             };
             setForm(data);
