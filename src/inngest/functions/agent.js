@@ -95,14 +95,21 @@ const THINK_TOOL = {
 };
 
 /**
- * Strip tool call references from response text.
- * Removes patterns like: *(calls think: {...})* or *(calls calculator: {...} -> returns ...)*
+ * Strip internal narration and tool calls from response text.
+ * Removes patterns like:
+ * - *(calls think: {...})*
+ * - *(scans conversation, finds...)*
+ * - *(checks order...)*
+ * - Any *(...action...)*
  */
 function stripToolCalls(text) {
     if (!text) return text;
-    // Remove markdown-style tool calls: *(calls <anything>)*
-    // This handles nested brackets, arrows, and any content in between
-    return text.replace(/\*\(calls[\s\S]*?\)\*/g, '').trim();
+    // Remove ALL *(...inner text...)* patterns (internal actions/narration)
+    // This catches both tool calls and action narration
+    text = text.replace(/\*\([^)]*\)\*/g, '').trim();
+    // Clean up extra whitespace and newlines
+    text = text.replace(/\n\s*\n/g, '\n').trim();
+    return text;
 }
 
 /**
