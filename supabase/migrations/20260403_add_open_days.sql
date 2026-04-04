@@ -17,18 +17,13 @@ BEGIN
       AND open_time >= (current_wat_time - interval '1 minute')
       AND open_days @> ARRAY[current_wat_day];
 
-    -- Close stores whose close_time is in the last 1 minute
+    -- Close stores whose close_time is in the last 1 minute (regardless of day)
+    -- This ensures manual opens on closed days still close at scheduled close_time
     UPDATE public.clients
     SET is_open = false
     WHERE is_open = true
       AND close_time <= current_wat_time
       AND close_time >= (current_wat_time - interval '1 minute');
-
-    -- Also close any stores that are open on a day they shouldn't be open
-    UPDATE public.clients
-    SET is_open = false
-    WHERE is_open = true
-      AND NOT (open_days @> ARRAY[current_wat_day]);
 
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
