@@ -600,7 +600,7 @@ Deno.serve(async (req: Request) => {
         // C. Client info
         const { data: clientInfo } = await supabase
             .from('clients')
-            .select('status, is_open, open_time, close_time, agent_name, business_name, offers_pickup, team_contact, whatsapp_phone_number_id, whatsapp_access_token, open_days')
+            .select('status, is_open, open_time, close_time, agent_name, business_name, offers_pickup, team_contact, whatsapp_phone_number_id, whatsapp_access_token, open_days, operating_hours')
             .eq('id', business_id)
             .single()
 
@@ -658,6 +658,7 @@ Deno.serve(async (req: Request) => {
                 openTime: clientInfo?.open_time || null,
                 closeTime: clientInfo?.close_time || null,
                 openDays: clientInfo?.open_days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                operatingHours: clientInfo?.operating_hours || null,
                 agentName: clientInfo?.agent_name || 'Agent',
                 businessName: clientInfo?.business_name || 'Our Store',
                 offersPickup: clientInfo?.offers_pickup || false,
@@ -678,32 +679,65 @@ Deno.serve(async (req: Request) => {
 
             // CHECK 2: If store is CLOSED, send automated message
             if (!context.isOpen) {
-                const openTimeStr = context.openTime ? context.openTime.substring(0, 5) : 'our usual opening time'
-                const closeTimeStr = context.closeTime ? context.closeTime.substring(0, 5) : ''
-                const hoursStr = closeTimeStr ? `${openTimeStr} - ${closeTimeStr}` : openTimeStr
-
                 const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
                 const currentWATTime = new Date().toLocaleString('en-US', { timeZone: 'Africa/Lagos' })
                 const currentWATDate = new Date(currentWATTime)
                 const currentDay = daysOfWeek[currentWATDate.getDay()]
 
-                const isClosedDueToDay = context.openDays && !context.openDays.includes(currentDay)
                 let closedMsg = ''
 
-                if (isClosedDueToDay) {
-                    let nextOpenDay: string | null = null
-                    for (let i = 1; i <= 7; i++) {
-                        const nextDate = new Date(currentWATDate)
-                        nextDate.setDate(nextDate.getDate() + i)
-                        const nextDay = daysOfWeek[nextDate.getDay()]
-                        if (context.openDays.includes(nextDay)) {
-                            nextOpenDay = nextDay
-                            break
+                // NEW PATH: Using per-day operating_hours JSONB
+                if (context.operatingHours && typeof context.operatingHours === 'object') {
+                    const isTodayScheduled = context.operatingHours[currentDay] !== undefined
+
+                    if (!isTodayScheduled) {
+                        // Closed day (day key absent from JSONB) — find next open day
+                        let nextOpenDay: string | null = null
+                        let nextOpenTime: string | null = null
+                        const dayOrder = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+                        for (let i = 1; i <= 7; i++) {
+                            const nextDate = new Date(currentWATDate)
+                            nextDate.setDate(nextDate.getDate() + i)
+                            const nextDayName = daysOfWeek[nextDate.getDay()]
+
+                            if (context.operatingHours[nextDayName]) {
+                                nextOpenDay = nextDayName
+                                nextOpenTime = context.operatingHours[nextDayName].open
+                                break
+                            }
                         }
+
+                        const timeStr = nextOpenTime ? nextOpenTime.substring(0, 5) : 'opening time'
+                        closedMsg = `Hey there! We're not open today, but we'll be back on ${nextOpenDay} at ${timeStr}.\n\nFeel free to reach out then and we'd be happy to help you place your order!`
+                    } else {
+                        // Today's day exists but we're still in the closed period (before open_time)
+                        const todayHours = context.operatingHours[currentDay]
+                        const openTimeStr = todayHours.open.substring(0, 5)
+                        closedMsg = `Hey there! We're currently closed and not accepting orders right now.\n\nWe'll be open at ${openTimeStr} today. Feel free to message us then and we'd be happy to help you place your order!`
                     }
-                    closedMsg = `Hey there! We're not open today, but we'll be back on ${nextOpenDay} at ${openTimeStr}.\n\nFeel free to reach out then and we'd be happy to help you place your order!`
                 } else {
-                    closedMsg = `Hey there! We're currently closed and not accepting orders right now.\n\nWe'll be open by ${hoursStr}. Feel free to message us then and we'll be happy to help you place your order!`
+                    // LEGACY PATH: Using old open_time, close_time, open_days columns
+                    const openTimeStr = context.openTime ? context.openTime.substring(0, 5) : 'our usual opening time'
+                    const closeTimeStr = context.closeTime ? context.closeTime.substring(0, 5) : ''
+                    const hoursStr = closeTimeStr ? `${openTimeStr} - ${closeTimeStr}` : openTimeStr
+                    const isClosedDueToDay = context.openDays && !context.openDays.includes(currentDay)
+
+                    if (isClosedDueToDay) {
+                        let nextOpenDay: string | null = null
+                        for (let i = 1; i <= 7; i++) {
+                            const nextDate = new Date(currentWATDate)
+                            nextDate.setDate(nextDate.getDate() + i)
+                            const nextDay = daysOfWeek[nextDate.getDay()]
+                            if (context.openDays.includes(nextDay)) {
+                                nextOpenDay = nextDay
+                                break
+                            }
+                        }
+                        closedMsg = `Hey there! We're not open today, but we'll be back on ${nextOpenDay} at ${openTimeStr}.\n\nFeel free to reach out then and we'd be happy to help you place your order!`
+                    } else {
+                        closedMsg = `Hey there! We're currently closed and not accepting orders right now.\n\nWe'll be open by ${hoursStr}. Feel free to message us then and we'd be happy to help you place your order!`
+                    }
                 }
 
                 // Save messages
@@ -755,7 +789,16 @@ Deno.serve(async (req: Request) => {
             systemPrompt += `\nBusiness Name: ${context.businessName}`
             systemPrompt += `\nCurrent Time (WAT): ${watTime}`
             systemPrompt += `\nStore Status: ${context.isOpen ? 'OPEN' : 'CLOSED'}`
-            systemPrompt += `\nOpen Days: ${context.openDays ? context.openDays.join(', ') : 'Every day'}`
+
+            // Add per-day or legacy hours info
+            if (context.operatingHours && typeof context.operatingHours === 'object') {
+                systemPrompt += `\nOperating Hours (per-day): ${JSON.stringify(context.operatingHours)}`
+            } else {
+                systemPrompt += `\nOpen Days: ${context.openDays ? context.openDays.join(', ') : 'Every day'}`
+                systemPrompt += `\nOpen Time: ${context.openTime?.substring(0, 5) || 'N/A'}`
+                systemPrompt += `\nClose Time: ${context.closeTime?.substring(0, 5) || 'N/A'}`
+            }
+
             systemPrompt += `\nOffers Pickup: ${context.offersPickup ? 'YES' : 'NO'}`
             systemPrompt += `\nTeam/Escalation Contact: ${context.teamContact}`
 

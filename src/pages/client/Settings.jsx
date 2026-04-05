@@ -59,9 +59,15 @@ const ClientSettings = () => {
         account_number: '',
         bank_name: '',
         bank_code: '',
-        open_time: '',
-        close_time: '',
-        open_days: [],
+        operating_hours: {
+            Mon: { isOpen: true, open: '09:00', close: '22:00' },
+            Tue: { isOpen: true, open: '09:00', close: '22:00' },
+            Wed: { isOpen: true, open: '09:00', close: '22:00' },
+            Thu: { isOpen: true, open: '09:00', close: '22:00' },
+            Fri: { isOpen: true, open: '09:00', close: '22:00' },
+            Sat: { isOpen: true, open: '09:00', close: '22:00' },
+            Sun: { isOpen: false, open: '09:00', close: '22:00' },
+        },
     });
 
     // WhatsApp integration state
@@ -82,6 +88,49 @@ const ClientSettings = () => {
 
     useEffect(() => {
         if (client) {
+            // Load operating_hours from DB (new) or fallback to legacy columns
+            let operating_hours = {
+                Mon: { isOpen: true, open: '09:00', close: '22:00' },
+                Tue: { isOpen: true, open: '09:00', close: '22:00' },
+                Wed: { isOpen: true, open: '09:00', close: '22:00' },
+                Thu: { isOpen: true, open: '09:00', close: '22:00' },
+                Fri: { isOpen: true, open: '09:00', close: '22:00' },
+                Sat: { isOpen: true, open: '09:00', close: '22:00' },
+                Sun: { isOpen: false, open: '09:00', close: '22:00' },
+            };
+
+            if (client.operating_hours && typeof client.operating_hours === 'object') {
+                // New path: load from operating_hours JSONB
+                const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                for (const day of days) {
+                    if (client.operating_hours[day]) {
+                        operating_hours[day] = {
+                            isOpen: true,
+                            open: client.operating_hours[day].open || '09:00',
+                            close: client.operating_hours[day].close || '22:00',
+                        };
+                    } else {
+                        operating_hours[day] = {
+                            isOpen: false,
+                            open: '09:00',
+                            close: '22:00',
+                        };
+                    }
+                }
+            } else if (client.open_time && client.close_time && client.open_days) {
+                // Legacy fallback: convert old columns to new structure
+                const openTime = client.open_time.substring(0, 5);
+                const closeTime = client.close_time.substring(0, 5);
+                const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                for (const day of days) {
+                    operating_hours[day] = {
+                        isOpen: client.open_days.includes(day),
+                        open: openTime,
+                        close: closeTime,
+                    };
+                }
+            }
+
             const data = {
                 business_name: client.business_name || '',
                 agent_name: client.agent_name || 'Jade',
@@ -94,9 +143,7 @@ const ClientSettings = () => {
                 account_number: client.account_number || '',
                 bank_name: client.bank_name || '',
                 bank_code: client.bank_code || '',
-                open_time: client.open_time ? client.open_time.substring(0, 5) : '',
-                close_time: client.close_time ? client.close_time.substring(0, 5) : '',
-                open_days: client.open_days || ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+                operating_hours,
                 logo_url: client.logo_url || '',
             };
             setForm(data);
@@ -138,6 +185,37 @@ const ClientSettings = () => {
         } else {
             setForm(prev => ({ ...prev, [name]: value }));
         }
+    };
+
+    const handleDayChange = (day, field, value) => {
+        setForm(prev => ({
+            ...prev,
+            operating_hours: {
+                ...prev.operating_hours,
+                [day]: {
+                    ...prev.operating_hours[day],
+                    [field]: value,
+                },
+            },
+        }));
+    };
+
+    const handleApplySameHours = () => {
+        // Find the first open day and copy its hours to all days
+        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const firstOpen = days.find(d => form.operating_hours[d].isOpen);
+        if (!firstOpen) return;
+
+        const template = form.operating_hours[firstOpen];
+        const newHours = {};
+        for (const day of days) {
+            newHours[day] = {
+                isOpen: true,
+                open: template.open,
+                close: template.close,
+            };
+        }
+        setForm(prev => ({ ...prev, operating_hours: newHours }));
     };
 
     const generateVerifyToken = () => {
@@ -241,6 +319,17 @@ const ClientSettings = () => {
         setSaved(false);
 
         try {
+            // Convert operating_hours form state to JSONB (omit closed days)
+            const operatingHoursJsonb = {};
+            for (const [day, dayData] of Object.entries(form.operating_hours)) {
+                if (dayData.isOpen) {
+                    operatingHoursJsonb[day] = {
+                        open: dayData.open,
+                        close: dayData.close,
+                    };
+                }
+            }
+
             // 1. Update client in DB
             const { error } = await supabase
                 .from('clients')
@@ -256,9 +345,7 @@ const ClientSettings = () => {
                     account_number: form.account_number,
                     bank_name: form.bank_name,
                     bank_code: form.bank_code,
-                    open_time: form.open_time ? form.open_time + ':00' : null,
-                    close_time: form.close_time ? form.close_time + ':00' : null,
-                    open_days: form.open_days,
+                    operating_hours: operatingHoursJsonb,
                     logo_url: form.logo_url
                 })
                 .eq('id', client.id);
@@ -370,45 +457,57 @@ const ClientSettings = () => {
                         <div className="sm:col-span-2">
                             <InputField label="Address" name="address" value={form.address} onChange={handleChange} icon={MapPin} placeholder="Business address" />
                         </div>
-                        <div className="sm:col-span-2 grid grid-cols-2 gap-4">
-                            <InputField label="Open Time" name="open_time" type="time" value={form.open_time} onChange={handleChange} />
-                            <InputField label="Close Time" name="close_time" type="time" value={form.close_time} onChange={handleChange} />
-                        </div>
-
-                        {/* Open Days Picker */}
+                        {/* Per-Day Operating Hours */}
                         <div className="sm:col-span-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase mb-3 block">Days Open</label>
-                            <div className="flex flex-wrap gap-2">
-                                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-                                    <button
-                                        key={day}
-                                        type="button"
-                                        onClick={() => {
-                                            const currentDays = form.open_days || [];
-                                            if (currentDays.includes(day)) {
-                                                handleChange({
-                                                    target: {
-                                                        name: 'open_days',
-                                                        value: currentDays.filter(d => d !== day)
-                                                    }
-                                                });
-                                            } else {
-                                                handleChange({
-                                                    target: {
-                                                        name: 'open_days',
-                                                        value: [...currentDays, day]
-                                                    }
-                                                });
-                                            }
-                                        }}
-                                        className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                                            form.open_days?.includes(day)
-                                                ? 'bg-brand-600 text-white'
-                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                        }`}
-                                    >
-                                        {day}
-                                    </button>
+                            <div className="flex items-center justify-between mb-3">
+                                <label className="text-xs font-bold text-gray-500 uppercase">Operating Hours</label>
+                                <button
+                                    type="button"
+                                    onClick={handleApplySameHours}
+                                    className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded font-medium transition-colors"
+                                >
+                                    Same hours every day
+                                </button>
+                            </div>
+                            <div className="space-y-2 border border-gray-200 rounded-lg overflow-hidden">
+                                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
+                                    <div key={day} className="flex items-center gap-3 p-3 bg-white border-b last:border-b-0 border-gray-100 hover:bg-gray-50 transition-colors">
+                                        <div className="w-12 text-sm font-semibold text-gray-700">{day}</div>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDayChange(day, 'isOpen', !form.operating_hours[day].isOpen)}
+                                            className={`px-3 py-1.5 rounded text-xs font-semibold transition-colors ${
+                                                form.operating_hours[day].isOpen
+                                                    ? 'bg-green-100 text-green-700'
+                                                    : 'bg-red-100 text-red-700'
+                                            }`}
+                                        >
+                                            {form.operating_hours[day].isOpen ? '✓ Open' : '✕ Closed'}
+                                        </button>
+                                        <input
+                                            type="time"
+                                            value={form.operating_hours[day].open}
+                                            onChange={(e) => handleDayChange(day, 'open', e.target.value)}
+                                            disabled={!form.operating_hours[day].isOpen}
+                                            className={`px-3 py-1.5 border border-gray-300 rounded text-sm ${
+                                                form.operating_hours[day].isOpen
+                                                    ? ''
+                                                    : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                                            }`}
+                                        />
+                                        <span className="text-gray-400">→</span>
+                                        <input
+                                            type="time"
+                                            value={form.operating_hours[day].close}
+                                            onChange={(e) => handleDayChange(day, 'close', e.target.value)}
+                                            disabled={!form.operating_hours[day].isOpen}
+                                            className={`px-3 py-1.5 border border-gray-300 rounded text-sm ${
+                                                form.operating_hours[day].isOpen
+                                                    ? ''
+                                                    : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                                            }`}
+                                        />
+                                    </div>
                                 ))}
                             </div>
                         </div>

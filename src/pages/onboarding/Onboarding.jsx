@@ -44,9 +44,15 @@ const Onboarding = () => {
         cuisine: '',
         contact: '',
         bankCode: '',
-        openTime: '09:00',
-        closeTime: '22:00',
-        openDays: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+        operating_hours: {
+            Mon: { isOpen: true, open: '09:00', close: '22:00' },
+            Tue: { isOpen: true, open: '09:00', close: '22:00' },
+            Wed: { isOpen: true, open: '09:00', close: '22:00' },
+            Thu: { isOpen: true, open: '09:00', close: '22:00' },
+            Fri: { isOpen: true, open: '09:00', close: '22:00' },
+            Sat: { isOpen: true, open: '09:00', close: '22:00' },
+            Sun: { isOpen: false, open: '09:00', close: '22:00' },
+        },
         agentName: 'Jade',
         paymentModel: 'subscription' // 'subscription' or 'commission'
     });
@@ -101,6 +107,36 @@ const Onboarding = () => {
             const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
             setFormData(prev => ({ ...prev, slug }));
         }
+    };
+
+    const handleDayChange = (day, field, value) => {
+        setFormData(prev => ({
+            ...prev,
+            operating_hours: {
+                ...prev.operating_hours,
+                [day]: {
+                    ...prev.operating_hours[day],
+                    [field]: value,
+                },
+            },
+        }));
+    };
+
+    const handleApplySameHours = () => {
+        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const firstOpen = days.find(d => formData.operating_hours[d].isOpen);
+        if (!firstOpen) return;
+
+        const template = formData.operating_hours[firstOpen];
+        const newHours = {};
+        for (const day of days) {
+            newHours[day] = {
+                isOpen: true,
+                open: template.open,
+                close: template.close,
+            };
+        }
+        setFormData(prev => ({ ...prev, operating_hours: newHours }));
     };
 
     const handleFileChange = (e, type) => {
@@ -274,9 +310,15 @@ const Onboarding = () => {
                         team_contact: formData.contact,
                         menu_url: menuUrl,
                         status: 'Active',
-                        open_time: formData.openTime + ':00',
-                        close_time: formData.closeTime + ':00',
-                        open_days: formData.openDays || ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+                        operating_hours: (() => {
+                            const result = {};
+                            for (const [day, dayData] of Object.entries(formData.operating_hours)) {
+                                if (dayData.isOpen) {
+                                    result[day] = { open: dayData.open, close: dayData.close };
+                                }
+                            }
+                            return result;
+                        })(),
                         payment_model: formData.paymentModel,
                         subscription_status: formData.paymentModel === 'commission' ? null : 'trial',
                         delivery_method: onboardingDeliveryMethod,
@@ -765,52 +807,57 @@ const Onboarding = () => {
                                     placeholder="For issues requiring human intervention"
                                 />
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Open Time</label>
-                                    <input
-                                        type="time"
-                                        name="openTime"
-                                        value={formData.openTime}
-                                        onChange={handleChange}
-                                        className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 shadow-sm transition-all text-sm"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Close Time</label>
-                                    <input
-                                        type="time"
-                                        name="closeTime"
-                                        value={formData.closeTime}
-                                        onChange={handleChange}
-                                        className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 shadow-sm transition-all text-sm"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Days Open Picker */}
+                            {/* Per-Day Operating Hours */}
                             <div className="col-span-2">
-                                <label className="block text-sm font-medium text-gray-700 mb-3">Days Open</label>
-                                <div className="flex flex-wrap gap-2">
-                                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-                                        <button
-                                            key={day}
-                                            type="button"
-                                            onClick={() => {
-                                                const currentDays = formData.openDays || ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-                                                const newDays = currentDays.includes(day)
-                                                    ? currentDays.filter(d => d !== day)
-                                                    : [...currentDays, day];
-                                                setFormData({...formData, openDays: newDays});
-                                            }}
-                                            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                                                (formData.openDays || ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']).includes(day)
-                                                    ? 'bg-brand-600 text-white'
-                                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                            }`}
-                                        >
-                                            {day}
-                                        </button>
+                                <div className="flex items-center justify-between mb-3">
+                                    <label className="block text-sm font-medium text-gray-700">Operating Hours</label>
+                                    <button
+                                        type="button"
+                                        onClick={handleApplySameHours}
+                                        className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded font-medium transition-colors"
+                                    >
+                                        Same hours every day
+                                    </button>
+                                </div>
+                                <div className="space-y-2 border border-gray-200 rounded-lg overflow-hidden">
+                                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
+                                        <div key={day} className="flex items-center gap-3 p-3 bg-white border-b last:border-b-0 border-gray-100 hover:bg-gray-50 transition-colors">
+                                            <div className="w-12 text-sm font-semibold text-gray-700">{day}</div>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDayChange(day, 'isOpen', !formData.operating_hours[day].isOpen)}
+                                                className={`px-3 py-1.5 rounded text-xs font-semibold transition-colors ${
+                                                    formData.operating_hours[day].isOpen
+                                                        ? 'bg-green-100 text-green-700'
+                                                        : 'bg-red-100 text-red-700'
+                                                }`}
+                                            >
+                                                {formData.operating_hours[day].isOpen ? '✓ Open' : '✕ Closed'}
+                                            </button>
+                                            <input
+                                                type="time"
+                                                value={formData.operating_hours[day].open}
+                                                onChange={(e) => handleDayChange(day, 'open', e.target.value)}
+                                                disabled={!formData.operating_hours[day].isOpen}
+                                                className={`px-3 py-1.5 border border-gray-300 rounded text-sm ${
+                                                    formData.operating_hours[day].isOpen
+                                                        ? ''
+                                                        : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                                                }`}
+                                            />
+                                            <span className="text-gray-400">→</span>
+                                            <input
+                                                type="time"
+                                                value={formData.operating_hours[day].close}
+                                                onChange={(e) => handleDayChange(day, 'close', e.target.value)}
+                                                disabled={!formData.operating_hours[day].isOpen}
+                                                className={`px-3 py-1.5 border border-gray-300 rounded text-sm ${
+                                                    formData.operating_hours[day].isOpen
+                                                        ? ''
+                                                        : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                                                }`}
+                                            />
+                                        </div>
                                     ))}
                                 </div>
                             </div>
