@@ -588,9 +588,9 @@ const ClientSettings = () => {
                         <p className="text-xs text-gray-500">Copy this URL and paste it into the Webhook section of your Meta App.</p>
                         <div className="flex items-center gap-2">
                             <code className="flex-1 text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-gray-700 font-mono truncate">
-                                https://swiftorderai.com/api/whatsapp-webhook/{client?.id}
+                                {import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-agent?bid={client?.id}
                             </code>
-                            <button type="button" onClick={() => copyToClipboard(`https://swiftorderai.com/api/whatsapp-webhook/${client?.id}`, 'webhook')} className="p-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-500">
+                            <button type="button" onClick={() => copyToClipboard(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-agent?bid=${client?.id}`, 'webhook')} className="p-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-500">
                                 {copiedField === 'webhook' ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
                             </button>
                         </div>

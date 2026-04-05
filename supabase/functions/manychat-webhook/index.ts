@@ -1,13 +1,13 @@
 // Supabase Edge Function: ManyChat Webhook Handler
 // 1. Receives Message from ManyChat
 // 2. Verifies Business ID (via Query Param or Body)
-// 3. Triggers Inngest Event (buffered)
+// 3. Calls whatsapp-agent edge function directly
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const INNGEST_EVENT_KEY = Deno.env.get('INNGEST_EVENT_KEY')! // Needed to send events to Inngest
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 
 Deno.serve(async (req: Request) => {
     // 1. Setup CORS
@@ -44,9 +44,6 @@ Deno.serve(async (req: Request) => {
     }
 
     // 4. Parse ManyChat Payload
-    // ManyChat sends: { "id": "user_123", "key": "value" ... }
-    // You must configure ManyChat "External Request" to send:
-    // Body: { "user_id": "{{user_id}}", "message": "{{last_input_text}}", "name": "{{full_name}}" }
     let payload
     try {
         payload = await req.json()
@@ -62,32 +59,30 @@ Deno.serve(async (req: Request) => {
 
     console.log(`Received msg for ${business.business_name}: [${name}] ${message}`)
 
-    // 5. Send to Inngest (The "Brain")
-    const inngestUrl = `https://inn.gs/e/${INNGEST_EVENT_KEY}`
-    const eventPayload = {
-        name: "chat/message.received",
-        data: {
+    // 5. Call whatsapp-agent edge function directly
+    const agentResponse = await fetch(`${SUPABASE_URL}/functions/v1/whatsapp-agent`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
             business_id: business.id,
-            business_name: business.business_name,
-            user_id: String(user_id), // Ensure string
+            user_id: String(user_id),
             user_name: name || "Customer",
             message: message,
-            timestamp: Date.now()
-        }
-    }
-
-    const inngestResponse = await fetch(inngestUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(eventPayload)
+            platform: "manychat",
+        })
     })
 
-    if (!inngestResponse.ok) {
-        console.error('Failed to send to Inngest', await inngestResponse.text())
-        return new Response(JSON.stringify({ error: 'Failed to queue message' }), { status: 500 })
+    if (!agentResponse.ok) {
+        console.error('Failed to call whatsapp-agent', await agentResponse.text())
+        return new Response(JSON.stringify({ error: 'Failed to process message' }), { status: 500 })
     }
 
-    return new Response(JSON.stringify({ status: 'queued', business: business.business_name }), {
+    const result = await agentResponse.json()
+
+    return new Response(JSON.stringify({ status: 'processed', business: business.business_name, reply: result.reply }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
     })

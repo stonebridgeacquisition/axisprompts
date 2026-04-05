@@ -455,3 +455,13 @@ entrypoint = "./functions/validate-access-code/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/redeem-access-code/index.ts"
+
+[functions.whatsapp-agent]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/whatsapp-agent/index.ts"
+
+[functions.expire-pending-payments]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/expire-pending-payments/index.ts"

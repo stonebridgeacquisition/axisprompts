@@ -1,5 +1,3 @@
-import { inngest } from "../../src/inngest/client.js";
-
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
@@ -14,23 +12,35 @@ export default async function handler(req, res) {
 
         console.log(`[SIMULATION] Sending message from ${user_id} to BID ${business_id}: "${message}"`);
 
-        await inngest.send({
-            name: "chat/message.received",
-            data: {
+        const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+        const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+        const agentRes = await fetch(`${SUPABASE_URL}/functions/v1/whatsapp-agent`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({
                 business_id,
-                business_name: business_name || "Simulation Store",
-                user_id, // e.g. "SIMULATION_123"
+                user_id,
                 user_name: "Simulation User",
                 message,
-                timestamp: Date.now(),
-                platform: "simulation", // CRITICAL: This tells the agent NOT to use WhatsApp API
-            },
+                platform: "simulation",
+            }),
         });
 
-        return res.status(200).json({ success: true, message: 'Simulation event sent to Inngest' });
+        if (!agentRes.ok) {
+            const errText = await agentRes.text();
+            console.error('[SIMULATION] Agent call failed:', errText);
+            return res.status(500).json({ error: 'Agent call failed', details: errText });
+        }
+
+        const result = await agentRes.json();
+        return res.status(200).json({ success: true, reply: result.reply });
 
     } catch (error) {
-        console.error('[SIMULATION] Error triggering inngest:', error);
+        console.error('[SIMULATION] Error:', error);
         return res.status(500).json({ error: 'Failed to trigger agent simulation' });
     }
 }

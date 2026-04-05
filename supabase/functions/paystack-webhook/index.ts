@@ -77,28 +77,6 @@ function normalizePhone(phone: string): string {
     return cleaned;
 }
 
-/**
- * Sends a POST event to Inngest to trigger workflows
- */
-async function sendInngestEvent(name: string, data: any) {
-  const INNGEST_EVENT_KEY = Deno.env.get('INNGEST_EVENT_KEY');
-  if (!INNGEST_EVENT_KEY) {
-    console.warn('Skipping Inngest: Missing INNGEST_EVENT_KEY');
-    return;
-  }
-  
-  try {
-    const res = await fetch(`https://inn.gs/e/${INNGEST_EVENT_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify([{ name, data }])
-    });
-    if (!res.ok) console.error('Inngest Error:', await res.text());
-    else console.log(`Inngest Event '${name}' sent successfully.`);
-  } catch (err) {
-    console.error('Inngest Event Failed:', err);
-  }
-}
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'GET') {
@@ -443,16 +421,44 @@ Deno.serve(async (req: Request) => {
   }
 
   // ---------------------------------------------------------
-  // TRIGGER INNGEST PAYMENT LIFECYCLE
+  // UPDATE TRANSACTION STATUS (replaces Inngest payment lifecycle)
   // ---------------------------------------------------------
   if (reference) {
-    await sendInngestEvent('payment/success', {
-      reference: reference,
-      amount: amount,
-      business_id: client.id,
-      user_id: whatsappUserId,
-      status: 'Paid'
-    });
+    // Mark transaction as paid (stops expire-pending-payments from expiring it)
+    await supabase
+      .from('transactions')
+      .update({ status: 'success' })
+      .eq('reference', reference)
+
+    // Save success message to chat history so the AI agent has context
+    if (whatsappUserId) {
+      try {
+        const { data: session } = await supabase
+          .from('chat_sessions')
+          .select('id')
+          .match({ client_id: client.id, whatsapp_user_id: whatsappUserId })
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
+
+        if (session) {
+          const successMsg = `\uD83C\uDF89 *Order Confirmed!*\n\nOrder #${shortOrderId} has been received and the kitchen has started preparing your meal! \uD83D\uDC68\u200D\uD83C\uDF73\n\nThank you for choosing us! \uD83C\uDF7D\uFE0F`
+          await supabase.from('chat_messages').insert({
+            session_id: session.id,
+            role: 'assistant',
+            content: successMsg
+          })
+
+          await supabase.from('chat_sessions').update({
+            follow_up_eligible: false
+          }).eq('id', session.id)
+        }
+      } catch (err: any) {
+        console.error("Failed to sync success message to chat history:", err.message)
+      }
+    }
+
+    console.log(`Transaction ${reference} marked as success`)
   }
 
   // --- Send Telegram Order Alert to Client ---

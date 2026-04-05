@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const INNGEST_EVENT_KEY = Deno.env.get('INNGEST_EVENT_KEY')!
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 const META_VERIFY_TOKEN = Deno.env.get('META_VERIFY_TOKEN') || 'swiftorder_verify_token_123'
 
 Deno.serve(async (req: Request) => {
@@ -70,28 +70,24 @@ Deno.serve(async (req: Request) => {
                             // as we don't know their name until they interact or we query the Graph API
                             // Alternatively, pass the sender.id and let agent.js query the graph API.
 
-                            // 3. Send to Inngest (The "Brain")
-                            const inngestUrl = `https://inn.gs/e/${INNGEST_EVENT_KEY}`
-                            const eventPayload = {
-                                name: "chat/message.received",
-                                data: {
-                                    business_id: business.id,
-                                    business_name: business.business_name,
-                                    user_id: senderId, // IG Scoped User ID
-                                    user_name: "Customer", // Can be fetched via Graph API
-                                    message: messageText,
-                                    timestamp: Date.now()
-                                }
-                            }
-
-                            const inngestResponse = await fetch(inngestUrl, {
+                            // 3. Send to WhatsApp Agent Edge Function
+                            const agentResponse = await fetch(`${SUPABASE_URL}/functions/v1/whatsapp-agent`, {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(eventPayload)
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                                },
+                                body: JSON.stringify({
+                                    business_id: business.id,
+                                    user_id: senderId,
+                                    user_name: "Customer",
+                                    message: messageText,
+                                    platform: "instagram",
+                                })
                             })
 
-                            if (!inngestResponse.ok) {
-                                console.error('Failed to send to Inngest', await inngestResponse.text())
+                            if (!agentResponse.ok) {
+                                console.error('Failed to call whatsapp-agent', await agentResponse.text())
                             }
                         }
                     }

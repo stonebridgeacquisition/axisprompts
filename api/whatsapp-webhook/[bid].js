@@ -1,11 +1,13 @@
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
-import { inngest } from "../../src/inngest/client.js";
 
 const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
 export default async function handler(req, res) {
     const businessId = req.query.bid;
@@ -71,7 +73,7 @@ export default async function handler(req, res) {
                 }
             }
 
-            // Parse payload and fire Inngest event
+            // Parse payload and call agent
             if (payload.object === "whatsapp_business_account") {
                 for (const entry of payload.entry || []) {
                     for (const change of entry.changes || []) {
@@ -86,20 +88,27 @@ export default async function handler(req, res) {
 
                             console.log(`[WHATSAPP] Msg from ${senderPhone} to BID ${businessId}: "${messageText}"`);
 
-                            await inngest.send({
-                                name: "chat/message.received",
-                                data: {
+                            // Call the whatsapp-agent edge function directly
+                            const agentRes = await fetch(`${SUPABASE_URL}/functions/v1/whatsapp-agent`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                                },
+                                body: JSON.stringify({
                                     business_id: businessId,
-                                    business_name: business.business_name,
                                     user_id: senderPhone,
                                     user_name: userName,
                                     message: messageText,
-                                    timestamp: Date.now(),
                                     platform: "whatsapp",
-                                },
+                                }),
                             });
 
-                            console.log(`[WHATSAPP] Event sent to Inngest for BID: ${businessId} ✅`);
+                            if (!agentRes.ok) {
+                                console.error(`[WHATSAPP] Agent call failed:`, await agentRes.text());
+                            } else {
+                                console.log(`[WHATSAPP] Agent responded for BID: ${businessId}`);
+                            }
                         }
                     }
                 }
