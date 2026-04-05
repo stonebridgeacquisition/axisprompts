@@ -307,9 +307,13 @@ const toolDeclarations = [
           address: { type: 'string' },
           cuisine: { type: 'string' },
           team_contact: { type: 'string' },
-          open_time: { type: 'string', description: 'Opening time in HH:MM format.' },
-          close_time: { type: 'string', description: 'Closing time in HH:MM format.' },
-          open_days: { type: 'string', description: 'Comma-separated days the business is open (e.g. "Mon,Tue,Wed,Thu,Fri" or "Mon,Tue,Wed,Thu,Fri,Sat,Sun").' },
+          operating_hours: {
+            type: 'string',
+            description: 'Per-day operating hours as JSON. Format: {"Mon":{"open":"09:00","close":"22:00"},"Tue":{"open":"09:00","close":"22:00"},...} Omit days when closed. Example: {"Mon":{"open":"09:00","close":"22:00"},"Sat":{"open":"11:00","close":"23:00"}} means open Mon 9am-10pm, Sat 11am-11pm, closed other days.'
+          },
+          open_time: { type: 'string', description: 'DEPRECATED: Opening time in HH:MM format. Use operating_hours instead for per-day control.' },
+          close_time: { type: 'string', description: 'DEPRECATED: Closing time in HH:MM format. Use operating_hours instead for per-day control.' },
+          open_days: { type: 'string', description: 'DEPRECATED: Comma-separated days the business is open. Use operating_hours instead for per-day control.' },
           agent_name: { type: 'string', description: 'Name of the AI ordering agent.' },
         },
       },
@@ -352,8 +356,15 @@ Valid order statuses are: **In Progress**, **Out for Delivery**, **Delivered**, 
 - Cuisine: ${client.cuisine || 'Not set'}
 - Address: ${client.address || 'Not set'}
 - Phone: ${client.phone_number || 'Not set'}
-- Operating Hours: ${client.open_time || '?'} - ${client.close_time || '?'} (Days: ${client.open_days?.join(', ') || 'Every day'})
-- AI Agent Name: ${client.agent_name || 'Not set'}`
+- AI Agent Name: ${client.agent_name || 'Not set'}
+
+## Operating Hours
+The business supports per-day operating hours. You can help the client set different hours for each day:
+- If \`operating_hours\` is set (newer format), use it to show/update per-day hours
+- Each day can have a specific \`open\` and \`close\` time (HH:MM format)
+- Days not in \`operating_hours\` are closed
+- Example format: \`{"Mon":{"open":"09:00","close":"22:00"},"Sat":{"open":"11:00","close":"23:00"}}\` means open Mon 9am-10pm, Sat 11am-11pm, closed other days
+- Help the client express their hours naturally (e.g., "open weekdays 9 to 10pm, Saturday 11am to 11pm, closed Sunday") and convert to the JSON format`
 }
 
 // =====================
@@ -599,7 +610,7 @@ async function executeTool(
     // --- SETTINGS ---
     case 'get_settings': {
       const { data, error } = await supabase.from('clients')
-        .select('business_name, email, phone_number, address, cuisine, team_contact, open_time, close_time, open_days, agent_name, logo_url')
+        .select('business_name, email, phone_number, address, cuisine, team_contact, open_time, close_time, open_days, operating_hours, agent_name, logo_url')
         .eq('id', clientId)
         .single()
       if (error) return { error: error.message }
@@ -607,12 +618,20 @@ async function executeTool(
     }
 
     case 'update_settings': {
-      const allowedFields = ['business_name', 'email', 'phone_number', 'address', 'cuisine', 'team_contact', 'open_time', 'close_time', 'open_days', 'agent_name']
+      const allowedFields = ['business_name', 'email', 'phone_number', 'address', 'cuisine', 'team_contact', 'open_time', 'close_time', 'open_days', 'operating_hours', 'agent_name']
       const updates: any = {}
       for (const field of allowedFields) {
         if (args[field] !== undefined) {
-          if (field === 'open_days' && typeof args[field] === 'string') {
-            // Convert comma-separated string to array
+          if (field === 'operating_hours' && typeof args[field] === 'string') {
+            // Parse JSON string to JSONB object
+            try {
+              updates[field] = JSON.parse(args[field])
+            } catch (parseError: unknown) {
+              const errorMsg = parseError instanceof Error ? parseError.message : String(parseError)
+              return { error: `Invalid operating_hours JSON: ${errorMsg}` }
+            }
+          } else if (field === 'open_days' && typeof args[field] === 'string') {
+            // Convert comma-separated string to array (legacy)
             updates[field] = args[field].split(',').map((day: string) => day.trim())
           } else if (field.endsWith('_time') && args[field] && !args[field].includes(':')) {
             updates[field] = args[field] + ':00'
