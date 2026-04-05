@@ -809,54 +809,51 @@ const Onboarding = () => {
                             </div>
                             {/* Per-Day Operating Hours */}
                             <div className="col-span-2">
-                                <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center justify-between mb-4">
                                     <label className="block text-sm font-medium text-gray-700">Operating Hours</label>
                                     <button
                                         type="button"
                                         onClick={handleApplySameHours}
-                                        className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded font-medium transition-colors"
+                                        className="text-xs bg-brand-50 hover:bg-brand-100 text-brand-700 px-3 py-1.5 rounded-lg font-medium transition-colors"
                                     >
-                                        Same hours every day
+                                        Apply to all
                                     </button>
                                 </div>
-                                <div className="space-y-2 border border-gray-200 rounded-lg overflow-hidden">
+                                <div className="space-y-2">
                                     {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
-                                        <div key={day} className="flex items-center gap-3 p-3 bg-white border-b last:border-b-0 border-gray-100 hover:bg-gray-50 transition-colors">
-                                            <div className="w-12 text-sm font-semibold text-gray-700">{day}</div>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDayChange(day, 'isOpen', !formData.operating_hours[day].isOpen)}
-                                                className={`px-3 py-1.5 rounded text-xs font-semibold transition-colors ${
-                                                    formData.operating_hours[day].isOpen
-                                                        ? 'bg-green-100 text-green-700'
-                                                        : 'bg-red-100 text-red-700'
-                                                }`}
-                                            >
-                                                {formData.operating_hours[day].isOpen ? '✓ Open' : '✕ Closed'}
-                                            </button>
-                                            <input
-                                                type="time"
-                                                value={formData.operating_hours[day].open}
-                                                onChange={(e) => handleDayChange(day, 'open', e.target.value)}
-                                                disabled={!formData.operating_hours[day].isOpen}
-                                                className={`px-3 py-1.5 border border-gray-300 rounded text-sm ${
-                                                    formData.operating_hours[day].isOpen
-                                                        ? ''
-                                                        : 'bg-gray-50 text-gray-400 cursor-not-allowed'
-                                                }`}
-                                            />
-                                            <span className="text-gray-400">→</span>
-                                            <input
-                                                type="time"
-                                                value={formData.operating_hours[day].close}
-                                                onChange={(e) => handleDayChange(day, 'close', e.target.value)}
-                                                disabled={!formData.operating_hours[day].isOpen}
-                                                className={`px-3 py-1.5 border border-gray-300 rounded text-sm ${
-                                                    formData.operating_hours[day].isOpen
-                                                        ? ''
-                                                        : 'bg-gray-50 text-gray-400 cursor-not-allowed'
-                                                }`}
-                                            />
+                                        <div key={day} className="bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 transition-colors">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <span className="font-semibold text-gray-900">{day}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDayChange(day, 'isOpen', !formData.operating_hours[day].isOpen)}
+                                                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
+                                                        formData.operating_hours[day].isOpen
+                                                            ? 'bg-green-100 text-green-700'
+                                                            : 'bg-gray-100 text-gray-600'
+                                                    }`}
+                                                >
+                                                    {formData.operating_hours[day].isOpen ? 'Open' : 'Closed'}
+                                                </button>
+                                            </div>
+
+                                            {formData.operating_hours[day].isOpen && (
+                                                <div className="flex items-center gap-3">
+                                                    <input
+                                                        type="time"
+                                                        value={formData.operating_hours[day].open}
+                                                        onChange={(e) => handleDayChange(day, 'open', e.target.value)}
+                                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                                                    />
+                                                    <span className="text-gray-400 text-sm">to</span>
+                                                    <input
+                                                        type="time"
+                                                        value={formData.operating_hours[day].close}
+                                                        onChange={(e) => handleDayChange(day, 'close', e.target.value)}
+                                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
